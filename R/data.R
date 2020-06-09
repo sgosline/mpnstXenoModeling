@@ -8,7 +8,14 @@
 loadPDXData<-function(){
   library(reticulate)
   library(dplyr)
-  syn=reticulate::import('synapseclient')$login()
+  syn<-reticulate::import('synapseclient')$login()
+  
+  newMutData<-getLatestVariantData(syn)%>%select(Gene='Symbol',AD,specimenID,individualID)
+  mutData<-getOldVariantData(syn)%>%mutate(AD=as.numeric(AD))
+  
+  mutData<<-rbind(mutData,newMutData)
+  
+  
   csvs = syn$tableQuery(paste0("SELECT id,individualID FROM syn11678418 WHERE \"dataType\" = 'drugScreen'"))$asDataFrame()
   ids<-csvs$id
   indiv<-csvs$individualID
@@ -27,10 +34,10 @@ loadPDXData<-function(){
   drugData<<-res
     
   #now get RNA-Seq
-  rnaSeq<<-getPdxRNAseqData()%>%
+  rnaSeq<<-getPdxRNAseqData(syn)%>%
     dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,sex,species,experimentalCondition)
-    mutData<<-getOldVariantData()
-  newMutData<<-getNewSomaticCalls()
+  
+ 
 }
 
 
@@ -38,9 +45,8 @@ loadPDXData<-function(){
 #'getPdxRNAseqData gets all rna seq counts for xenografts
 #'@import reticulate
 #'#'@export
-getPdxRNAseqData<-function(){
+getPdxRNAseqData<-function(syn){
   library(reticulate)
-  syn=reticulate::import('synapseclient')$login()
   wu.rnaSeq=syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
   jh.rnaSeq=syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()
 
@@ -56,9 +62,7 @@ getPdxRNAseqData<-function(){
 
 #' getAllNF1Expression collects all data from NF1 processed data in synapse
 #'@import reticulate
-getAllNF1Expression<-function(){
-  library(reticulate)
-  syn<-reticulate::import("synapseclient")$login()
+getAllNF1Expression<-function(syn){
   tabs<-syn$tableQuery('select * from syn21221980')$asDataFrame()
   
   allDat<-lapply(tabs$tableId,function(y){
@@ -73,7 +77,7 @@ getAllNF1Expression<-function(){
 
 #germline CSV calls
 #are we using thesee?
-getGermlineCsv<-function(fileid,specimen){
+getGermlineCsv<-function(syn,fileid,specimen){
   tab<- read.csv2(syn$get(fileid)$path,sep='\t')%>%
     select(gene_name,Tumor_VAF)%>%
     mutate(specimenID=specimen)
@@ -82,35 +86,33 @@ getGermlineCsv<-function(fileid,specimen){
 
 ##out of date xls data
 #DEPRACATED
-processMergedXls<-function(fileid,indId){
+processMergedXls<-function(syn,fileid,indId){
   library(readxl)
   library(dplyr)
-  syn<-reticulate::import('synapseclient')$login()
+#  id_list=list(BI3686='',)
   tab<- readxl::read_excel(syn$get(fileid)$path)
   tab<- tab%>%
-    select(gene_name,ends_with("_VAF"))%>%
-    tidyr::pivot_longer(cols=ends_with("_VAF"),names_to='Value',values_to='VAFs')%>%
-    tidyr::separate(2,sep='_',into=c('individualID','VAFType'))%>%
+    select(gene_name,ends_with("_var_count"))%>%
+    tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
+    tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
     mutate(individualID=indId)%>%
     rowwise()%>%
-    mutate(specimenID=paste(individualID,VAFType,sep='_'))%>%
+    mutate(specimenID=paste(individualID,CountType,sep='_'))%>%
     ungroup()%>%
-    subset(VAFType!='RNA')%>% ##rna type gets lost in this parsing
-    select(Symbol='gene_name',individualID,specimenID,VAF='VAFs')
+    subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
+    select(Symbol='gene_name',individualID,specimenID,AD='ADs')
   
   return(tab)
 }
 
 #' 
 #' james said this is the format for future data
-#' @import reticulate
 #' @import dplyr
 #' @import tidyr
 #' @import biomaRt
-getNewSomaticCalls<-function(fileid,specimen){
-  library(reticulate)
+getNewSomaticCalls<-function(syn,fileid,specimen){
     library(dplyr)
-  syn<-reticulate::import('synapseclient')$login()
+#  print(fileid)
   tab<-read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
     mutate(trans_id=stringr::str_replace(trans_id,'\\.[0-9]+',''))%>%
@@ -125,7 +127,7 @@ getNewSomaticCalls<-function(fileid,specimen){
     dplyr::select(c('hgnc_symbol',colnames(ftab)[grep('.AD$',colnames(ftab))]))%>%
     distinct()%>%
     mutate(specimenID=specimen)
-  colnames(res)<-c('Gene','col1','col2','specimenID')
+  colnames(res)<-c('Gene','AD','nAD','specimenID')
   return(res)
 }
 
@@ -133,16 +135,16 @@ getNewSomaticCalls<-function(fileid,specimen){
 #'@import dplyr
 #'@import purrr
 
-getOldVariantData<-function(){
+getOldVariantData<-function(syn){
   library(dplyr)
-  library(reticulate)
-  syn<-reticulate::import('synapseclient')$login()
   files<-syn$tableQuery("SELECT * FROM syn11678418 WHERE \"name\" like '%merged.xlsx'")$asDataFrame()%>%
     dplyr::select(id,name,specimenID,individualID)%>%
     subset(is.na(specimenID))
 
   
-  som.tab<-purrr::map2_df(.f=processMergedXls,.x=files$id,.y=files$individualID)
+  som.tab<-files%>%select(fileid='id',indId='individualID')%>%
+    purrr::pmap_df(processMergedXls,syn)
+  #purrr::map2_df(.f=processMergedXls,.x=files$id,.y=files$individualID)
   
   return(som.tab)
   ##create one giant table of variant allele frequences
@@ -153,14 +155,19 @@ getOldVariantData<-function(){
 #' @import dplyr
 #' @import purrr
 #' @export
-getLatestVariantData<-function(){
-  syn=reticulate::import('synapseclient')$login()
+getLatestVariantData<-function(syn){
   files<-syn$tableQuery("SELECT id,name,specimenID,individualID FROM syn21993642 WHERE ( (\"dataType\" = 'genomicVariants' ) )")$asDataFrame()%>%
     dplyr::select(id,name,specimenID,individualID)
   samps<-files%>%select(specimenID,individualID)%>%distinct()
-  som.tab<-purrr::map2_df(.f=getNewSomaticCalls,.x=files$id,.y=files$specimenID)
+  
+  som.tab<-files%>%select(fileid='id',specimen='specimenID')%>%
+    purrr::pmap_df(getNewSomaticCalls,syn)
   som.tab<-som.tab%>%subset(!is.na(Gene))%>%subset(Gene!="")%>%left_join(samps)
   return(som.tab)
 }
 
+#' until we have fully processed new data, grab missing samples from the old data 
+mergeMutData<-function(mutData,newMutData){
+  
+}
 

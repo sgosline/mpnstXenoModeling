@@ -1087,12 +1087,6 @@
       "Repository": "CRAN",
       "Hash": "0759e6b6c0957edb1311028a49a35e76"
     },
-    "synapser": {
-      "Package": "synapser",
-      "Version": "0.6.61",
-      "Source": "unknown",
-      "Hash": "8edb03539a4892e3b8d9052b29e2fa03"
-    },
     "sys": {
       "Package": "sys",
       "Version": "3.3",
@@ -1169,6 +1163,12 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "ecd17882a0b4419545691e095b74ee89"
+    },
+    "xenoMpnstModels": {
+      "Package": "xenoMpnstModels",
+      "Version": "0.1",
+      "Source": "unknown",
+      "Hash": "9c5801cd3f57446a0236b83b77f1a274"
     },
     "xfun": {
       "Package": "xfun",
