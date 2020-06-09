@@ -1,0 +1,104 @@
+---
+title: "XevaDebug"
+author: "Sara Gosline"
+date: "5/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+require(xenoMpnstModels)
+```
+
+## Trouble making a Xeva object
+
+I'm having trouble getting a Xeva object and the errors are non-informative. Below documents my efforts. We first just get the data and load it into a format that we can read. 
+
+```{r get data, echo=FALSE}
+  loadPDXData()
+  require(dplyr)
+  drugDat = #subset(drugData,individualID==specimenId)%>%
+    drugData%>%
+    dplyr::select(model.id,patient.id='individualID',drug,volume,time)%>%
+   # dplyr::mutate(model.id=as.character(model.id))%>%
+    dplyr::mutate(model.id=stringr::str_replace(model.id,'_[0-9]',''))%>%
+    rowwise()%>%
+    mutate(batch=paste(patient.id,drug))%>%ungroup()%>%
+    mutate(volume=as.numeric(volume))%>%
+    subset(!is.na(volume))
+    
+  head(drugDat)
+```
+
+We first separate out vehicle vs. control, so we can create a batch for each PDX/drug combination. here is our experimental design.
+```{r drug data}
+  drugD = subset(drugDat,drug!='vehicle')
+  contD = subset(drugDat,drug=='vehicle')
+
+  expDesign =lapply(unique(drugD$batch),function(x){
+      pat_drug=unlist(strsplit(x,split=' '))
+      treats = subset(drugD,batch==x)%>%
+          select(model.id)%>%
+          unique()
+      conts = subset(contD,patient.id==pat_drug[1])%>%
+        select(model.id)%>%
+          unique()
+      
+      list(batch.name=x,
+            treatment=as.character(treats$model.id),
+            control=as.character(conts$model.id))})
+  print(expDesign)
+```
+Now we can create a model-patient mapping.
+```{r model}
+  
+  model=drugDat%>%dplyr::select(model.id,patient.id)%>%
+      distinct()%>%
+      dplyr::mutate(tissue='MPNST')%>%
+      dplyr::mutate(tissue.name='Malignant Peripheral Nerve Sheath Tumor')%>%
+      ungroup()
+  head(model)
+```
+Next we have the experiment data.
+```{r experiment}
+  experiment=rbind(drugD,contD)%>%
+      mutate()%>%
+    dplyr::select(-c(batch,patient.id))
+
+  head(experiment)
+
+```
+Next up we format the drug table and the gene expression object.
+```{r drug}
+
+  drug = dplyr::select(experiment,drug)%>%distinct()%>%
+    dplyr::mutate(treatment.type='single')%>%
+    dplyr::rename(drug.id='drug')%>%
+    dplyr::mutate(standard.name=drug.id)%>%
+    dplyr::mutate(treatment.target='None')
+  head(drug)
+  
+  rnaDat = rnaSeq%>%distinct()%>%
+    tidiedTableToExpressionSet()
+  print(rnaDat)
+```
+Lastly we get the `modToBiobaseMap`:
+```{r map}
+  modToBiobaseMap = drugDat%>%select(model.id,biobase.id='patient.id')%>%
+      distinct()%>%
+      mutate(mDataType='RNASeq')
+  #data.frame(model.id=c(unique(experiment$model.id),unique(cont$model.id)),
+  #                             biobase.id=c(unique(experiment$patient.id),unique(cont$patient.id)))
+  #modToBiobaseMap$mDataType='RNASeq'
+  head(modToBiobaseMap)
+```
+
+So I have all the data! Woohoo! And it has worked if I only put one sample in each object. However, when I put all the samples in it barfs:
+```{r barf}
+ try(xeva.set<- Xeva::createXevaSet(name="MPNST PDX Data", 
+                           model=as.data.frame(model), drug=as.data.frame(drug),
+                           experiment=as.data.frame(experiment), expDesign=expDesign,
+                           molecularProfiles=list(RNASeq = rnaDat),
+                           modToBiobaseMap = as.data.frame(modToBiobaseMap)))
+ 
+```

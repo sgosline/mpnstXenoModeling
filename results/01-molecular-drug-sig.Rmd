@@ -1,0 +1,121 @@
+---
+title: "01-molecular-drug-test"
+author: "Sara Gosline"
+date: "5/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MXM)
+```
+
+Here we have an example of using the `Xeva` package to search for any molecular indicates of drug response in the MPNST PDX data.
+
+## Load PDX Data
+
+PDX data is available on [this Synapse project page](https://www.synapse.org/#!Synapse:syn21984813/wiki/602362) that collates avaiable PDX and tumor model data across the project.
+
+For this project we use the `Xeva` xenograft visualization and analysis tool to test out initial hypotheses of gene expression and mutation correlation.
+
+```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
+
+loadPDXData()
+
+all.pdxs<<-formatDataToXeva()
+ 
+
+```
+We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the tumor volume data is shown here.
+
+```{r tumor data, echo=FALSE,message=FALSE,warning=FALSE}
+
+batches=batchInfo(all.pdxs)
+
+plots <-lapply(batches,function(x) plotPDX(all.pdxs,batch=x,SE.plot='ribbon',vol.normal=FALSE,title=x,control.name='vehicle'))
+mods <-sapply(batches,function(x) unlist(strsplit(x,split=' '))[1])
+
+pdf('allTumorVolume.pdf',height=12,width=10)
+cowplot::plot_grid(plotlist=plots,nrow=length(unique(mods)))
+dev.off()
+
+lapply(unique(mods),function(x)
+  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+
+```
+
+## Use statistics to correlate gene expression
+
+
+First we want to assess the respnse variables for each PDX/drug combination. 
+
+```{r calc response statistics,echo=FALSE,message=FALSE,warning=FALSE}
+#calculate mRECIST
+response<-setResponse(all.pdxs,res.measure='mRECIST',
+                      vol.normal = FALSE,
+                     log.volume=FALSE,
+                     verbose=FALSE,min.time=0,max.time=30)
+response <- setResponse(response,min.time = 0,max.time=30,
+                  res.measure='AUC',vol.normal=FALSE,
+                  log.volume=FALSE,verbose=FALSE)
+
+response <- setResponse(response,min.time = 0,max.time=30,
+                  res.measure='TGI',vol.normal=FALSE,
+                  log.volume=FALSE,verbose=FALSE)
+
+response <- setResponse(response,min.time = 0,max.time=30,
+                  res.measure='slope',vol.normal=FALSE,
+                  log.volume=FALSE,verbose=FALSE)
+
+plotmRECIST(summarizeResponse(response),control.name='vehicle')
+```
+
+## Molecular correlations
+Using `Xeva` we can load the molecular data and calculate the correlation of each transcript to the slope of the response data. 
+
+```{r mol data, echo=FALSE,message=FALSE,warning=FALSE}
+esig<-Xeva::drugSensitivitySig(response,'everolimus',mDataType='RNASeq',fit='lm',verbose=FALSE)
+dsig<-Xeva::drugSensitivitySig(response,'doxorubicin',mDataType='RNASeq',fit='lm',verbose=FALSE)
+
+arrange(esig,pvalue)%>%head()
+arrange(dsig,pvalue)%>%head()
+
+```
+No clearly correlated genes with the drug response, according to a linear model. However, we will rank the corelations and carry out Gene Set Enrichment Analysis.
+
+```{r gene set, echo=FALSE, message=FALSE, warning=FALSE}
+
+eres<-esig%>%
+  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='everolimus')
+
+
+dres<-dsig%>%
+  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='doxorubicin')
+
+
+```
+
+Now we can look at the mutational data in more detail
+```{r mut data,echo=FALSE}
+ mutMat<-mutData%>%mutate(VAF=as.numeric(VAF))%>%dplyr::select(-individualID)%>%tidyr::pivot_wider(names_from=specimenID,values_from=VAF,values_fn=list(VAF=mean),values_fill=0.0)%>%tibble::column_to_rownames('Symbol')
+
+library(pheatmap)
+  annotes<-mutData%>%dplyr::select(specimenID)%>%
+    tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
+    distinct()%>%
+    tibble::column_to_rownames('specimenID')
+  
+ pheatmap(mutMat,clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+```
+
+Now we can confirm the variants cluster by sample.
+
+```{r main mutations,echo=FALSE}
+topMuts<-names(which(sort(apply(mutMat,1,function(x) length(which(x==0))))<12))
+ 
+ pheatmap(mutMat[topMuts,],cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)))
+
+```
+
+
+

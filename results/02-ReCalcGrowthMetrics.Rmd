@@ -1,0 +1,40 @@
+---
+title: "02-RecalcGrowthMetrics"
+author: "Sara Gosline"
+date: "6/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Recalculate Growth metrics
+`Xeva` is coming across as being clunky to use. While it is useful for plotting dose response curves with error bars, I'm not convinced it will be helpful for more quantitative analysis since everything is stored in the object and hard to acces.
+
+Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
+
+```{r, echo=FALSE, warning=FALSE}
+library(MXM)
+#this function simply loads all the data into memory
+loadPDXData()
+
+head(drugData)
+
+
+```
+
+
+## Calculate Growth Metrics
+
+Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-018-0284-8.pdf) there are numerous metrics by which we can compare various treatments in models. They each have their own biases but we need to evaluate in detail.
+
+Each table 
+
+```{r pressure, echo=FALSE}
+
+
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
