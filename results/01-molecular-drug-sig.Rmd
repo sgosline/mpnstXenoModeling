@@ -97,23 +97,28 @@ dres<-dsig%>%
 
 Now we can look at the mutational data in more detail
 ```{r mut data,echo=FALSE}
- mutMat<-mutData%>%mutate(VAF=as.numeric(VAF))%>%dplyr::select(-individualID)%>%tidyr::pivot_wider(names_from=specimenID,values_from=VAF,values_fn=list(VAF=mean),values_fill=0.0)%>%tibble::column_to_rownames('Symbol')
+ mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
+  dplyr::select(-individualID)%>%
+  tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
+                     values_fill=0.0)%>%
+    tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
-  annotes<-mutData%>%dplyr::select(specimenID)%>%
+  annotes<-mutData%>%
+      dplyr::select(specimenID)%>%
     tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
     distinct()%>%
     tibble::column_to_rownames('specimenID')
   
- pheatmap(mutMat,clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+ pheatmap(mutMat,clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
 ```
 
 Now we can confirm the variants cluster by sample.
 
 ```{r main mutations,echo=FALSE}
-topMuts<-names(which(sort(apply(mutMat,1,function(x) length(which(x==0))))<12))
+topMuts<-names(which(apply(mutMat,1,function(x) length(which(x>0)))>3))
  
- pheatmap(mutMat[topMuts,],cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)))
+ pheatmap(mutMat[topMuts,],cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),filename='recMutations.pdf')
 
 ```
 

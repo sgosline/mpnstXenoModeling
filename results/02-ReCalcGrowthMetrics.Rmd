@@ -29,12 +29,21 @@ head(drugData)
 
 Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-018-0284-8.pdf) there are numerous metrics by which we can compare various treatments in models. They each have their own biases but we need to evaluate in detail.
 
-Each table 
+We can now get all the values for all the combinations.
 
-```{r pressure, echo=FALSE}
+```{r drugStats, echo=FALSE,warning=FALSE}
 
+pat.drug<-drugData%>%select(indivId='individualID',treat='drug')%>%
+    distinct()%>%
+  subset(drug!='vehicle')
 
-plot(pressure)
+drug.stats<-pat.drug%>%purrr::map_df(statsForDrugPatient)
+
+pat.drug<-cbind(pat.drug,drug.stats)
+DT::datatable(pat.drug)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Now we can evaluate any correlates in the data
+
+```{r rnaSeq comparison}
+```

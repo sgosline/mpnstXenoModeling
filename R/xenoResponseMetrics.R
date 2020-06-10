@@ -8,16 +8,32 @@
 #' @param treatedTab - table of treated values
 #' @param contTab - table of control values
 computeSPI<-function(treatedTab,contTab,tvThreshold){
-  ttime=subset(ttab,volume<=tvThresholdl)%>%
+  ttime=subset(treatedTab,volume<=tvThreshold)%>%
+    subset(time>0)%>%
       group_by(model.id)%>%summarize(time=min(as.numeric(time)))
-  ctime=subset(ctab,volume<=tvThresholdl)%>%group_by(model.id)%>%summarize(time=min(as.numeric(time)))
-  res=ttime$time/ctime$time 
-  return(data.frame(metric='SPI',param='volumeThreshold',value=tvThreshold,result=res))
-}
+  ctime=subset(contTab,volume<=tvThreshold)%>%
+    subset(time>0)%>%
+      group_by(model.id)%>%
+      summarize(time=min(as.numeric(time)))
+  res= mean(ttime$time,na.rm=T)/mean(ctime$time,na.rm=T)#ttime$time/ctime$time 
+  #return(data.frame(metric='SPI',param='volumeThreshold',value=tvThreshold,result=res))
+  return(res)
+  }
 
 #' TGI - tumor growth index
 computeTGI<-function(treatedTab,contTab,finalTimePoint){
+  tvt=subset(treatedTab,time==finalTimePoint)%>%
+    group_by(model.id)%>%summarize(vol=max(as.numeric(volume)))
   
+  tvc=subset(contTab,time==finalTimePoint)%>%
+    group_by(model.id)%>%summarize(vol=max(as.numeric(volume)))
+  tv0=subset(contTab,time==0)%>%
+    group_by(model.id)%>%summarize(vol=max(as.numeric(volume)))
+  
+  res=(mean(tvc$vol)-mean(tvt$vol))/(mean(tvc$vol)-mean(tv0$vol))
+  
+#  return(data.frame(metric='TGI',param='finalTimePoint',value=finalTimePoint,result=res))
+ return(res) 
 }
 
 #' AUC - area under the curve
@@ -29,13 +45,14 @@ computeAUC<-function(treatedTab,contTab){
   
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%
          group_by(model.id)%>%
-        group_map(~ Xeva::AUC(.x$time,.x$volume),.keep=TRUE)
+        group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
   cauc=contTab%>%mutate(volume=as.numeric(volume))%>%
     group_by(model.id)%>%
     select(time,volume)%>%
-    group_map(~ unlist(Xeva::AUC(.x$time,.x$volume)),.keep=TRUE)
-  
-  
+    group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
+  #sprint(tauc)
+  ret= (mean(as.numeric(unlist(cauc)),na.rm=T)-mean(as.numeric(unlist(tauc)),na.rm=T))/mean(as.numeric(unlist(cauc)),na.rm=T)
+  return(ret)
   }
 
 #' GRI - growth rate inhibition
@@ -47,18 +64,23 @@ computeGRI<-function(){
 #' statsForDrugPatient
 #' @description Function that calculates all stats for each drug/patient combo
 #' @export
-statsForDrugPatient<-function(indivId='WU545',treat='doxorubicin'){
+statsForDrugPatient<-function(indivId,treat){
   ptab<-subset(drugData,individualID==indivId)
   
   ttab<-subset(ptab,drug==treat)
   ctab<-subset(ptab,drug=='vehicle')
   
-  minVol=max(min(as.numeric(ttab$volume),na.rm=T),
-    min(as.numeric(ctab$volume),na.rm=T))
+  nzt<-subset(ttab,time>10)%>%subset(volume>0)
+  nzc<-subset(ctab,time>10)%>%subset(volume>0)
+  
+  minVol=max(min(as.numeric(nzt$volume),na.rm=T),
+    min(as.numeric(nzt$volume),na.rm=T))
   maxTime=min(max(as.numeric(ttab$time),na.rm=T),
               max(as.numeric(ctab$time),na.rm=T))
   
   
-
+  return(list(AUC=computeAUC(ttab,ctab),
+              SPI=computeSPI(ttab,ctab,minVol),
+              TGI=computeTGI(ttab,ctab,maxTime)))
   
 }

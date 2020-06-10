@@ -4,14 +4,14 @@
 #' This function takes a tidied table of data and makes into expresion dataset
 #' can be used for RNASeq
 #' TODO: expand for genomic data and latent variables
-#'@require(Biobase)
-#'@require(tibble)
-#'@require(tidyr)
-#'@require(dplyr)
+#'@import Biobase
+#'@import tibble 
+#'@import tidyr
+#'@import dplyr
 #'@export
 #'
 tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
-                                     nonFeatures=c('Symbol','path','zScore','parent')){
+                                     nonFeatures=c('Symbol','zScore','parent')){
   require(Biobase)
   
   vfn=list(mean)
@@ -27,6 +27,8 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
     as.matrix()
   
   cvars<-setdiff(names(tidied.tb),c(featureVar,nonFeatures))
+  print(cvars)
+  rownames(tidied.tb)<-c()
   phenoData<-tidied.tb[,cvars]%>%
     distinct()%>%
     tibble::column_to_rownames('specimenID')%>%
@@ -35,8 +37,9 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
   return(ExpressionSet(assayData,phenoData=phenoData))
 }
 
-#'@require Xeva
-#'@require dplyr
+#' formatDataToXeva
+#'@import Xeva
+#'@import dplyr
 #'@export
 formatDataToXeva<-function(){
   require(Xeva)
@@ -57,10 +60,10 @@ formatDataToXeva<-function(){
   expDesign =lapply(unique(drugD$batch),function(x){
     pat_drug=unlist(strsplit(x,split=' '))
     treats = subset(drugD,batch==x)%>%
-      select(model.id)%>%
+      dplyr::select(model.id)%>%
       unique()
     conts = subset(contD,patient.id==pat_drug[1])%>%
-      select(model.id)%>%
+      dplyr::select(model.id)%>%
       unique()
     
     list(batch.name=x,
@@ -86,7 +89,7 @@ formatDataToXeva<-function(){
   rnaDat = rnaSeq%>%distinct()%>%
     tidiedTableToExpressionSet()
   
-  mutDat = mutData%>%tidiedTableToExpressionSet(.,featureVar='VAF')
+  mutDat = mutData%>%tidiedTableToExpressionSet(.,featureVar='AD')
   
   wesMap<-mutData%>%
     dplyr::select(patient.id='individualID',biobase.id='specimenID')%>%

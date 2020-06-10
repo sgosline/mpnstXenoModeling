@@ -10,7 +10,7 @@ loadPDXData<-function(){
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
   
-  newMutData<-getLatestVariantData(syn)%>%select(Gene='Symbol',AD,specimenID,individualID)
+  newMutData<-getLatestVariantData(syn)%>%select(Symbol='Gene',AD,specimenID,individualID)
   mutData<-getOldVariantData(syn)%>%mutate(AD=as.numeric(AD))
   
   mutData<<-rbind(mutData,newMutData)
@@ -43,10 +43,8 @@ loadPDXData<-function(){
 
 
 #'getPdxRNAseqData gets all rna seq counts for xenografts
-#'@import reticulate
 #'#'@export
 getPdxRNAseqData<-function(syn){
-  library(reticulate)
   wu.rnaSeq=syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
   jh.rnaSeq=syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()
 
@@ -61,7 +59,6 @@ getPdxRNAseqData<-function(syn){
 }
 
 #' getAllNF1Expression collects all data from NF1 processed data in synapse
-#'@import reticulate
 getAllNF1Expression<-function(syn){
   tabs<-syn$tableQuery('select * from syn21221980')$asDataFrame()
   
@@ -86,6 +83,11 @@ getGermlineCsv<-function(syn,fileid,specimen){
 
 ##out of date xls data
 #DEPRACATED
+#' @param syn
+#' @param fileid
+#' @param indId
+#' @import dplyr
+#' @import readxl
 processMergedXls<-function(syn,fileid,indId){
   library(readxl)
   library(dplyr)
@@ -112,6 +114,7 @@ processMergedXls<-function(syn,fileid,indId){
 #' @import biomaRt
 getNewSomaticCalls<-function(syn,fileid,specimen){
     library(dplyr)
+    library(biomaRt)
 #  print(fileid)
   tab<-read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
