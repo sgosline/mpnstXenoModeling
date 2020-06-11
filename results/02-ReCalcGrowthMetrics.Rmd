@@ -20,6 +20,8 @@ library(MXM)
 loadPDXData()
 
 head(drugData)
+all.pdxs<<-formatDataToXeva()
+
 
 
 ```
@@ -32,18 +34,14 @@ Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-
 We can now get all the values for all the combinations.
 
 ```{r drugStats, echo=FALSE,warning=FALSE}
-
-pat.drug<-drugData%>%select(indivId='individualID',treat='drug')%>%
-    distinct()%>%
-  subset(drug!='vehicle')
-
-drug.stats<-pat.drug%>%purrr::map_df(statsForDrugPatient)
-
-pat.drug<-cbind(pat.drug,drug.stats)
+pat.drug<-MXM::getAllDrugStats(drugData)
 DT::datatable(pat.drug)
+drug.tab%>%tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
 ```
 
 Now we can evaluate any correlates in the data
 
 ```{r rnaSeq comparison}
+
+
 ```

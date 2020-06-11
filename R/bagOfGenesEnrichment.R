@@ -115,63 +115,6 @@ computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 
 
 
-#' compute kinase substrate enrichment - osama's code wrapped in package.
-#' @export
-#' @import KSEAapp
-#' @import readr
-#' @import dplyr
-#' @author Osama 
-#' @param genes.with.values of genes and difference values
-#' @param prot.univ the space of all proteins we are considering
-#' @return KSEA output type stuff
-computeKSEA<-function(genes.with.values,ksea_FDR=0.05,prefix=''){
-  library(KSEAapp)
-  
-  inputdfforKSEA <- data.frame(Protein=rep("NULL", nrow(genes.with.values)), 
-                               Gene=genes.with.values$Gene,
-                               Peptide=rep("NULL", nrow(genes.with.values)),
-                               Residue.Both=genes.with.values$residue,
-                               p=genes.with.values$p_adj,
-                               FC=2^(genes.with.values$value), stringsAsFactors = F)
-  
-  #read kinase substrate database stored in data folder
-  KSDB <- read.csv(system.file('PSP&NetworKIN_Kinase_Substrate_Dataset_July2016.csv',package='amlresistancenetworks'),stringsAsFactors = FALSE)
-  
-  #' * KSEA using not only the known substrates in PSP but also the predicted substrates in NetworKIN
-  res<-KSEA.Complete(KSDB, inputdfforKSEA, NetworKIN=FALSE, NetworKIN.cutoff=5, m.cutoff=5, p.cutoff=ksea_FDR)
-  file.remove("KSEA Bar Plot.tiff")
-  file.remove("Kinase-Substrate Links.csv")
-  #make own plot of KSEA results
-  res_ksea <- readr::read_csv("KSEA Kinase Scores.csv")
-  
-  plot_KSEA <- res_ksea %>% 
-    #mutate(p.value = p.adjust(p.value)) %>% 
-    filter(m >= 5) %>% 
-    arrange(desc(z.score)) %>% 
-    mutate(status = case_when(z.score > 0 & p.value <= ksea_FDR ~ "Up",
-                              z.score < 0 & p.value <= ksea_FDR ~ "Down",
-                              TRUE ~ "Not significant")) %>% 
-    filter(status != "Not significant") %>%
-    ggplot(aes(x=reorder(Kinase.Gene, z.score), y=z.score)) +
-    geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Down" = "blue", "Up" = "red", "Not significant" = "black")) +
-    coord_flip() +
-    theme(legend.position="none", 
-          axis.title.x = element_text(size=16),
-          axis.title.y = element_blank(), 
-          axis.text.x = element_text(size = 14),
-          axis.text.y=element_text(size = 14),
-          axis.line.y = element_blank(),
-          axis.ticks.y = element_blank()) +
-    labs(y="Kinase z-score") #for some reason labs still works with orientation before cord flip so set y 
-  file.remove("KSEA Kinase Scores.csv")
-  ggsave(paste0(prefix,"fig_KSEA.pdf"), plot_KSEA, height = 8.5, width = 11, units = "in")
-  
-  return(res_ksea)
-}
-
-
-
 #' Old plot using clusterProfiler
 #' @export 
 #' @require org.Hs.eg.db
@@ -182,11 +125,11 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
     dplyr::rename(Gene='alias_symbol')
   
   genes.with.values<-genes.with.values%>%
-    dplyr::left_join(mapping,by='Gene')%>%
+   # dplyr::left_join(mapping,by='Gene')%>%
     arrange(desc(value))
   
   genelist=genes.with.values$value
-  names(genelist)=genes.with.values$gene_id
+  names(genelist)=genes.with.values$Gene
   
   # symbs<-names(genelist)[!is.na(genelist)]
   # xx <- as.list(org.Hs.egALIAS2EG)

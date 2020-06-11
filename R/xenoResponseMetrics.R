@@ -48,7 +48,7 @@ computeAUC<-function(treatedTab,contTab){
         group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
   cauc=contTab%>%mutate(volume=as.numeric(volume))%>%
     group_by(model.id)%>%
-    select(time,volume)%>%
+    dplyr::select(time,volume)%>%
     group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
   #sprint(tauc)
   ret= (mean(as.numeric(unlist(cauc)),na.rm=T)-mean(as.numeric(unlist(tauc)),na.rm=T))/mean(as.numeric(unlist(cauc)),na.rm=T)
@@ -83,4 +83,23 @@ statsForDrugPatient<-function(indivId,treat){
               SPI=computeSPI(ttab,ctab,minVol),
               TGI=computeTGI(ttab,ctab,maxTime)))
   
+}
+
+#' getAllDrugStats
+#' @param drugData table
+#' @import dplyr
+#' @import purrr
+#' @export
+getAllDrugStats<-function(drug.tab){
+  pat.drug<-drug.tab%>%
+    subset(drug!='vehicle')%>%
+    dplyr::select(c(drug,individualID))%>%
+    distinct()
+
+  drug.stats<-pat.drug%>%
+    rename(treat='drug',indivId='individualID')%>%
+    purrr::pmap_df(statsForDrugPatient)
+  
+  pat.drug<-cbind(pat.drug,drug.stats)
+  return(pat.drug)
 }

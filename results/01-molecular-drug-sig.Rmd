@@ -14,7 +14,7 @@ Here we have an example of using the `Xeva` package to search for any molecular 
 
 ## Load PDX Data
 
-PDX data is available on [this Synapse project page](https://www.synapse.org/#!Synapse:syn21984813/wiki/602362) that collates avaiable PDX and tumor model data across the project.
+PDX data is available on [this Synapse project page](https://www.synapse.org/#!Synapse:syn21984813/wiki/602362) that collates available PDX and tumor model data across the project.
 
 For this project we use the `Xeva` xenograft visualization and analysis tool to test out initial hypotheses of gene expression and mutation correlation.
 
@@ -81,7 +81,7 @@ arrange(esig,pvalue)%>%head()
 arrange(dsig,pvalue)%>%head()
 
 ```
-No clearly correlated genes with the drug response, according to a linear model. However, we will rank the corelations and carry out Gene Set Enrichment Analysis.
+No clearly correlated genes with the drug response, according to a linear model. However, we will rank the correlations and carry out Gene Set Enrichment Analysis.
 
 ```{r gene set, echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -98,19 +98,19 @@ dres<-dsig%>%
 Now we can look at the mutational data in more detail
 ```{r mut data,echo=FALSE}
  mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
-  dplyr::select(-individualID)%>%
+  dplyr::select(-c(individualID,tranche))%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
                      values_fill=0.0)%>%
     tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
   annotes<-mutData%>%
-      dplyr::select(specimenID)%>%
+      dplyr::select(specimenID,tranche)%>%
     tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
     distinct()%>%
     tibble::column_to_rownames('specimenID')
   
- pheatmap(mutMat,clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
 ```
 
 Now we can confirm the variants cluster by sample.

@@ -9,7 +9,7 @@ TODO: expand for genomic data and latent variables}
 tidiedTableToExpressionSet(
   tidied.tb,
   featureVar = "totalCounts",
-  nonFeatures = c("Symbol", "path", "zScore", "parent")
+  nonFeatures = c("Symbol", "zScore", "parent")
 )
 }
 \description{

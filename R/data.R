@@ -13,7 +13,7 @@ loadPDXData<-function(){
   newMutData<-getLatestVariantData(syn)%>%select(Symbol='Gene',AD,specimenID,individualID)
   mutData<-getOldVariantData(syn)%>%mutate(AD=as.numeric(AD))
   
-  mutData<<-rbind(mutData,newMutData)
+  mutData<<-rbind(data.frame(mutData,tranche='oldData'),data.frame(newMutData,tranche='newData'))
   
   
   csvs = syn$tableQuery(paste0("SELECT id,individualID FROM syn11678418 WHERE \"dataType\" = 'drugScreen'"))$asDataFrame()
