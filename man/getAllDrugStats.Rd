@@ -4,7 +4,7 @@
 \alias{getAllDrugStats}
 \title{getAllDrugStats}
 \usage{
-getAllDrugStats(drugData)
+getAllDrugStats(drug.tab)
 }
 \arguments{
 \item{drugData}{table}

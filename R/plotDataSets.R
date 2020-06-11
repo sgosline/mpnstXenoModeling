@@ -29,3 +29,23 @@ plotDrugData<-function(drugData){
   ggsave("allDrugVolumeScores.png")
   p
 }
+
+
+
+#' plotGrowthForBatch
+#' uses Xeva pacage to plot growth of treatment vs. control
+#' @export
+#' @import Xeva
+plotGrowthForBatch<-function(xeva.obj,batch){
+  plotPDX(xeva.obj,batch=batch,SE.plot='ribbon',
+          vol.normal=FALSE,
+          title=batch,
+          control.name='vehicle')
+}
+
+
+
+plotWaterfall<-function(drug.tab,mut.tab,gene,drug){
+ 
+  
+}
