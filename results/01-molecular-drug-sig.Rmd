@@ -32,7 +32,7 @@ We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the 
 
 batches=batchInfo(all.pdxs)
 
-plots <-lapply(batches,function(x) plotPDX(all.pdxs,batch=x,SE.plot='ribbon',vol.normal=FALSE,title=x,control.name='vehicle'))
+plots <-lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
 mods <-sapply(batches,function(x) unlist(strsplit(x,split=' '))[1])
 
 pdf('allTumorVolume.pdf',height=12,width=10)
@@ -67,6 +67,7 @@ response <- setResponse(response,min.time = 0,max.time=30,
                   res.measure='slope',vol.normal=FALSE,
                   log.volume=FALSE,verbose=FALSE)
 
+#not very useful plot. 
 plotmRECIST(summarizeResponse(response),control.name='vehicle')
 ```
 
@@ -110,17 +111,51 @@ library(pheatmap)
     distinct()%>%
     tibble::column_to_rownames('specimenID')
   
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+ 
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
 ```
 
-Now we can confirm the variants cluster by sample.
 
+
+We then select for those mutations that exist in more than one sample. And then add back TP53.
 ```{r main mutations,echo=FALSE}
-topMuts<-names(which(apply(mutMat,1,function(x) length(which(x>0)))>3))
- 
- pheatmap(mutMat[topMuts,],cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),filename='recMutations.pdf')
+topMuts<-c("TP53",names(which(apply(mutMat,1,function(x) length(which(x>0)))>3)))
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)))
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),filename='recMutations.pdf')
 
 ```
 
+We can also plot the gene expression.
 
+We can also plot how the genes are expressed
+
+```{r mutated gene expression,echo=FALSE,warning=FALSE}
+ rnamat<-rnaSeq%>%
+  dplyr::select(-c(individualID,species,sex,zScore,experimentalCondition))%>%
+  tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,values_fn=list(totalCounts=mean),values_fill=0.0)%>%
+    tibble::column_to_rownames('Symbol')
+
+rownames(rnaSeq)<-c()
+ annotes<-rnaSeq%>%
+      dplyr::select(specimenID,individualID,sex)%>%
+   distinct()%>%
+    tibble::column_to_rownames('specimenID')
+
+ #topMuts<-setdiff(topMuts,'TTN')
+pheatmap(log10(0.01+rnamat[topMuts,]),
+          clustering_distance_cols = 'correlation',
+          cellwidth = 10,
+         annotation_col = annotes,
+         cellheight=10,
+         labels_col=rep("",ncol(mutMat)))
+ pheatmap(log10(0.01+rnamat[topMuts,]),
+          clustering_distance_cols = 'correlation',
+          cellwidth = 10,
+         annotation_col = annotes,
+         cellheight=10,
+         labels_col=rep("",ncol(mutMat)),filename='countsOfMutatedGenes.pdf')
+ 
+ 
+```
 
