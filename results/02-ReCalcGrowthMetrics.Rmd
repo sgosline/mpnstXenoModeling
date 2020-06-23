@@ -34,14 +34,63 @@ Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-
 We can now get all the values for all the combinations.
 
 ```{r drugStats, echo=FALSE,warning=FALSE}
+library(ggplot2)
 pat.drug<-MXM::getAllDrugStats(drugData)
 DT::datatable(pat.drug)
-drug.tab%>%tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
+pat.drug%>%tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
 ```
 
 Now we can evaluate any correlates in the data
 
-```{r rnaSeq comparison}
+```{r mutational comparison}
+
+library(ggplot2)
+library(ggridges)
+
+topMuts=filter(mutData,AD>0)%>%
+    group_by(Symbol)%>%
+    summarize(nSamps=n_distinct(individualID))%>%
+    filter(nSamps>1)%>%
+    dplyr::select(Symbol)
+
+topMuts<-union("TP53",topMuts$Symbol)
+
+drug.gene.cors<-mutData%>%
+  filter(Symbol%in%topMuts)%>%
+    drugMutationsCor(pat.drug=pat.drug,.)
+
+##now get topMuts again
+updatedMuts<-drug.gene.cors%>%
+  filter(AD>0)%>%
+  group_by(Symbol)%>%
+  summarize(numPats=n_distinct(individualID))%>%
+  filter(numPats>1)%>%
+  ungroup()%>%
+  dplyr::select(Symbol)%>%
+  distinct()
+
+ggplot(drug.gene.cors,aes(x=corVal))+geom_density_ridges(aes(fill=Metric,y=drug,alpha=0.8))+scale_fill_viridis_d()
+
+indivPlots<-drug.gene.cors%>%
+  filter(Symbol%in%updatedMuts$Symbol)%>%
+  plotTumorGrowthCorrelations(minCor=0.9)
+
+cowplot::plot_grid(plotlist=indivPlots)
+ggsave('allMUtCors.pdf')
+```
+Now that we have the correlation values, which gene mutations are correlated with which drugs?
 
 
+```{r plot gene ADs again}
+library(pheatmap)
+p.order<-pat.drug%>%subset(drug=='doxorubicin')%>%arrange(TGI)%>%dplyr::select(individualID)
+
+mmat<-drug.gene.cors%>%
+  filter(abs(corVal)>0.8)%>%
+  ungroup()%>%
+  dplyr::select(Symbol,AD,individualID)%>%distinct()%>%
+  tidyr::pivot_wider(names_from=individualID,values_from=AD)%>%
+  tibble::column_to_rownames('Symbol')
+p.order<-intersect(p.order$individualID,colnames(mmat))
+pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
 ```

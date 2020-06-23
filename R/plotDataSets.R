@@ -44,6 +44,33 @@ plotGrowthForBatch<-function(xeva.obj,batch){
 }
 
 
+#' plotTumorGrowthCorrelations
+#' @param drugGeneCors the output of `drugMutationsCor`
+#' @param minCor absolutely correlation to plot
+#' @export
+#' @import ggplot2
+#' 
+plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
+  library(ggplot2)
+  library(ggridges)
+  
+  plotGeneDrug<-function(tab){
+    sym=tab$Symbol[1]
+    drug=tab$drug[1]
+    met=tab$Metric[1]
+    ggplot(tab,aes(x=AD,y=Value))+
+      geom_point()+
+      geom_text(aes(label=individualID))+
+      ggtitle(paste(sym,'by',drug,met))
+  }
+  
+ 
+  plots<-drugGeneCors%>%filter(abs(corVal)>0.8)%>%
+    group_by(Symbol,drug,Metric)%>%
+    group_map(~ plotGeneDrug(.x),.keep=TRUE)
+  plots
+  }
+
 
 plotWaterfall<-function(drug.tab,mut.tab,gene,drug){
  
