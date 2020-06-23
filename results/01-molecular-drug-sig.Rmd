@@ -35,7 +35,7 @@ batches=batchInfo(all.pdxs)
 plots <-lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
 mods <-sapply(batches,function(x) unlist(strsplit(x,split=' '))[1])
 
-pdf('allTumorVolume.pdf',height=12,width=10)
+pdf('allTumorVolume.pdf',height=12,width=8)
 cowplot::plot_grid(plotlist=plots,nrow=length(unique(mods)))
 dev.off()
 
@@ -75,23 +75,23 @@ plotmRECIST(summarizeResponse(response),control.name='vehicle')
 Using `Xeva` we can load the molecular data and calculate the correlation of each transcript to the slope of the response data. 
 
 ```{r mol data, echo=FALSE,message=FALSE,warning=FALSE}
-esig<-Xeva::drugSensitivitySig(response,'everolimus',mDataType='RNASeq',fit='lm',verbose=FALSE)
-dsig<-Xeva::drugSensitivitySig(response,'doxorubicin',mDataType='RNASeq',fit='lm',verbose=FALSE)
+#esig<-Xeva::drugSensitivitySig(response,'everolimus',mDataType='RNASeq',fit='lm',verbose=FALSE)
+#dsig<-Xeva::drugSensitivitySig(response,'doxorubicin',mDataType='RNASeq',fit='lm',verbose=FALSE)
 
-arrange(esig,pvalue)%>%head()
-arrange(dsig,pvalue)%>%head()
+#arrange(esig,pvalue)%>%head()
+#arrange(dsig,pvalue)%>%head()
 
 ```
 No clearly correlated genes with the drug response, according to a linear model. However, we will rank the correlations and carry out Gene Set Enrichment Analysis.
 
 ```{r gene set, echo=FALSE, message=FALSE, warning=FALSE}
 
-eres<-esig%>%
-  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='everolimus')
+#eres<-esig%>%
+#  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='everolimus')
 
 
-dres<-dsig%>%
-  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='doxorubicin')
+#dres<-dsig%>%
+#  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='doxorubicin')
 
 
 ```
@@ -109,8 +109,10 @@ library(pheatmap)
       dplyr::select(specimenID,tranche)%>%
     tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
     distinct()%>%
-    tibble::column_to_rownames('specimenID')
+    tibble::column_to_rownames('specimenID')%>%
+    filter(sample!='normal')
   
+  mutMat<-mutMat[,rownames(annotes)]
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
  
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
@@ -120,9 +122,15 @@ library(pheatmap)
 
 We then select for those mutations that exist in more than one sample. And then add back TP53.
 ```{r main mutations,echo=FALSE}
-topMuts<-c("TP53",names(which(apply(mutMat,1,function(x) length(which(x>0)))>3)))
- pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)))
- pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),filename='recMutations.pdf')
+topMuts=filter(mutData,AD>0)%>%
+    group_by(Symbol)%>%
+    summarize(nSamps=n_distinct(individualID))%>%
+    filter(nSamps>1)%>%
+    dplyr::select(Symbol)
+topMuts<-union("TP53",topMuts$Symbol)
+
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2', clustering_distance_cols = 'correlation')
 
 ```
 
