@@ -44,6 +44,7 @@ loadPDXData<-function(){
 
 #'getPdxRNAseqData gets all rna seq counts for xenografts
 #'#'@export
+#'@param syn synapse item from
 getPdxRNAseqData<-function(syn){
   wu.rnaSeq=syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
   jh.rnaSeq=syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()
