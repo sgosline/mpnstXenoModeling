@@ -85,6 +85,9 @@ Now that we have the correlation values, which gene mutations are correlated wit
 library(pheatmap)
 p.order<-pat.drug%>%subset(drug=='doxorubicin')%>%arrange(TGI)%>%dplyr::select(individualID)
 
+tgi<-pat.drug%>%dplyr::select(drug,individualID,TGI)%>%tidyr::pivot_wider(values_from='TGI',names_from='drug')%>%tibble::column_to_rownames('individualID')
+auc<-pat.drug%>%dplyr::select(drug,individualID,AUC)%>%tidyr::pivot_wider(values_from='AUC',names_from='drug')%>%tibble::column_to_rownames('individualID')
+
 mmat<-drug.gene.cors%>%
   filter(abs(corVal)>0.8)%>%
   ungroup()%>%
@@ -92,5 +95,5 @@ mmat<-drug.gene.cors%>%
   tidyr::pivot_wider(names_from=individualID,values_from=AD)%>%
   tibble::column_to_rownames('Symbol')
 p.order<-intersect(p.order$individualID,colnames(mmat))
-pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
+pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,annotation_col=auc,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
 ```

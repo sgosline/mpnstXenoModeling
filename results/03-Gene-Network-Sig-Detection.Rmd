@@ -1,27 +1,30 @@
 ---
 title: "03-Gene-Network-Sig-Detection"
 author: "Sara Gosline"
-date: "6/1/2020"
+date: "8/1/2020"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(MXM)
 ```
 
-## R Markdown
+## Get networks and format
+For each sample we've computed a mutational network and the distance of each network to the community. 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r getNetworkMapping, echo=FALSE, warning=FALSE}
+tab<-MXM::querySynapseTable('syn22279826')
 
-```{r cars}
-summary(cars)
+loadPDXData() # loads all the data
+
+
 ```
 
-## Including Plots
+## Reshape the data and join with metadata
 
-You can also embed plots, for example:
+We also have clinical data associated with the samples
 
 ```{r pressure, echo=FALSE}
 plot(pressure)
