@@ -1,18 +1,15 @@
-install.packages('dplyr')
-install.packages('MASS')
-library(dplyr)
-library(MASS)
+#install.packages('dplyr')
+#install.packages('MASS')
+if(!require(dplyr))
+  install.packages('dplyr')
+if(!require(MASS))
+  install.packages("MASS")
 
-synapseLogin<-function(){
-  library(reticulate)
-  reticulate::use_condaenv(condaenv)
-  syn=reticulate::import('synapseclient')
-  sync=syn$login()
-}
+library(MXM)
 
-syn = synapseclient.Synapse()
-syn.login()
-data = syn.tableQuery("SELECT * FROM syn22279826").asDataFrame()
+
+syn=MXM::synapseLogin()
+data = MXM::querySynapseTable("syn22279826")
 
 
 #independent t test
