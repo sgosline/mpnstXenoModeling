@@ -6,7 +6,10 @@ if(!require(MASS))
   install.packages("MASS")
 if(!require(stringr))
   install.packages("stringr")
-
+if(!require(ggplot2))
+  install.packages('ggplot2')
+if(!require(purrr))
+  install.packages("purrr")
 library(MXM)
 library(stringr)
 
