@@ -1,0 +1,88 @@
+---
+title: "04-mutation-diversity"
+author: "Sara Gosline"
+date: "8/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MXM)
+library(dplyr)
+```
+
+Here we have an example of using the `Xeva` package to search for any molecular indicates of drug response in the MPNST PDX data.
+
+## Load PDX Data
+
+PDX data is available on [this Synapse project page](https://www.synapse.org/#!Synapse:syn21984813/wiki/602362) that collates available PDX and tumor model data across the project.
+
+```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
+
+loadPDXData()
+
+
+```
+
+
+
+## Mutational data
+
+
+Now we can look at the mutational data in more detail
+```{r mut data,echo=FALSE}
+ mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
+  dplyr::select(-c(individualID,tranche))%>%
+  tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
+                     values_fill=0.0)%>%
+    tibble::column_to_rownames('Symbol')
+
+library(pheatmap)
+  annotes<-mutData%>%
+      dplyr::select(specimenID,tranche)%>%
+    tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
+    distinct()%>%
+    tibble::column_to_rownames('specimenID')%>%
+    filter(sample!='normal')
+  
+  mutMat<-mutMat[,rownames(annotes)]
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+ 
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
+```
+
+## Top mutations
+
+
+We then select for those mutations that exist in more than one sample. And then add back TP53.
+```{r main mutations,echo=FALSE}
+topMuts=filter(mutData,AD>0)%>%
+    group_by(Symbol)%>%
+    summarize(nSamps=n_distinct(individualID))%>%
+    filter(nSamps>1)%>%
+    dplyr::select(Symbol)
+topMuts<-union("TP53",topMuts$Symbol)
+
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2', clustering_distance_cols = 'correlation')
+
+```
+
+## Selected mutations
+Below is a list of custom genes we want to evaluate.
+
+```{r select gene mutations,echo=FALSE,warning=FALSE}
+genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
+           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
+missed.genes<-setdiff(genelist,rownames(mutMat))
+print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
+
+missed.mat<-matrix(0,nrow=length(missed.genes),ncol=ncol(mutMat),
+                   dimnames=list(missed.genes,colnames(mutMat)))
+
+new.mat<-rbind(mutMat[intersect(genelist,rownames(mutMat)),],missed.mat)
+
+ pheatmap(log10(0.01+new.mat),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2')
+ pheatmap(log10(0.01+new.mat),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='selectedMutations.pdf',clustering_method='ward.D2')
+```
+
