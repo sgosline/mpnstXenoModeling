@@ -9,3 +9,5 @@ NeedsCompilation: no
 Packaged: 2020-06-09 00:14:26 UTC; gosl241
 Author: Sara Gosline [aut, cre]
 Maintainer: Sara Gosline <sara.gosline@pnnl.gov>
+License: BSD
+Description: MPNST Xenograft modeling frameowkr
