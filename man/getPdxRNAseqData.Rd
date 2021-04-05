@@ -7,6 +7,9 @@
 \usage{
 getPdxRNAseqData(syn)
 }
+\arguments{
+\item{syn}{synapse item from}
+}
 \description{
 getPdxRNAseqData gets all rna seq counts for xenografts
 #'@export
