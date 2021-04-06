@@ -180,15 +180,15 @@ design_matrix_and_limma_analysis <- function(counts) {
     dge <- calcNormFactors(dge)
 
     # Specify a design matrix without an intercept term
-    design <- model.matrix(~0 + qual + age + sex)
+    design <- model.matrix(~0 + qual + age + sex + group)
 
     # Clean up column names of design matrix
-    colnames(design) <- gsub('group','',colnames(design))
-    colnames(design) <- gsub('sex','',colnames(design))
-    colnames(design) <- gsub('age','',colnames(design))
-    colnames(design) <- gsub('qual','',colnames(design))
-    names <- row.names(design)
-    names <- as.numeric(gsub("[^0-9.]", "", names))
+   # colnames(design) <- gsub('group','',colnames(design))
+  #  colnames(design) <- gsub('sex','',colnames(design))
+  #  colnames(design) <- gsub('age','',colnames(design))
+  #  colnames(design) <- gsub('qual','',colnames(design))
+   # names <- row.names(design)
+  #  names <- as.numeric(gsub("[^0-9.]", "", names))
     subset.names <- colnames(counts) #sampleIDs[names]
     attr(design, "row.names") <- subset.names
 
@@ -274,6 +274,7 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
 }
 
 topGenes <- get_topGenes_and_plot_heatmap(fit,dge,'Good','DE_GoodTissue_sex_age.pdf')
+topGenes <- get_topGenes_and_plot_heatmap(fit,dge,'','DE_GoodTissue_sex_age.pdf')
 ```
 
 ## Functional enrichment analysis
@@ -351,6 +352,7 @@ plot_gseGO <- function(gseout,ClinVar) {
 
 
 plot_gseGO(gseout,'Male')
+plot_gseGO(gseout,'Good')
 
 ```
 Now the analysis is complete, we can upload to Synapse
