@@ -1,5 +1,5 @@
 ---
-title: "05-DETest
+title: "05-DETest"
 author: "Jess Bade"
 date: "`r Sys.Date()`"
 output: html_document
@@ -24,6 +24,9 @@ library(ggplot2)
 library(ggridges)
 library(org.Hs.eg.db)
 library(clusterProfiler)
+#library(devtools)
+if(!require(MXM))
+    devtools::install_github('sgosline/MXM')
 library(MXM)
 ```
 
@@ -64,6 +67,7 @@ Now we have the clinical data and can modify it to add variables where we need t
 
 
 ## Clinical data formats
+This is where we reformat the clinical data to work with the differential expression downstream. 
 
 ```{r clinical data}
 #' synapse_table_format
@@ -86,7 +90,8 @@ df <- synapse_table_format(syn.df)
 
 #Get IDs from synapse table
 synIDs <- df$RNASeq
-sampleIDs <- df$Sample
+sampleIDs <- data.frame(sample=df$Sample,synId=synIDs)
+#names(sampleIDs)<-synIDs
 
 #create factors of clinical variables in synapse table
 group <- factor(df$Clinical.Status)
@@ -142,6 +147,7 @@ synget_quants_and_format <- function(df) {
         master.table
     })
   final.table<-entity%>%purrr::reduce(inner_join,by=c('TXID','GENEID','GENENAME'))
+  
     return(final.table)
 }
 
@@ -187,7 +193,7 @@ design_matrix_and_limma_analysis <- function(counts) {
     attr(design, "row.names") <- subset.names
 
     # Limma voom model fitting
-    v <- voom(dge[,subset.names],design) #,plot=TRUE
+    v <- voom(dge[,subset.names],design,plot=TRUE)
 
     # Limma fit analysis
     fit <- lmFit(v, design)
@@ -213,7 +219,7 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
 
     summary(decideTests(fit))
         
-    topGenes <- topTable(fit,number=Inf,coef=c(coefname),p.value=0.01) 
+    topGenes <- topTable(fit,coef=c(coefname),p.value=0.01,number=100,lfc=1)
     de.out <- rownames_to_column(topGenes,var='TXID')
     
     #gather read counts that are normalized to 1 via calcnormfactors()
@@ -224,39 +230,44 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
     #combined differentially expressed txids, genenames, and normalized counts
     #de.tx <- select(de.out,TXID)
     #gene.id <- gene_logFC %>% select(TXID,GENENAME)
-    de.table <- left_join(de.out,name.map,by="TXID")
-    de.table <- left_join(de.table,norm.counts,by="TXID")
-
-    #downselect by just GENENAME, counts
-    de.table <- de.table %>% select(GENENAME,contains('syn'))#contains('WU'),contains('MN'),contains('JHU'))
-    de.table <- de.table[!is.na(de.table$GENENAME),]
-    de.table <- de.table[!duplicated(de.table$GENENAME), ]
-    de.table <- tibble::remove_rownames(de.table)
-    de.table <- tibble::column_to_rownames(de.table,var = 'GENENAME')
+    de.table <- norm.counts%>%
+        subset(TXID%in%de.out$TXID)%>%
+        left_join(name.map,by="TXID")%>%
+        pivot_longer(cols=2:ncol(norm.counts),names_to='synId',values_to='counts')%>%
+        left_join(sampleIDs)%>%
+        select(-c(synId,TXID))%>%
+        group_by(sample,GENENAME)%>%
+        mutate(counts=mean(counts))%>%
+        pivot_wider(names_from=sample,values_from=counts)%>%
+        tibble::column_to_rownames('GENENAME')
+    #de.table <- de.table[!is.na(de.table$GENENAME),]
+    #de.table <- de.table[!duplicated(de.table$GENENAME), ]
+    #de.table <- tibble::remove_rownames(de.table)
+    #de.table <- tibble::column_to_rownames(de.table,var = 'GENENAME')
     
-    h.t <- sapply(de.table,as.numeric)
-    h.t <- as.matrix(h.t)
+    #h.t <- sapply(de.table,as.numeric)
+    #h.t <- as.matrix(h.t)
 
-    rownames(h.t) = rownames(de.table)
-    h.t <- h.t[rowSums(h.t)>0,]
+    #rownames(h.t) = rownames(de.table)
+    #h.t <- h.t[rowSums(h.t)>0,]
 
     # Convert counts to zScore of relevant genes
     cal_z_score <- function(x){(x - mean(x)) / sd(x)}
-    data_subset_norm <- t(apply(h.t, 1, cal_z_score))
+    data_subset_norm <- t(apply(de.table, 1, cal_z_score))
 
     # Pairwise correlation between samples (columns)
-    cols.cor <- cor(h.t, use = "pairwise.complete.obs", method = "pearson")
+  #  cols.cor <- cor(de.table, use = "pairwise.complete.obs", method = "pearson")
     # Pairwise correlation between rows (genes)
-    rows.cor <- cor(t(h.t), use = "pairwise.complete.obs", method = "pearson")
+  #  rows.cor <- cor(t(de.table), use = "pairwise.complete.obs", method = "pearson")
     
     # Plot heatmap
     pheatmap(data_subset_norm,
          show_rownames=FALSE, 
          annotation_col=var.ID,
-         clustering_distance_cols = as.dist(1 - cols.cor),
-         clustering_distance_rows = as.dist(1 - rows.cor),
+         clustering_distance_cols = 'correlation',
+         clustering_distance_rows = 'correlation',
          filename=heatmapFN)
-    dev.off()
+    #dev.off()
     
     return(topGenes)
 }
@@ -329,8 +340,6 @@ plot_gseGO <- function(gseout,ClinVar,) {
 
 
 plot_gseGO(gseout,'Male')
-
-
 
 
 #pheatmap(data_subset_norm, annotation_col=group.ID,cellheight=8,color=rev(park_palette('GeneralGrant')),filename='heatmap_gseGO_group.pdf')
