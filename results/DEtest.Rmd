@@ -104,7 +104,7 @@ var.ID <- data.frame(group)
 var.ID$sex <- sex
 var.ID$age <- age
 var.ID$qual <- factor(unlist(df$MicroTissueQuality))
-rownames(var.ID) <- sampleIDs
+rownames(var.ID) <- sampleIDs$sample
 
 #split df by subsets
 group.split <- split(var.ID,var.ID$group)
@@ -220,6 +220,7 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
     summary(decideTests(fit))
         
     topGenes <- topTable(fit,coef=c(coefname),p.value=0.01,number=100,lfc=1)
+    
     de.out <- rownames_to_column(topGenes,var='TXID')
     
     #gather read counts that are normalized to 1 via calcnormfactors()
@@ -278,49 +279,59 @@ topGenes <- get_topGenes_and_plot_heatmap(fit,dge,'Good','DE_GoodTissue_sex_age.
 ## Functional enrichment analysis
 
 ```{r functional enrichment}
-do_gseGO_of_topGenes <- function(topGenes, rankedlistFN, gseoutFN) {
-    tt <- tibble::rownames_to_column(topGenes, "TXID")
-
-    gene_logFC <- left_join(tt,sum.table,by="TXID")
-    gene_logFC <- gene_logFC[!duplicated(gene_logFC$GENENAME), ]
-    ranked.gene.list <- gene_logFC %>% 
-        dplyr::select(GENENAME,logFC) %>%
-        tibble::remove_rownames() %>%
-        column_to_rownames(var="GENENAME")
+do_gseGO_of_topGenes <- function(fit, dge,coefname, rankedlistFN, gseoutFN) {
+    topGenes <- topTable(fit,coef=c(coefname),number=Inf)%>%
+      tibble::rownames_to_column("TXID")%>%
+      left_join(name.map)
+    
+    geneSum<-topGenes%>%
+      group_by(GENENAME)%>%
+      summarize(maxfc=logFC[which(abs(logFC)==max(abs(logFC)))])%>%
+      arrange(desc(maxfc))
+    
+    #sum.table<-dge$counts%>%as.data.frame()%>%
+    #  tibble::rownames_to_column('TXID')
+  #  gene_logFC <- left_join(tt,sum.table,by="TXID")
+    #gene_logFC <- gene_logFC[!duplicated(gene_logFC$GENENAME), ]
+  #  ranked.gene.list <- gene_logFC %>% 
+  #      dplyr::select(GENENAME,logFC) %>%
+  #      tibble::remove_rownames() %>%
+  #      column_to_rownames(var="GENENAME")
 
     #write.table(ranked.gene.list,rankedlistFN,sep='\t')
 
-    geneList = sapply(ranked.gene.list,as.numeric)
-    geneList = geneList[,1]
-    names(geneList) = rownames(ranked.gene.list)
-    geneList <- sort(geneList, decreasing = TRUE)
+    geneList = geneSum$maxfc
+    #geneList = geneList[,1]
+    names(geneList) = geneSum$GENENAME#rownames(ranked.gene.list)
+    #geneList <- sort(geneList, decreasing = TRUE)
 
-    gse = gseGO(geneList=geneList,ont="ALL",keyType="SYMBOL",OrgDb=org.Hs.eg.db,pvalueCutoff = 0.1,eps=0) #pAdjustMethod = 'BH',
+    gse = gseGO(geneList=geneList,ont="BP",keyType="SYMBOL",
+                OrgDb=org.Hs.eg.db,pvalueCutoff = 0.1,eps=0) #pAdjustMethod = 'BH',
     write.table(gse,toString(gseoutFN),sep='\t')
     return(gse)
 }
 
-gseout <- do_gseGO_of_topGenes(topGenes, 'ranked.gene.list.Male.tsv', 'gsego_Male.tsv')
+gseout <- do_gseGO_of_topGenes(fit, dge,'Male','ranked.gene.list.Male.tsv', 'gsego_Male.tsv')
 
 
-plot_gseGO <- function(gseout,ClinVar,) {
-    res <- as.data.frame(gse)
+plot_gseGO <- function(gseout,ClinVar) {
+    res <- as.data.frame(gseout)
     prefix <- ClinVar
     all_gseaGO<-res %>% 
-    dplyr::rename(pathway = 'Description') %>% 
-    arrange(NES) %>% 
-    dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-                                     NES < 0 ~ "Down"),
-                  status = factor(status, levels = c("Up", "Down"))) %>% 
-    group_by(status) %>% 
-    top_n(20, wt = abs(NES)) %>% 
-    ungroup() %>% 
-    ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
-    geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-    coord_flip() +
-    theme_minimal() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+      dplyr::rename(pathway = 'Description') %>% 
+      arrange(NES) %>% 
+      dplyr::mutate(status = case_when(NES > 0 ~ "Up",
+                                       NES < 0 ~ "Down"),
+                    status = factor(status, levels = c("Up", "Down"))) %>% 
+        group_by(status) %>% 
+      top_n(20, wt = abs(NES)) %>% 
+      ungroup() %>% 
+      ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
+      geom_bar(stat='identity', aes(fill=status)) +
+      scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+      coord_flip() +
+      theme_minimal() +
+      theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
           axis.title.x = element_text(size=16),
           axis.title.y = element_blank(), 
           axis.text.x = element_text(size = 14),
@@ -332,62 +343,14 @@ plot_gseGO <- function(gseout,ClinVar,) {
     ggtitle(paste('All',prefix))
     ggsave(paste0(prefix,"_gseGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
 
-    enrichplot::ridgeplot(gse,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
-    ggplot2::ggsave(paste0(prefix,'_GO.pdf'),width=10,height=10)
+    #enrichplot::ridgeplot(gse,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
+    #ggplot2::ggsave(paste0(prefix,'_GO.pdf'),width=10,height=10)
 
-    df<-as.data.frame(gse)%>%mutate(Condition=prefix)
+    df<-as.data.frame(gseout)%>%mutate(Condition=prefix)
 }
 
 
 plot_gseGO(gseout,'Male')
 
-
-#pheatmap(data_subset_norm, annotation_col=group.ID,cellheight=8,color=rev(park_palette('GeneralGrant')),filename='heatmap_gseGO_group.pdf')
-
-# library(Hmisc)
-#pdf(file="heatmap_gseGO_group.pdf",width=10,height=30)
-# v <- varclus(expr.dat,similarity="spearman")
-# library(dendextend)
-# dend <- as.dendrogram(v)
-#heatmap.2(h.t,key=TRUE,density.info="none",trace="none",margins=c(8,16),cexCol=1,col=viridis,srtCol=45)#, symkey=TRUE,cexRow=1,) #,Colv = dend
-#pheatmap(h.t)
-#dev.off()
-
-
-#plots count value by sample for top Gene in ranked gene list
-ix <- match(row.names(de.table)[1], row.names(counts) )
-top1 <- ( as.vector( t( counts[ix,]) ) )
-names( top1 ) = colnames(counts)
-jpeg(file=sprintf('barplot.%s.jpeg',vars))
-par(mar=c(12, 4.1, 4.1, 2.1))
-barplot( top1 , las=3, xlab="")
-dev.off()
-
-
-#get sampleIDs of subsets
-age.ID1 <- rownames(age.split$'18+')
-age.ID2 <- rownames(age.split$Under.18)
-group.ID1 <- rownames(group.split$Alive)
-group.ID2 <-rownames(group.split$Deceased)
-sex.ID1 <- rownames(sex.split$Male)
-sex.ID2 <-rownames(sex.split$Female)
-qual.ID1 <- rownames(qual.split$Poor)
-qual.ID2 <-rownames(qual.split$Good)
-
-#fetch count data for subsets to make subset tables
-age.ID1.table <- counts[,age.ID1]
-age.ID2.table <- counts[,age.ID2]
-group.ID1.table <- counts[,group.ID1]
-group.ID2.table <- counts[,group.ID2]
-sex.ID1.table <- counts[,sex.ID1]
-sex.ID2.table <- counts[,sex.ID2]
-qual.ID1.table <- counts[,qual.ID1]
-qual.ID2.table <- counts[,qual.ID2]
-
-input <- as.matrix(sapply(ranked.gene.list, as.numeric))
-rownames(input) <- rownames(ranked.gene.list)
-
-enrichment.order = leapR(geneset=ncipid, enrichment_method='enrichment_in_order',datamatrix=input,primary_columns='logFC')
-print(head(enrichment.order))
 ```
 Now the analysis is complete, we can upload to Synapse
