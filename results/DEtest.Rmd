@@ -83,7 +83,10 @@ synapse_table_format <- function(df) {
     df$Age <- ifelse(df$Age < 19,  sub('[0-9]*', 'Under.and.18',df$Age), gsub('[0-9]*', 'Over.18',df$Age))
     df$Sample = gsub(" ",".",df$Sample)
     df$Sample = gsub("-",".",df$Sample)
-    return(df)
+    
+    df<-apply(df,2,unlist)
+    df[df=='NaN']<-NA
+    return(as.data.frame(df))
 }
 
 df <- synapse_table_format(syn.df)
@@ -180,7 +183,7 @@ design_matrix_and_limma_analysis <- function(counts) {
     dge <- calcNormFactors(dge)
 
     # Specify a design matrix without an intercept term
-    design <- model.matrix(~0 + qual + age + sex + group)
+    design <- model.matrix(~ group + qual + age + sex)
 
     # Clean up column names of design matrix
    # colnames(design) <- gsub('group','',colnames(design))
@@ -189,11 +192,11 @@ design_matrix_and_limma_analysis <- function(counts) {
   #  colnames(design) <- gsub('qual','',colnames(design))
    # names <- row.names(design)
   #  names <- as.numeric(gsub("[^0-9.]", "", names))
-    subset.names <- colnames(counts) #sampleIDs[names]
-    attr(design, "row.names") <- subset.names
+    row.names(design) <- colnames(counts)[as.numeric(rownames(design))] #sampleIDs[names]
+    #attr(design, "row.names") <- subset.names
 
     # Limma voom model fitting
-    v <- voom(dge[,subset.names],design,plot=TRUE)
+    v <- voom(dge[,row.names(design)],design,plot=TRUE)
 
     # Limma fit analysis
     fit <- lmFit(v, design)
@@ -205,6 +208,7 @@ design_matrix_and_limma_analysis <- function(counts) {
 
 mla <- design_matrix_and_limma_analysis(counts)
 fit<-mla$fit
+print(summary(decideTests(fit)))
 dge<-mla$dge
 ```
 
@@ -217,9 +221,9 @@ Here we can dive into the limma analysis and extract genes of interest
 #' heatmap
 get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
 
-    summary(decideTests(fit))
+    #summary(decideTests(fit))
         
-    topGenes <- topTable(fit,coef=c(coefname),p.value=0.01,number=100,lfc=1)
+    topGenes <- topTable(fit,coef=c(coefname),p.value=0.01,number=Inf,lfc=1)
     
     de.out <- rownames_to_column(topGenes,var='TXID')
     
@@ -239,7 +243,7 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
         select(-c(synId,TXID))%>%
         group_by(sample,GENENAME)%>%
         mutate(counts=mean(counts))%>%
-        pivot_wider(names_from=sample,values_from=counts)%>%
+        pivot_wider(names_from=sample,values_from=counts,values_fn=list(counts=mean))%>%
         tibble::column_to_rownames('GENENAME')
     #de.table <- de.table[!is.na(de.table$GENENAME),]
     #de.table <- de.table[!duplicated(de.table$GENENAME), ]
@@ -265,16 +269,25 @@ get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
     pheatmap(data_subset_norm,
          show_rownames=FALSE, 
          annotation_col=var.ID,
+         clustering_method = 'ward.D2',
          clustering_distance_cols = 'correlation',
          clustering_distance_rows = 'correlation',
          filename=heatmapFN)
     #dev.off()
-    
+    pheatmap(data_subset_norm,
+         show_rownames=FALSE, 
+         annotation_col=var.ID,
+         clustering_method = 'ward.D2',
+         clustering_distance_cols = 'correlation',
+         clustering_distance_rows = 'correlation')
     return(topGenes)
 }
 
-topGenes <- get_topGenes_and_plot_heatmap(fit,dge,'Good','DE_GoodTissue_sex_age.pdf')
-topGenes <- get_topGenes_and_plot_heatmap(fit,dge,'','DE_GoodTissue_sex_age.pdf')
+topGenes.qual <- get_topGenes_and_plot_heatmap(fit,dge,'qualPoor','DE_tissueCulture.pdf')
+topGenes.dead <- get_topGenes_and_plot_heatmap(fit,dge,'groupDeceased','DE_aliveDead.pdf')
+topGenes.sex <- get_topGenes_and_plot_heatmap(fit,dge,'sexMale','DE_sex.pdf')
+topGenes.age <- get_topGenes_and_plot_heatmap(fit,dge,'ageUnder.and.18','DE_age.pdf')
+
 ```
 
 ## Functional enrichment analysis
@@ -312,7 +325,7 @@ do_gseGO_of_topGenes <- function(fit, dge,coefname, rankedlistFN, gseoutFN) {
     return(gse)
 }
 
-gseout <- do_gseGO_of_topGenes(fit, dge,'Male','ranked.gene.list.Male.tsv', 'gsego_Male.tsv')
+
 
 
 plot_gseGO <- function(gseout,ClinVar) {
@@ -342,6 +355,7 @@ plot_gseGO <- function(gseout,ClinVar) {
           legend.position = "none") +
     labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
     ggtitle(paste('All',prefix))
+    print(all_gseaGO)
     ggsave(paste0(prefix,"_gseGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
 
     #enrichplot::ridgeplot(gse,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
@@ -351,8 +365,16 @@ plot_gseGO <- function(gseout,ClinVar) {
 }
 
 
-plot_gseGO(gseout,'Male')
-plot_gseGO(gseout,'Good')
+gseout <- do_gseGO_of_topGenes(fit, dge,'sexMale','ranked.gene.list.Male.tsv', 'gsego_Male.tsv')
+
+plot_gseGO(gseout,'sexMale')
+gseout<- do_gseGO_of_topGenes(fit,dge,'ageUnder.and.18','ranked.gene.list.age.tsv','gsego_age.tsv')
+plot_gseGO(gseout,'ageUnder.and.18')
+gseout <- do_gseGO_of_topGenes(fit, dge,'groupDeceased','ranked.gene.list.death.tsv', 'gsego_death.tsv')
+plot_gseGO(gseout,'groupDeceased')
+
+gseout <- do_gseGO_of_topGenes(fit, dge,'qualPoor','ranked.gene.list.qual.tsv', 'gsego_qual.tsv')
+plot_gseGO(gseout,'qualPoor')
 
 ```
 Now the analysis is complete, we can upload to Synapse
