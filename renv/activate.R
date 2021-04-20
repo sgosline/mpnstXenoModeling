@@ -54,6 +54,7 @@ local({
   renv_bootstrap_tests_running <- function() {
     getOption("renv.tests.running", default = FALSE)
   }
+
   
   renv_bootstrap_repos <- function() {
   
@@ -70,10 +71,7 @@ local({
     repos <- getOption("repos")
   
     # ensure @CRAN@ entries are resolved
-    repos[repos == "@CRAN@"] <- getOption(
-      "renv.repos.cran",
-      "https://cloud.r-project.org"
-    )
+    repos[repos == "@CRAN@"] <- "https://cloud.r-project.org"
   
     # add in renv.bootstrap.repos if set
     default <- c(FALLBACK = "https://cloud.r-project.org")
@@ -116,6 +114,73 @@ local({
   
   renv_bootstrap_download_impl <- function(url, destfile) {
   
+  renv_bootstrap_repos <- function() {
+  
+    # check for repos override
+    repos <- Sys.getenv("RENV_CONFIG_REPOS_OVERRIDE", unset = NA)
+    if (!is.na(repos))
+      return(repos)
+  
+    # if we're testing, re-use the test repositories
+    if (renv_bootstrap_tests_running())
+      return(getOption("renv.tests.repos"))
+  
+    # retrieve current repos
+    repos <- getOption("repos")
+  
+    # ensure @CRAN@ entries are resolved
+    repos[repos == "@CRAN@"] <- getOption(
+      "renv.repos.cran",
+      "https://cloud.r-project.org"
+    utils::download.file(
+      url      = url,
+      destfile = destfile,
+      mode     = mode,
+      quiet    = TRUE
+    )
+  
+    # add in renv.bootstrap.repos if set
+    default <- c(FALLBACK = "https://cloud.r-project.org")
+    extra <- getOption("renv.bootstrap.repos", default = default)
+    repos <- c(repos, extra)
+  
+    # remove duplicates that might've snuck in
+    dupes <- duplicated(repos) | duplicated(names(repos))
+    repos[!dupes]
+  
+  }
+  
+  renv_bootstrap_download <- function(version) {
+  
+    # if the renv version number has 4 components, assume it must
+    # be retrieved via github
+    nv <- numeric_version(version)
+    components <- unclass(nv)[[1]]
+  
+    methods <- if (length(components) == 4L) {
+      list(
+        renv_bootstrap_download_github
+      )
+    } else {
+      list(
+        renv_bootstrap_download_cran_latest,
+        renv_bootstrap_download_cran_archive
+      )
+    }
+  
+    for (method in methods) {
+      path <- tryCatch(method(version), error = identity)
+      if (is.character(path) && file.exists(path))
+        return(path)
+    }
+  renv_bootstrap_download_cran_latest <- function(version) {
+  
+    repos <- renv_bootstrap_download_cran_latest_find(version)
+  
+    message("* Downloading renv ", version, " ... ", appendLF = FALSE)
+  
+  renv_bootstrap_download_impl <- function(url, destfile) {
+  
     mode <- "wb"
   
     # https://bugs.r-project.org/bugzilla/show_bug.cgi?id=17715
@@ -154,7 +219,37 @@ local({
       ),
       condition = identity
     )
+    downloader <- function(type) {
   
+      tryCatch(
+        utils::download.packages(
+          pkgs = "renv",
+          destdir = tempdir(),
+          repos = repos,
+          type = type,
+          quiet = TRUE
+        ),
+        condition = identity
+      )
+  
+    }
+  
+    # first, try downloading a binary on Windows + macOS if appropriate
+    binary <-
+      !identical(.Platform$pkgType, "source") &&
+      !identical(getOption("pkgType"), "source") &&
+      Sys.info()[["sysname"]] %in% c("Darwin", "Windows")
+  
+    if (binary) {
+      info <- downloader(type = "binary")
+      if (!inherits(info, "condition")) {
+        message("OK (downloaded binary)")
+        return(info[1, 2])
+      }
+    }
+  
+    # otherwise, try downloading a source tarball
+    info <- downloader(type = "source")
     if (inherits(info, "condition")) {
       message("FAILED")
       return(FALSE)
@@ -162,6 +257,7 @@ local({
   
     # report success and return
     message("OK (downloaded ", type, ")")
+    message("OK (downloaded source)")
     info[1, 2]
   
   }
@@ -206,6 +302,29 @@ local({
     }
   
     # if we got here, we failed to find renv
+    all <- renv_bootstrap_repos()
+  
+    for (repos in all) {
+  
+      db <- tryCatch(
+        as.data.frame(
+          x = utils::available.packages(repos = repos),
+          stringsAsFactors = FALSE
+        ),
+        error = identity
+      )
+  
+      if (inherits(db, "error"))
+        next
+  
+      entry <- db[db$Package %in% "renv" & db$Version %in% version, ]
+      if (nrow(entry) == 0)
+        next
+  
+      return(repos)
+  
+    }
+  
     fmt <- "renv %s is not available from your declared package repositories"
     stop(sprintf(fmt, version))
   

@@ -173,3 +173,41 @@ doRegularGo<-function(genes,bg=NULL){
   
   
 }
+
+#'
+#'limmaTwoFactorDEAnalysis
+#'uses Osama's code to compute de from limma
+#'@author Osama
+#'@import BiocManager
+#'@export
+#'@param data matrix
+#'@param group1 ids
+#'@param group2 ids
+limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
+  # Conduct DE expression analysis using limma from the expression matrix dat (group2 vs group1, group1 is reference)
+  #
+  # Args:
+  #   dat: Expression data matrix, rows are genes, columns are samples
+  #   sampleIDs.group1: Vector with ids of samples in reference group (eg. normal samples)
+  #   sampleIDs.group2: Vector with ids of samples in interest group (eg. tumor samples) 
+  #
+  # Returns:
+  #   limma Differential Expression results.
+  #
+  #http://www.biostat.jhsph.edu/~kkammers/software/CVproteomics/R_guide.html
+  #http://genomicsclass.github.io/book/pages/using_limma.html
+  #https://wiki.bits.vib.be/index.php/Tutorial:_Testing_for_differential_expression_I
+  if(!require('limma')){
+    BiocManager::install('limma')
+    
+    library(limma)
+  }
+  fac <- factor(rep(c(2,1), c(length(sampleIDs.group2), length(sampleIDs.group1))))
+  design <- model.matrix(~fac)
+  fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
+  fit <- eBayes(fit)
+  print(topTable(fit, coef=2))
+  res <- topTable(fit, coef=2, number=Inf, sort.by="none")
+  res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
+  return(arrange(res,P.Value))
+}

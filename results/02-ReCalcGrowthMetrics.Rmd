@@ -76,7 +76,7 @@ indivPlots<-drug.gene.cors%>%
   plotTumorGrowthCorrelations(minCor=0.9)
 
 cowplot::plot_grid(plotlist=indivPlots)
-ggsave('allMUtCors.pdf')
+ggsave('allMUtCors.pdf',width=12,height=12)
 ```
 Now that we have the correlation values, which gene mutations are correlated with which drugs?
 

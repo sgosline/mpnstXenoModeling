@@ -20,7 +20,7 @@ For this project we use the `Xeva` xenograft visualization and analysis tool to 
 
 ```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
 
-loadPDXData()
+MXM::loadPDXData()
 
 all.pdxs<<-formatDataToXeva()
  
@@ -141,7 +141,8 @@ We can also plot how the genes are expressed
 ```{r mutated gene expression,echo=FALSE,warning=FALSE}
  rnamat<-rnaSeq%>%
   dplyr::select(-c(individualID,species,sex,zScore,experimentalCondition))%>%
-  tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,values_fn=list(totalCounts=mean),values_fill=0.0)%>%
+  tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,
+                     values_fn=list(totalCounts=mean),values_fill=0.0)%>%
     tibble::column_to_rownames('Symbol')
 
 rownames(rnaSeq)<-c()

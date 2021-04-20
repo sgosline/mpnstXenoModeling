@@ -10,12 +10,22 @@ loadPDXData<-function(){
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
   
-  newMutData<-getLatestVariantData(syn)%>%select(Symbol='Gene',AD,specimenID,individualID)
-  mutData<-getOldVariantData(syn)%>%mutate(AD=as.numeric(AD))
+  ##updated to use harmonized data table
+  data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+    
   
-  mutData<<-rbind(data.frame(mutData,tranche='oldData'),data.frame(newMutData,tranche='newData'))
+  ##query mutational data based on files in `Somatic Mutations` column
+  newMutData<-getLatestVariantData(syn)%>%
+    dplyr::select(Symbol='Gene',AD,specimenID,individualID)
+  
+  mutData<-getOldVariantData(syn)%>%
+    mutate(AD=as.numeric(AD))
+  
+  mutData<<-rbind(data.frame(mutData,tranche='oldData'),
+                  data.frame(newMutData,tranche='newData'))
   
   
+  ##query drug screen data based on files in `PDX Drug Data` column
   csvs = syn$tableQuery(paste0("SELECT id,individualID FROM syn11678418 WHERE \"dataType\" = 'drugScreen'"))$asDataFrame()
   ids<-csvs$id
   indiv<-csvs$individualID
@@ -23,10 +33,12 @@ loadPDXData<-function(){
   res=do.call(rbind,lapply(names(indiv),function(x)
   { 
     read.csv(syn$get(x)$path)%>%
-      dplyr::select(model.id='individual_id',specimen_id,drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
+      dplyr::select(model.id='individual_id',specimen_id,
+                    drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
       dplyr::mutate(individualID=indiv[[x]])
   }))
-  res$drug <-sapply(res$drug,function(x) gsub('Doxorubinsin','doxorubicin',gsub('N/A','vehicle',x)))
+  res$drug <-sapply(res$drug,function(x) gsub('Doxorubinsin','doxorubicin',
+                                              gsub('N/A','vehicle',x)))
   nas=which(res$model.id=="")
   res$individualID<-sapply(res$individualID,function(x) gsub('2-','JHU',x))
   if(length(nas)>0)
@@ -34,8 +46,10 @@ loadPDXData<-function(){
   drugData<<-res
     
   #now get RNA-Seq
+  #update to use `RNAseq` column
   rnaSeq<<-getPdxRNAseqData(syn)%>%
-    dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,sex,species,experimentalCondition)
+    dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
+                  sex,species,experimentalCondition)
   
  
 }
@@ -49,7 +63,8 @@ getPdxRNAseqData<-function(syn){
   wu.rnaSeq=syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
   jh.rnaSeq=syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()
 
-  com.cols=intersect(colnames(wu.rnaSeq),colnames(jh.rnaSeq))%>%setdiff(c("ROW_ID","ROW_VERSION"))
+  com.cols=intersect(colnames(wu.rnaSeq),colnames(jh.rnaSeq))%>%
+    setdiff(c("ROW_ID","ROW_VERSION"))
   count.tab=rbind(wu.rnaSeq[,com.cols],jh.rnaSeq[,com.cols])
   count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
   count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
@@ -123,9 +138,10 @@ getNewSomaticCalls<-function(syn,fileid,specimen){
     tidyr::separate(HGVSp,into=c('prot_id','pvar'))%>%
     mutate(prot_id=stringr::str_replace(prot_id,'\\.[0-9]+',''))
   
+#  ensembl <- biomaRt::useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl")
   ensembl <- biomaRt::useMart("ensembl",dataset="hsapiens_gene_ensembl")
-
-  pmap<-biomaRt::getBM(mart=ensembl,attributes=c('ensembl_transcript_id','ensembl_peptide_id','hgnc_symbol'))
+  pmap<-biomaRt::getBM(mart=ensembl,
+                       attributes=c('ensembl_transcript_id','ensembl_peptide_id','hgnc_symbol'))
   ftab<-tab%>%rename(ensembl_transcript_id='trans_id')%>%left_join(pmap)
   res<-ftab%>%
     dplyr::select(c('hgnc_symbol',colnames(ftab)[grep('.AD$',colnames(ftab))]))%>%
@@ -145,7 +161,6 @@ getOldVariantData<-function(syn){
     dplyr::select(id,name,specimenID,individualID)%>%
     subset(is.na(specimenID))
 
-  
   som.tab<-files%>%select(fileid='id',indId='individualID')%>%
     purrr::pmap_df(processMergedXls,syn)
   #purrr::map2_df(.f=processMergedXls,.x=files$id,.y=files$individualID)
@@ -162,11 +177,14 @@ getOldVariantData<-function(syn){
 getLatestVariantData<-function(syn){
   files<-syn$tableQuery("SELECT id,name,specimenID,individualID FROM syn21993642 WHERE ( (\"dataType\" = 'genomicVariants' ) )")$asDataFrame()%>%
     dplyr::select(id,name,specimenID,individualID)
-  samps<-files%>%select(specimenID,individualID)%>%distinct()
+  samps<-files%>%dplyr::select(specimenID,individualID)%>%
+    distinct()
   
-  som.tab<-files%>%select(fileid='id',specimen='specimenID')%>%
+  som.tab<-files%>%
+    dplyr::select(fileid='id',specimen='specimenID')%>%
     purrr::pmap_df(getNewSomaticCalls,syn)
-  som.tab<-som.tab%>%subset(!is.na(Gene))%>%subset(Gene!="")%>%left_join(samps)
+  som.tab<-som.tab%>%subset(!is.na(Gene))%>%subset(Gene!="")%>%
+    left_join(samps)
   return(som.tab)
 }
 
