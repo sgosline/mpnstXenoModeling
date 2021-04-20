@@ -10,7 +10,7 @@
 
 
 
-condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
+#condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
 
 #' Logs into Synapse using local information
 #' @import reticulate
@@ -18,7 +18,7 @@ condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancen
 #' @export
 synapseLogin<-function(){
   library(reticulate)
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
   syn=reticulate::import('synapseclient')
   sync=syn$login()
 }
@@ -30,7 +30,7 @@ synapseLogin<-function(){
 #' @export
 synapseStore<-function(path,parentId){
   library(reticulate)
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
   
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
@@ -50,7 +50,7 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   library(reticulate)
   print(head(tab))
   fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
-  reticulate::use_condaenv(condaenv)
+ # reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
   
   tab<-synapse$build_table(tabname,parentId,'tmp.csv')

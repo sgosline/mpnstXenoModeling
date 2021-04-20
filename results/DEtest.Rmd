@@ -1,0 +1,380 @@
+---
+title: "05-DETest"
+author: "Jess Bade"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE, echo=FALSE}
+renv::restore()
+library('biomaRt')
+library(tidyr)
+library(dplyr)
+library(edgeR)
+library(tibble)
+library(AnnotationDbi)
+library(EnsDb.Hsapiens.v86)
+library(viridis)
+library(gplots)
+library(pheatmap)
+#library(synapser)
+#library(synapserutils)
+#library(leapr)
+library(ggplot2)
+library(ggridges)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+#library(devtools)
+if(!require(MXM))
+    devtools::install_github('sgosline/MXM')
+library(MXM)
+```
+
+# Differential expression analysis 
+Here we download the latest  expression data  from Synapse and calculate the differentially expressed genes for various conditions.
+
+## Synapse login and query
+We need to downlood the data and add shuffle the parameters a bit
+
+```{r query synapse for data}
+
+res<-MXM::synapseLogin()
+
+#' synapse_query_and_save
+#' downloads file to CSV
+synapse_query_and_save <- function(synTableID) {
+    tab<-MXM::querySynapseTable(synTableID)
+    tab$RNASeq<-unlist(tab$RNASeq)
+    #filter for existant RNAseq files
+    tab<-subset(tab,RNASeq!='NaN')
+ #   results <- MXM::querySynapseTable(toString(sprintf('select %s from %s where RNASeq IS NOT NULL',synParams,synTableID)
+  #  syn.df <- as.data.frame(results)
+  #  return(syn.df)
+    return(tab)
+    # OPTIONAL local save
+    # write.table(syn.df,file=synTableFN,sep=',')
+    # results <- read.table(synTableFN,sep=',',header=TRUE)
+    # results <- results[!(is.na(results$RNASeq) | results$RNASeq==""), ]                                      
+}
+
+
+
+syn.df <- synapse_query_and_save('syn24215021')
+head(syn.df)
+```
+
+Now we have the clinical data and can modify it to add variables where we need them
+
+
+## Clinical data formats
+This is where we reformat the clinical data to work with the differential expression downstream. 
+
+```{r clinical data}
+#' synapse_table_format
+#' formats synapse data for analysis 
+synapse_table_format <- function(df) {
+    #Modify table naming for data subsetting
+    names(df)[names(df) == "Clinical Status"] <- "Clinical.Status"
+    df$Clinical.Status = gsub("NED","Alive",df$Clinical.Status)
+    df$Clinical.Status = gsub("Alive with metastatic disease","Alive",df$Clinical.Status)
+    df$Clinical.Status = gsub("Unknown",NA,df$Clinical.Status)
+    df$UpdatedTissueQuality <- df$MicroTissueQuality
+    df$UpdatedTissueQuality <- gsub("Marginal", "Good",df$UpdatedTissueQuality)
+    df$Age <- ifelse(df$Age < 19,  sub('[0-9]*', 'Under.and.18',df$Age), gsub('[0-9]*', 'Over.18',df$Age))
+    df$Sample = gsub(" ",".",df$Sample)
+    df$Sample = gsub("-",".",df$Sample)
+    
+    df<-apply(df,2,unlist)
+    df[df=='NaN']<-NA
+    return(as.data.frame(df))
+}
+
+df <- synapse_table_format(syn.df)
+
+#Get IDs from synapse table
+synIDs <- df$RNASeq
+sampleIDs <- data.frame(sample=df$Sample,synId=synIDs)
+#names(sampleIDs)<-synIDs
+
+#create factors of clinical variables in synapse table
+group <- factor(df$Clinical.Status)
+sex <- factor(df$Sex)
+age <- factor(df$Age)
+qual <- factor(df$UpdatedTissueQuality)
+
+#generate clinical variable partitions for heatmap legend
+var.ID <- data.frame(group)
+var.ID$sex <- sex
+var.ID$age <- age
+var.ID$qual <- factor(unlist(df$MicroTissueQuality))
+rownames(var.ID) <- sampleIDs$sample
+
+#split df by subsets
+group.split <- split(var.ID,var.ID$group)
+age.split <- split(var.ID,var.ID$age)
+sex.split <- split(var.ID,var.ID$sex)
+qual.split <- split(var.ID,var.ID$qual)
+
+print(var.ID)
+```
+
+
+
+
+
+##RNASeq data collection
+Now we can collect the RNA seq data
+
+```{r RNAseq processing}
+#'synget_quants_and_format
+#' gets quantities and formatsxs
+synget_quants_and_format <- function(df) {
+    entity <- lapply(df$RNASeq, function(x) {
+        file<-res$get(x)
+        
+    #for (x in 1:length(sampleIDs)) { 
+    #    file <- entity[[x]]
+        qnt.table <- read.table(file$path,header=T)
+        fn <- x#sampleIDs[x]
+        edb <- EnsDb.Hsapiens.v86
+        ensembl.trans <- qnt.table$Name
+        TXNAME <- gsub("\\..*","",ensembl.trans)
+        trans.table <- cbind(qnt.table,TXNAME)
+        geneIDs <- ensembldb::select(edb, keys=TXNAME, keytype = "TXNAME", columns = c("GENEID", "GENENAME"))
+        master.table <- left_join(geneIDs,trans.table,by=c("TXNAME"))%>%
+            dplyr::select(TXID,GENEID,GENENAME,TPM,NumReads)# %>%
+            #dplyr::rename(x=NumReads)
+        names(master.table)[4] <- sprintf("%s.TPM",fn)
+        names(master.table)[5] <- sprintf("%s.Count",fn)
+        assign(sprintf('mt.%s',x),master.table)
+        master.table
+    })
+  final.table<-entity%>%purrr::reduce(inner_join,by=c('TXID','GENEID','GENENAME'))
+  
+    return(final.table)
+}
+
+final.table <- synget_quants_and_format(df)
+name.map<-final.table%>%select(TXID,GENENAME)%>%distinct()
+
+filter_by_low_expressed_genes <- function(final.table) {
+    #Filter lowly expressed genes
+    sum.table <- final.table %>% mutate(sum = rowSums(.[grep("TPM", names(.))]))# %>% select(-(location:13))
+    keep<-sum.table[!(sum.table$sum<1),]
+    row.names(keep) <- keep$TXID
+    counts <- keep %>% dplyr:: select(contains("Count"))
+    names(counts) <- sapply(strsplit(names(counts), ".C"), '[', 1)
+    return(counts)
+}
+
+
+counts <- filter_by_low_expressed_genes(final.table)
+print(head(counts))
+```
+
+Now we have the RNA seq data and can compute the differential analysis
+
+```{r diffex analysis}
+#' design_matrix_and_limma_analysis
+#' 
+design_matrix_and_limma_analysis <- function(counts) {
+    # create data structure to hold counts and subtype information for each sample.
+    dge <- DGEList(counts)
+    dge <- calcNormFactors(dge)
+
+    # Specify a design matrix without an intercept term
+    design <- model.matrix(~ group + qual + age + sex)
+
+    # Clean up column names of design matrix
+   # colnames(design) <- gsub('group','',colnames(design))
+  #  colnames(design) <- gsub('sex','',colnames(design))
+  #  colnames(design) <- gsub('age','',colnames(design))
+  #  colnames(design) <- gsub('qual','',colnames(design))
+   # names <- row.names(design)
+  #  names <- as.numeric(gsub("[^0-9.]", "", names))
+    row.names(design) <- colnames(counts)[as.numeric(rownames(design))] #sampleIDs[names]
+    #attr(design, "row.names") <- subset.names
+
+    # Limma voom model fitting
+    v <- voom(dge[,row.names(design)],design,plot=TRUE)
+
+    # Limma fit analysis
+    fit <- lmFit(v, design)
+    #fit <- contrasts.fit(fit, contrasts=contr.matrix)
+    fit <- eBayes(fit,trend=TRUE)
+    return(list(dge=dge,fit=fit))
+}
+
+
+mla <- design_matrix_and_limma_analysis(counts)
+fit<-mla$fit
+print(summary(decideTests(fit)))
+dge<-mla$dge
+```
+
+## Visualize most differentially expressed genes
+Here we can dive into the limma analysis and extract genes of interest
+
+```{r differentially expressed gene vis}
+
+#' get_topGenes_and_plot_heatmap is a function that plots a particular coefficient in
+#' heatmap
+get_topGenes_and_plot_heatmap <- function(fit,dge,coefname,heatmapFN) {
+
+    #summary(decideTests(fit))
+        
+    topGenes <- topTable(fit,coef=c(coefname),p.value=0.01,number=Inf,lfc=1)
+    
+    de.out <- rownames_to_column(topGenes,var='TXID')
+    
+    #gather read counts that are normalized to 1 via calcnormfactors()
+    norm.counts <- dge$counts#[,subset.names]
+    norm.counts <- as.data.frame(norm.counts)
+    norm.counts <- tibble::rownames_to_column(norm.counts,var='TXID')
+    
+    #combined differentially expressed txids, genenames, and normalized counts
+    #de.tx <- select(de.out,TXID)
+    #gene.id <- gene_logFC %>% select(TXID,GENENAME)
+    de.table <- norm.counts%>%
+        subset(TXID%in%de.out$TXID)%>%
+        left_join(name.map,by="TXID")%>%
+        pivot_longer(cols=2:ncol(norm.counts),names_to='synId',values_to='counts')%>%
+        left_join(sampleIDs)%>%
+        select(-c(synId,TXID))%>%
+        group_by(sample,GENENAME)%>%
+        mutate(counts=mean(counts))%>%
+        pivot_wider(names_from=sample,values_from=counts,values_fn=list(counts=mean))%>%
+        tibble::column_to_rownames('GENENAME')
+    #de.table <- de.table[!is.na(de.table$GENENAME),]
+    #de.table <- de.table[!duplicated(de.table$GENENAME), ]
+    #de.table <- tibble::remove_rownames(de.table)
+    #de.table <- tibble::column_to_rownames(de.table,var = 'GENENAME')
+    
+    #h.t <- sapply(de.table,as.numeric)
+    #h.t <- as.matrix(h.t)
+
+    #rownames(h.t) = rownames(de.table)
+    #h.t <- h.t[rowSums(h.t)>0,]
+
+    # Convert counts to zScore of relevant genes
+    cal_z_score <- function(x){(x - mean(x)) / sd(x)}
+    data_subset_norm <- t(apply(de.table, 1, cal_z_score))
+
+    # Pairwise correlation between samples (columns)
+  #  cols.cor <- cor(de.table, use = "pairwise.complete.obs", method = "pearson")
+    # Pairwise correlation between rows (genes)
+  #  rows.cor <- cor(t(de.table), use = "pairwise.complete.obs", method = "pearson")
+    
+    # Plot heatmap
+    pheatmap(data_subset_norm,
+         show_rownames=FALSE, 
+         annotation_col=var.ID,
+         clustering_method = 'ward.D2',
+         clustering_distance_cols = 'correlation',
+         clustering_distance_rows = 'correlation',
+         filename=heatmapFN)
+    #dev.off()
+    pheatmap(data_subset_norm,
+         show_rownames=FALSE, 
+         annotation_col=var.ID,
+         clustering_method = 'ward.D2',
+         clustering_distance_cols = 'correlation',
+         clustering_distance_rows = 'correlation')
+    return(topGenes)
+}
+
+topGenes.qual <- get_topGenes_and_plot_heatmap(fit,dge,'qualPoor','DE_tissueCulture.pdf')
+topGenes.dead <- get_topGenes_and_plot_heatmap(fit,dge,'groupDeceased','DE_aliveDead.pdf')
+topGenes.sex <- get_topGenes_and_plot_heatmap(fit,dge,'sexMale','DE_sex.pdf')
+topGenes.age <- get_topGenes_and_plot_heatmap(fit,dge,'ageUnder.and.18','DE_age.pdf')
+
+```
+
+## Functional enrichment analysis
+
+```{r functional enrichment}
+do_gseGO_of_topGenes <- function(fit, dge,coefname, rankedlistFN, gseoutFN) {
+    topGenes <- topTable(fit,coef=c(coefname),number=Inf)%>%
+      tibble::rownames_to_column("TXID")%>%
+      left_join(name.map)
+    
+    geneSum<-topGenes%>%
+      group_by(GENENAME)%>%
+      summarize(maxfc=logFC[which(abs(logFC)==max(abs(logFC)))])%>%
+      arrange(desc(maxfc))
+    
+    #sum.table<-dge$counts%>%as.data.frame()%>%
+    #  tibble::rownames_to_column('TXID')
+  #  gene_logFC <- left_join(tt,sum.table,by="TXID")
+    #gene_logFC <- gene_logFC[!duplicated(gene_logFC$GENENAME), ]
+  #  ranked.gene.list <- gene_logFC %>% 
+  #      dplyr::select(GENENAME,logFC) %>%
+  #      tibble::remove_rownames() %>%
+  #      column_to_rownames(var="GENENAME")
+
+    #write.table(ranked.gene.list,rankedlistFN,sep='\t')
+
+    geneList = geneSum$maxfc
+    #geneList = geneList[,1]
+    names(geneList) = geneSum$GENENAME#rownames(ranked.gene.list)
+    #geneList <- sort(geneList, decreasing = TRUE)
+
+    gse = gseGO(geneList=geneList,ont="BP",keyType="SYMBOL",
+                OrgDb=org.Hs.eg.db,pvalueCutoff = 0.1,eps=0) #pAdjustMethod = 'BH',
+    write.table(gse,toString(gseoutFN),sep='\t')
+    return(gse)
+}
+
+
+
+
+plot_gseGO <- function(gseout,ClinVar) {
+    res <- as.data.frame(gseout)
+    prefix <- ClinVar
+    all_gseaGO<-res %>% 
+      dplyr::rename(pathway = 'Description') %>% 
+      arrange(NES) %>% 
+      dplyr::mutate(status = case_when(NES > 0 ~ "Up",
+                                       NES < 0 ~ "Down"),
+                    status = factor(status, levels = c("Up", "Down"))) %>% 
+        group_by(status) %>% 
+      top_n(20, wt = abs(NES)) %>% 
+      ungroup() %>% 
+      ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
+      geom_bar(stat='identity', aes(fill=status)) +
+      scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
+      coord_flip() +
+      theme_minimal() +
+      theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y=element_text(size = 14),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") +
+    labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
+    ggtitle(paste('All',prefix))
+    print(all_gseaGO)
+    ggsave(paste0(prefix,"_gseGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
+
+    #enrichplot::ridgeplot(gse,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("GO Terms for ",prefix))
+    #ggplot2::ggsave(paste0(prefix,'_GO.pdf'),width=10,height=10)
+
+    df<-as.data.frame(gseout)%>%mutate(Condition=prefix)
+}
+
+
+gseout <- do_gseGO_of_topGenes(fit, dge,'sexMale','ranked.gene.list.Male.tsv', 'gsego_Male.tsv')
+
+plot_gseGO(gseout,'sexMale')
+gseout<- do_gseGO_of_topGenes(fit,dge,'ageUnder.and.18','ranked.gene.list.age.tsv','gsego_age.tsv')
+plot_gseGO(gseout,'ageUnder.and.18')
+gseout <- do_gseGO_of_topGenes(fit, dge,'groupDeceased','ranked.gene.list.death.tsv', 'gsego_death.tsv')
+plot_gseGO(gseout,'groupDeceased')
+
+gseout <- do_gseGO_of_topGenes(fit, dge,'qualPoor','ranked.gene.list.qual.tsv', 'gsego_qual.tsv')
+plot_gseGO(gseout,'qualPoor')
+
+```
+Now the analysis is complete, we can upload to Synapse
