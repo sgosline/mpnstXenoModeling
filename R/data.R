@@ -25,25 +25,8 @@ loadPDXData<-function(){
                   data.frame(newMutData,tranche='newData'))
   
   
-  ##query drug screen data based on files in `PDX Drug Data` column
-  csvs = syn$tableQuery(paste0("SELECT id,individualID FROM syn11678418 WHERE \"dataType\" = 'drugScreen'"))$asDataFrame()
-  ids<-csvs$id
-  indiv<-csvs$individualID
-  names(indiv)<-ids
-  res=do.call(rbind,lapply(names(indiv),function(x)
-  { 
-    read.csv(syn$get(x)$path)%>%
-      dplyr::select(model.id='individual_id',specimen_id,
-                    drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
-      dplyr::mutate(individualID=indiv[[x]])
-  }))
-  res$drug <-sapply(res$drug,function(x) gsub('Doxorubinsin','doxorubicin',
-                                              gsub('N/A','vehicle',x)))
-  nas=which(res$model.id=="")
-  res$individualID<-sapply(res$individualID,function(x) gsub('2-','JHU',x))
-  if(length(nas)>0)
-    res<-res[-nas,]
-  drugData<<-res
+  drugData<<-getPdxDrugData()
+  ##add another function to get microtissue drug data
     
   #now get RNA-Seq
   #update to use `RNAseq` column
@@ -54,20 +37,73 @@ loadPDXData<-function(){
  
 }
 
+#getPdxDrugDAta - getr's dru
+#' @export
+#' @param 
+#' @return
+getPdxDrugData<-function(){
+  ##query drug screen data based on files in `PDX Drug Data` column
+  csvs = syn$tableQuery(paste0("SELECT id,individualID FROM syn11678418 WHERE \"dataType\" = 'drugScreen'"))$asDataFrame()
+  ##now we get the new data, from WUSTL and JHU
+  exf <- syn$tableQuery('SELECT id,individualID,fileFormat FROM syn21993642 WHERE "dataType" = \'drugScreen\'  AND "assay" IS NULL')$asDataFrame()
+  
+  csvs <- exf%>%
+    subset(fileFormat=='csv')%>%
+    dplyr::select(id,individualID)%>%
+    rbind(csvs)
+  
+  
+  ids<-csvs$id
+  indiv<-csvs$individualID
+  names(indiv)<-ids
+  res=do.call(rbind,lapply(names(indiv),function(x)
+  { 
+    read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')%>%
+      dplyr::select(model.id='individual_id',specimen_id,
+                    drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
+      dplyr::mutate(individualID=indiv[[x]])
+  }))
+  res$drug <-sapply(res$drug,function(x) gsub('Doxorubinsin','doxorubicin',
+                                              gsub('N/A','vehicle',x)))
+  nas=which(res$model.id=="")
+  res$individualID<-sapply(res$individualID,function(x) gsub('2-','JHU',x))
+  if(length(nas)>0)
+    res<-res[-nas,]
+  
+  
+  exf<-subset(exf,fileFormat=='xlsx')
+  ids<-exf$id
+  indiv<-exf$individualID
+  names(indiv)<-ids
+  res=do.call(rbind,lapply(names(indiv),function(x)
+  { 
+    readxl::read_xlsx(syn$get(x)$path)%>%
+      dplyr::select(model.id='individual_id',specimen_id,
+                    drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
+      dplyr::mutate(individualID=indiv[[x]])
+  }))
+  
+  res
+  
+}
 
 
 #'getPdxRNAseqData gets all rna seq counts for xenografts
 #'#'@export
 #'@param syn synapse item from
 getPdxRNAseqData<-function(syn){
-  wu.rnaSeq=syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
-  jh.rnaSeq=syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()
-
-  com.cols=intersect(colnames(wu.rnaSeq),colnames(jh.rnaSeq))%>%
+#  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
+  jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
+    subset(individualID=='2-002')
+  jh.rnaSeq$individualID<-'JHU 2-002'
+  #updated 6/8
+  new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
+  
+  com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
     setdiff(c("ROW_ID","ROW_VERSION"))
-  count.tab=rbind(wu.rnaSeq[,com.cols],jh.rnaSeq[,com.cols])
-  count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
-  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
+  count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
+ # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
+#  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
 
   
   return(count.tab)
