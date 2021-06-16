@@ -20,8 +20,7 @@ library(MXM)
 loadPDXData()
 
 head(drugData)
-all.pdxs<<-formatDataToXeva()
-
+all.pdxs<<-MXM::formatDataToXeva()
 
 
 ```
@@ -35,7 +34,9 @@ We can now get all the values for all the combinations.
 
 ```{r drugStats, echo=FALSE,warning=FALSE}
 library(ggplot2)
-pat.drug<-MXM::getAllDrugStats(drugData)
+pat.drug<-drugData%>%rename(individualID='Sample')%>%
+    MXM::getAllDrugStats(.)
+
 DT::datatable(pat.drug)
 pat.drug%>%tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
 ```
@@ -47,7 +48,7 @@ Now we can evaluate any correlates in the data
 library(ggplot2)
 library(ggridges)
 
-topMuts=filter(mutData,AD>0)%>%
+topMuts=filter(varData,AD>0)%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     filter(nSamps>1)%>%
@@ -55,7 +56,7 @@ topMuts=filter(mutData,AD>0)%>%
 
 topMuts<-union("TP53",topMuts$Symbol)
 
-drug.gene.cors<-mutData%>%
+drug.gene.cors<-varData%>%
   filter(Symbol%in%topMuts)%>%
     drugMutationsCor(pat.drug=pat.drug,.)
 

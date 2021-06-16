@@ -65,7 +65,8 @@ computeGRI<-function(){
 #' @description Function that calculates all stats for each drug/patient combo
 #' @export
 statsForDrugPatient<-function(indivId,treat){
-  ptab<-subset(drugData,individualID==indivId)
+  print(paste(indivId,treat))
+  ptab<-subset(drugData,Sample==indivId)
   
   ttab<-subset(ptab,drug==treat)
   ctab<-subset(ptab,drug=='vehicle')

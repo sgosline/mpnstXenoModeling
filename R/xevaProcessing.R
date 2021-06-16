@@ -22,6 +22,7 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
   
   assayData = tidied.tb%>%
     dplyr::select(Symbol,specimenID,!!featureVar)%>%
+    subset(!is.na(Symbol))%>%
     tidyr::pivot_wider(names_from='specimenID',values_from=featureVar,values_fn=vfn,values_fill=vfi)%>%
     tibble::column_to_rownames('Symbol')%>%
     as.matrix()
@@ -44,25 +45,20 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
 formatDataToXeva<-function(){
   require(Xeva)
   require(dplyr)
-  drugDat = #subset(drugData,individualID==specimenId)%>%
-    drugData%>%
-    dplyr::select(model.id,patient.id='individualID',drug,volume,time)%>%
-    #   dplyr::mutate(model.id=as.character(model.id))%>%
-    dplyr::mutate(model.id=stringr::str_replace(model.id,'_[0-9]',''))%>%
-    rowwise()%>%
-    mutate(batch=paste(patient.id,drug))%>%ungroup()%>%
-    mutate(volume=as.numeric(volume))%>%
-    subset(!is.na(volume))
+
+  drugDat<-drugData
+  controls=c('vehicle1','vehicle2','vehicle3')
+  drugD = subset(drugDat,!drug%in%controls)
+  contD = subset(drugDat,drug%in%controls)
+  #contD$drug=rep('control',nrow(contD))
   
-  drugD = subset(drugDat,drug!='vehicle')
-  contD = subset(drugDat,drug=='vehicle')
   
   expDesign =lapply(unique(drugD$batch),function(x){
-    pat_drug=unlist(strsplit(x,split=' '))
+    pat_drug=unlist(strsplit(x,split='_',fixed=T))
     treats = subset(drugD,batch==x)%>%
       dplyr::select(model.id)%>%
       unique()
-    conts = subset(contD,patient.id==pat_drug[1])%>%
+    conts = subset(contD,Sample==pat_drug[1])%>%
       dplyr::select(model.id)%>%
       unique()
     
@@ -70,15 +66,15 @@ formatDataToXeva<-function(){
          treatment=as.character(treats$model.id),
          control=as.character(conts$model.id))})
   
-  model=drugDat%>%dplyr::select(model.id,patient.id)%>%
+  model=drugDat%>%dplyr::select(model.id,patient.id='Sample')%>%
     distinct()%>%
     dplyr::mutate(tissue='MPNST')%>%
     dplyr::mutate(tissue.name='Malignant Peripheral Nerve Sheath Tumor')%>%
     ungroup()
   
   experiment=rbind(drugD,contD)%>%
-    mutate()%>%
-    dplyr::select(-c(batch,patient.id))
+    #mutate()%>%
+    dplyr::select(-c(batch,Sample))
   
   drug = dplyr::select(experiment,drug)%>%distinct()%>%
     dplyr::mutate(treatment.type='single')%>%
@@ -89,21 +85,23 @@ formatDataToXeva<-function(){
   rnaDat = rnaSeq%>%distinct()%>%
     tidiedTableToExpressionSet()
   
-  mutDat = mutData%>%tidiedTableToExpressionSet(.,featureVar='AD')
+  mutDat = varData%>%tidiedTableToExpressionSet(.,featureVar='AD')
   
-  wesMap<-mutData%>%
-    dplyr::select(patient.id='individualID',biobase.id='specimenID')%>%
+  wesMap<-varData%>%
+    dplyr::select(sample='individualID',biobase.id='specimenID')%>%
     distinct()%>%
     mutate(mDataType='mutation')
   
   rnaMap<-rnaSeq%>%
-    dplyr::select(patient.id='individualID',biobase.id='specimenID')%>%
+    dplyr::select(sample='individualID',biobase.id='specimenID')%>%
     distinct()%>%
     mutate(mDataType='RNASeq')
   
-  modToBiobaseMap<-drugDat%>%select(model.id,patient.id)%>%
+  modToBiobaseMap<-drugDat%>%
+    dplyr::select(model.id,sample='Sample')%>%
     distinct()%>%
-    left_join(rbind(rnaMap,wesMap),by='patient.id')
+    left_join(rbind(rnaMap,wesMap),by='sample')%>%
+    subset(!is.na(biobase.id))
   
   print(modToBiobaseMap)
   xeva.set = createXevaSet(name="MPNST PDX Data", 

@@ -21,7 +21,6 @@ For this project we use the `Xeva` xenograft visualization and analysis tool to 
 ```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
 
 MXM::loadPDXData()
-
 all.pdxs<<-formatDataToXeva()
  
 
@@ -33,14 +32,16 @@ We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the 
 batches=batchInfo(all.pdxs)
 
 plots <-lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
-mods <-sapply(batches,function(x) unlist(strsplit(x,split=' '))[1])
+mods <-sapply(batches,function(x) unlist(strsplit(x,split='_'))[1])
 
-pdf('allTumorVolume.pdf',height=12,width=8)
-cowplot::plot_grid(plotlist=plots,nrow=length(unique(mods)))
-dev.off()
-
+pdf('allTumorVolume.pdf',height=8,width=12)
 lapply(unique(mods),function(x)
   cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+
+dev.off()
+lapply(unique(mods),function(x)
+  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+
 
 ```
 
