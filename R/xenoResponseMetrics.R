@@ -66,10 +66,10 @@ computeGRI<-function(){
 #' @export
 statsForDrugPatient<-function(indivId,treat){
   print(paste(indivId,treat))
-  ptab<-subset(drugData,Sample==indivId)
+  ptab<-subset(drugData,Sample=indivId)
   
   ttab<-subset(ptab,drug==treat)
-  ctab<-subset(ptab,drug=='vehicle')
+  ctab<-subset(ptab,drug%in%c('vehicle1','vehicle2','vehicle3'))
   
   nzt<-subset(ttab,time>10)%>%subset(volume>0)
   nzc<-subset(ctab,time>10)%>%subset(volume>0)
@@ -93,7 +93,7 @@ statsForDrugPatient<-function(indivId,treat){
 #' @export
 getAllDrugStats<-function(drug.tab){
   pat.drug<-drug.tab%>%
-    subset(drug!='vehicle')%>%
+    subset(!drug%in%c('vehile1','vehicle2', 'vehicle3'))%>%
     dplyr::select(c(drug,individualID))%>%
     distinct()
 

@@ -54,6 +54,7 @@ plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
   library(ggplot2)
   library(ggridges)
   
+
   plotGeneDrug<-function(tab){
     sym=tab$Symbol[1]
     drug=tab$drug[1]
@@ -65,7 +66,7 @@ plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
   }
   
  
-  plots<-drugGeneCors%>%filter(abs(corVal)>0.8)%>%
+  plots<-drugGeneCors%>%filter(abs(corVal)>minCor)%>%
     group_by(Symbol,drug,Metric)%>%
     group_map(~ plotGeneDrug(.x),.keep=TRUE)
   plots

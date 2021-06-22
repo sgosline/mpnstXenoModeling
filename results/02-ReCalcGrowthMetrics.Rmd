@@ -1,7 +1,7 @@
 ---
 title: "02-RecalcGrowthMetrics"
 author: "Sara Gosline"
-date: "6/5/2020"
+date: "6/21/2021"
 output: html_document
 ---
 
@@ -17,11 +17,10 @@ Here we will calculate three basic response metrics from the PDX data and then c
 ```{r, echo=FALSE, warning=FALSE}
 library(MXM)
 #this function simply loads all the data into memory
-loadPDXData()
+MXM::loadPDXData()
 
 head(drugData)
-all.pdxs<<-MXM::formatDataToXeva()
-
+#all.pdxs<<-MXM::formatDataToXeva()
 
 ```
 
@@ -38,7 +37,13 @@ pat.drug<-drugData%>%rename(individualID='Sample')%>%
     MXM::getAllDrugStats(.)
 
 DT::datatable(pat.drug)
-pat.drug%>%tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
+write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
+pat.drug%>%
+    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
+    ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
+
+ pat.drug%>%
+     tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=Metric,y=Value))+geom_bar(aes(fill=drug),position='dodge',stat='identity')+facet_grid(~individualID)+scale_fill_viridis_d()
 ```
 
 Now we can evaluate any correlates in the data
@@ -49,6 +54,7 @@ library(ggplot2)
 library(ggridges)
 
 topMuts=filter(varData,AD>0)%>%
+  subset(!is.na(Symbol))%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     filter(nSamps>1)%>%
@@ -56,9 +62,21 @@ topMuts=filter(varData,AD>0)%>%
 
 topMuts<-union("TP53",topMuts$Symbol)
 
-drug.gene.cors<-varData%>%
-  filter(Symbol%in%topMuts)%>%
-    drugMutationsCor(pat.drug=pat.drug,.)
+other.cols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical.Status')
+
+  
+  vd<-varData%>%
+    filter(Symbol%in%topMuts)%>%
+    mutate(AD=as.numeric(AD))%>%
+    tidyr::separate(specimenID,into=c('patient','sample'),sep='_',fill="right")%>%
+    filter(sample!='patient')%>%
+    dplyr::select(-c(patient,sample,other.cols))%>%
+    tidyr::pivot_wider(names_from=individualID,values_from=AD,values_fn=list(AD=mean),
+                       values_fill=list(AD=0.0))%>%
+    tidyr::pivot_longer(-Symbol,names_to="individualID",values_to="AD")
+
+drug.gene.cors<-vd%>%
+  MXM::drugMutationsCor(pat.drug=pat.drug,.)
 
 ##now get topMuts again
 updatedMuts<-drug.gene.cors%>%
@@ -73,8 +91,8 @@ updatedMuts<-drug.gene.cors%>%
 ggplot(drug.gene.cors,aes(x=corVal))+geom_density_ridges(aes(fill=Metric,y=drug,alpha=0.8))+scale_fill_viridis_d()
 
 indivPlots<-drug.gene.cors%>%
-  filter(Symbol%in%updatedMuts$Symbol)%>%
-  plotTumorGrowthCorrelations(minCor=0.9)
+  #filter(Symbol%in%updatedMuts$Symbol)%>%
+  plotTumorGrowthCorrelations(minCor=0.2)
 
 cowplot::plot_grid(plotlist=indivPlots)
 ggsave('allMUtCors.pdf',width=12,height=12)
@@ -84,7 +102,7 @@ Now that we have the correlation values, which gene mutations are correlated wit
 
 ```{r plot gene ADs again}
 library(pheatmap)
-p.order<-pat.drug%>%subset(drug=='doxorubicin')%>%arrange(TGI)%>%dplyr::select(individualID)
+p.order<-pat.drug%>%subset(drug=='everolimus')%>%arrange(TGI)%>%dplyr::select(individualID)
 
 tgi<-pat.drug%>%dplyr::select(drug,individualID,TGI)%>%tidyr::pivot_wider(values_from='TGI',names_from='drug')%>%tibble::column_to_rownames('individualID')
 auc<-pat.drug%>%dplyr::select(drug,individualID,AUC)%>%tidyr::pivot_wider(values_from='AUC',names_from='drug')%>%tibble::column_to_rownames('individualID')
@@ -96,5 +114,5 @@ mmat<-drug.gene.cors%>%
   tidyr::pivot_wider(names_from=individualID,values_from=AD)%>%
   tibble::column_to_rownames('Symbol')
 p.order<-intersect(p.order$individualID,colnames(mmat))
-pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,annotation_col=auc,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
+#pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,annotation_col=auc,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
 ```

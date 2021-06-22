@@ -99,21 +99,24 @@ No clearly correlated genes with the drug response, according to a linear model.
 
 Now we can look at the mutational data in more detail
 ```{r mut data,echo=FALSE}
- mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
-  dplyr::select(-c(individualID,tranche))%>%
+ mutMat<-varData%>%mutate(AD=as.numeric(AD))%>%
+  dplyr::select(specimenID,Symbol,AD)%>%#,tranche))%>%
+  subset(Symbol!="")%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
                      values_fill=0.0)%>%
     tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
-  annotes<-mutData%>%
-      dplyr::select(specimenID,tranche)%>%
-    tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
+  ssinds=grep('_',varData$specimenID)
+  varData$specimenID[-ssinds]<-paste(varData$specimenID[-ssinds],'_',sep='')
+  annotes<-varData%>%
+      dplyr::select(specimenID)%>%#,tranche)%>%
+    tidyr::separate(specimenID,into=c('patient','sample'),sep='_',remove=F,fill='left')%>%
     distinct()%>%
     tibble::column_to_rownames('specimenID')%>%
     filter(sample!='normal')
-  
-  mutMat<-mutMat[,rownames(annotes)]
+
+  mutMat<-mutMat[,intersect(rownames(annotes),colnames(mutMat))]
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
  
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
@@ -123,14 +126,16 @@ library(pheatmap)
 
 We then select for those mutations that exist in more than one sample. And then add back TP53.
 ```{r main mutations,echo=FALSE}
-topMuts=filter(mutData,AD>0)%>%
+topMuts=filter(varData,AD>0)%>%
+  subset(!is.na(Symbol))%>%
+  subset(Symbol!="")%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     filter(nSamps>1)%>%
     dplyr::select(Symbol)
 topMuts<-union("TP53",topMuts$Symbol)
 
- pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
+ pheatmap(log10(0.01+mutMat[topMuts,rownames(annotes)]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
  pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2', clustering_distance_cols = 'correlation')
 
 ```
@@ -141,6 +146,8 @@ We can also plot how the genes are expressed
 
 ```{r mutated gene expression,echo=FALSE,warning=FALSE}
  rnamat<-rnaSeq%>%
+  subset(!is.na(Symbol))%>%
+  subset(!is.na(totalCounts))%>%
   dplyr::select(-c(individualID,species,sex,zScore,experimentalCondition))%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,
                      values_fn=list(totalCounts=mean),values_fill=0.0)%>%
@@ -153,16 +160,17 @@ rownames(rnaSeq)<-c()
     tibble::column_to_rownames('specimenID')
 
  #topMuts<-setdiff(topMuts,'TTN')
-pheatmap(log10(0.01+rnamat[topMuts,]),
+pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
-         annotation_col = annotes,
+       #  annotation_col = annotes,
          cellheight=10,
          labels_col=rep("",ncol(mutMat)))
- pheatmap(log10(0.01+rnamat[topMuts,]),
+
+ pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
-         annotation_col = annotes,
+        # annotation_col = annotes,
          cellheight=10,
          labels_col=rep("",ncol(mutMat)),filename='countsOfMutatedGenes.pdf')
  
