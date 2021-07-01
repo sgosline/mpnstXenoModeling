@@ -46,11 +46,13 @@ computeAUC<-function(treatedTab,contTab){
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%
          group_by(model.id)%>%
         group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
+  
   cauc=contTab%>%mutate(volume=as.numeric(volume))%>%
     group_by(model.id)%>%
     dplyr::select(time,volume)%>%
     group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
   #sprint(tauc)
+  
   ret= (mean(as.numeric(unlist(cauc)),na.rm=T)-mean(as.numeric(unlist(tauc)),na.rm=T))/mean(as.numeric(unlist(cauc)),na.rm=T)
   return(ret)
   }
@@ -69,7 +71,7 @@ statsForDrugPatient<-function(indivId,treat){
   ptab<-subset(drugData,Sample=indivId)
   
   ttab<-subset(ptab,drug==treat)
-  ctab<-subset(ptab,drug%in%c('vehicle1','vehicle2','vehicle3'))
+  ctab<-subset(ptab,drug%in%c('vehicle','vehicle1','vehicle2','vehicle3'))
   
   nzt<-subset(ttab,time>10)%>%subset(volume>0)
   nzc<-subset(ctab,time>10)%>%subset(volume>0)
@@ -93,7 +95,7 @@ statsForDrugPatient<-function(indivId,treat){
 #' @export
 getAllDrugStats<-function(drug.tab){
   pat.drug<-drug.tab%>%
-    subset(!drug%in%c('vehile1','vehicle2', 'vehicle3'))%>%
+    subset(!drug%in%c('vehicle','vehile1','vehicle2', 'vehicle3','control','vehicle','N/A',NA))%>%
     dplyr::select(c(drug,individualID))%>%
     distinct()
 

@@ -69,8 +69,8 @@ dataFromSynTable<-function(tab,syn,colname){
       }
       else
         tab<-readxl::read_xls(path)
-      print(head(tab))
-      tab<-tab[,schemas[[colname]]]
+     # print(head(tab))
+      tab<-tab[,schemas[[colname]]]%>%mutate(synid=x)
       #print(head(tab))
       data.frame(cbind(tab,other.vals))
     }))
@@ -85,36 +85,53 @@ dataFromSynTable<-function(tab,syn,colname){
 fixDrugData<-function(drugData){
   drugDat = #subset(drugData,individualID==specimenId)%>%
     drugData%>%
-    dplyr::select(model.id='individual_id',Sample,drug,volume,time,specimen_id)%>%
+    dplyr::select(model.id='individual_id',Sample,drug,volume,time,specimen_id,batch='synid')%>%
     #dplyr::select(individual_id,drug='compound_name',volume='assay_value',time='experimental_time_point')%>%
     # dplyr::mutate(model.id=as.character(model.id))%>%
     # dplyr::mutate(model.id=stringr::str_replace(model.id,'_[0-9]',''))%>%
-    rowwise()%>%
-    mutate(batch=paste(Sample,drug,sep='_'))%>%ungroup()%>%
+    #rowwise()%>%
+    mutate(drug=tolower(drug))%>%
+   # rename(batch=synid)%>%#paste(Sample,drug,sep='_'))%>%ungroup()%>%
     mutate(volume=as.numeric(volume))%>%
     subset(!is.na(volume))
   
+  ##these files are supposed to be in the same batch -each file is doxo, everlo, vehicle
+  b1<-drugDat$batch%in%c("syn22024434", "syn22024435","syn22024436")
+  b2<-drugDat$batch%in%c('syn22024430','syn22024431','syn22024432')
+  b3<-drugDat$batch%in%c('syn22024439','syn22024440','syn22024441')
+  b4<-drugDat$batch%in%c('syn22024442','syn22024443','syn22024444')
+  b5<-drugDat$batch%in%c("syn22018368","syn22018369","syn22018370")
+  b6<-drugDat$batch%in%c('syn22024461','syn22024462','syn22024463')
+  
+  drugDat$batch[b1]<-'batch1'
+  drugDat$batch[b2]<-'batch2'
+  drugDat$batch[b3]<-'batch3'
+  drugDat$batch[b4]<-'batch4'
+  drugDat$batch[b5]<-'batch5'
+  drugDat$batch[b6]<-'batch6'
   ##update the control drug name
   #%in%c(NA,'N/A','control')
-  inds0 = grep('vehicle',drugDat$drug)
-  print(inds0)
-  drugDat$drug[inds0]<-'vehicle0'
-  inds1 = which(is.na(drugDat$drug))
-  drugDat$drug[inds1]='vehicle1'
-  inds2 = grep('N/A',drugDat$drug)
-  drugDat$drug[inds2]='vehicle2'
-  inds3 = grep("control",drugDat$drug)
-  drugDat$drug[inds3]='vehicle3'
+  # inds0 = grep('vehicle',drugDat$drug)
+  # print(inds0)
+  # drugDat$drug[inds0]<-'vehicle0'
+  # inds1 = which(is.na(drugDat$drug))
+  # drugDat$drug[inds1]='vehicle1'
+  # inds2 = grep('n/a',drugDat$drug)
+  # drugDat$drug[inds2]='vehicle2'
+  # inds3 = grep("control",drugDat$drug)
+  # drugDat$drug[inds3]='vehicle3'
+  # 
+  # ai<-c(inds0,inds1,inds2,inds3)
+  # drugDat$model.id[c(ai)]<-paste(drugDat$model.id[ai],drugDat$drug[ai],sep='_')
+  # ##first lets add a replicate to those without
+  # inds = grep('_',drugDat$model.id)
+  # #  print(inds)
+  # inds<-union(inds,ai)
+  # drugDat$model.id[-inds]<-paste(drugDat$model.id[-inds],drugDat$drug[-inds],'1',sep='_')
+  ai<-drugDat$inds%in%c('vehicle','N/A','control',NA)
+  drugDat$drug[ai]<-rep('control',length(ai))
   
-  ai<-c(inds0,inds1,inds2,inds3)
-  drugDat$model.id[c(ai)]<-paste(drugDat$model.id[ai],drugDat$drug[ai],sep='_')
-  ##first lets add a replicate to those without
-  inds = grep('_',drugDat$model.id)
-  #  print(inds)
-  inds<-union(inds,ai)
-  drugDat$model.id[-inds]<-paste(drugDat$model.id[-inds],drugDat$drug[-inds],'1',sep='_')
-  
-  drugDat$time[which(drugDat$time<0)]<-0
+#  drugDat$time[which(drugDat$time<0)]<-0
   
   return(drugDat)
 }

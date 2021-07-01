@@ -11,7 +11,7 @@
 #'@export
 #'
 tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
-                                     nonFeatures=c('Symbol','zScore','parent')){
+                                     nonFeatures=c('Symbol','zScore','parent','synid')){
   require(Biobase)
   
   vfn=list(mean)
@@ -28,7 +28,7 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
     as.matrix()
   
   cvars<-setdiff(names(tidied.tb),c(featureVar,nonFeatures))
-  print(cvars)
+  #print(cvars)
   rownames(tidied.tb)<-c()
   phenoData<-tidied.tb[,cvars]%>%
     distinct()%>%
@@ -47,7 +47,7 @@ formatDataToXeva<-function(){
   require(dplyr)
 
   drugDat<-drugData
-  controls=c('vehicle1','vehicle2','vehicle3')
+  controls=c('vehicle1','vehicle2','vehicle3','vehicle','control','N/A',NA)
   drugD = subset(drugDat,!drug%in%controls)
   contD = subset(drugDat,drug%in%controls)
   #contD$drug=rep('control',nrow(contD))
@@ -58,7 +58,10 @@ formatDataToXeva<-function(){
     treats = subset(drugD,batch==x)%>%
       dplyr::select(model.id)%>%
       unique()
-    conts = subset(contD,Sample==pat_drug[1])%>%
+    
+    pat <-subset(drugD,batch==x)%>%dplyr::select(Sample)%>%unique()
+    
+    conts = subset(contD,Sample==pat)%>%#pat_drug[1])%>%
       dplyr::select(model.id)%>%
       unique()
     
@@ -103,7 +106,7 @@ formatDataToXeva<-function(){
     left_join(rbind(rnaMap,wesMap),by='sample')%>%
     subset(!is.na(biobase.id))
   
-  print(modToBiobaseMap)
+  #print(modToBiobaseMap)
   xeva.set = createXevaSet(name="MPNST PDX Data", 
                            model=as.data.frame(model), drug=as.data.frame(drug),
                            experiment=as.data.frame(experiment), expDesign=expDesign,

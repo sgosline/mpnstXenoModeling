@@ -21,7 +21,7 @@ For this project we use the `Xeva` xenograft visualization and analysis tool to 
 ```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
 
 MXM::loadPDXData()
-all.pdxs<<-formatDataToXeva()
+#all.pdxs<<-formatDataToXeva()
  
 
 ```
@@ -29,18 +29,30 @@ We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the 
 
 ```{r tumor data, echo=FALSE,message=FALSE,warning=FALSE}
 
-batches=batchInfo(all.pdxs)
+#batches=batchInfo(all.pdxs)
 
-plots <-lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
-mods <-sapply(batches,function(x) unlist(strsplit(x,split='_'))[1])
+plotBySample<-function(dt){
+  #print(dt$Sample)
+  sample=dt$Sample[1]
+  batch=dt$batch[1]
+  #print(sample)
+  tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
+  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),minVol=median(volume)-sd(volume),maxVol=median(volume)+sd(volume))%>%distinct()
+  
+  ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
+}
+
+plots <-drugData%>%group_by(Sample,batch,.drop=F)%>%group_map(~plotBySample(.x),.keep=TRUE)
+ # lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
+#mods <-sapply(batches,function(x) unlist(strsplit(x,split='_'))[1])
 
 pdf('allTumorVolume.pdf',height=8,width=12)
-lapply(unique(mods),function(x)
-  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
-
+#res<-lapply(unique(mods),function(x)
+#  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+lapply(plots, print)
 dev.off()
-lapply(unique(mods),function(x)
-  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+#res<-lapply(unique(mods),function(x)
+#  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
 
 
 ```
@@ -48,7 +60,7 @@ lapply(unique(mods),function(x)
 ## Use statistics to correlate gene expression
 
 
-First we want to assess the respnse variables for each PDX/drug combination. 
+First we want to assess the response variables for each PDX/drug combination. 
 
 ```{r calc response statistics,echo=FALSE,message=FALSE,warning=FALSE}
 #calculate mRECIST
