@@ -131,7 +131,7 @@ fixDrugData<-function(drugData){
   ai<-drugDat$inds%in%c('vehicle','N/A','control',NA)
   drugDat$drug[ai]<-rep('control',length(ai))
   
-#  drugDat$time[which(drugDat$time<0)]<-0
+  drugDat$time[which(drugDat$time<0)]<-0
   
   return(drugDat)
 }

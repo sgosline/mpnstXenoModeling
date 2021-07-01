@@ -66,12 +66,16 @@ computeGRI<-function(){
 #' statsForDrugPatient
 #' @description Function that calculates all stats for each drug/patient combo
 #' @export
-statsForDrugPatient<-function(indivId,treat){
+statsForDrugPatient<-function(indivId,treat,batch){
+  controls=c('control','n/a',NA)#)('vehicle','vehicle1','vehicle2','vehicle3'))
+  if(treat%in%controls)
+    return(list(AUC=0,SPI=0,TGI=0))
+    
   print(paste(indivId,treat))
-  ptab<-subset(drugData,Sample=indivId)
+  ptab<-subset(drugData,Sample==indivId)
   
   ttab<-subset(ptab,drug==treat)
-  ctab<-subset(ptab,drug%in%c('vehicle','vehicle1','vehicle2','vehicle3'))
+  ctab<-subset(ptab,drug%in%controls)
   
   nzt<-subset(ttab,time>10)%>%subset(volume>0)
   nzc<-subset(ctab,time>10)%>%subset(volume>0)
@@ -95,7 +99,7 @@ statsForDrugPatient<-function(indivId,treat){
 #' @export
 getAllDrugStats<-function(drug.tab){
   pat.drug<-drug.tab%>%
-    subset(!drug%in%c('vehicle','vehile1','vehicle2', 'vehicle3','control','vehicle','N/A',NA))%>%
+    subset(!drug%in%c('vehicle','vehicle1','vehicle2', 'vehicle3','control','vehicle','N/A',NA))%>%
     dplyr::select(c(drug,individualID))%>%
     distinct()
 
