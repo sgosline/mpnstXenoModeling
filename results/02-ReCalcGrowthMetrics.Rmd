@@ -1,7 +1,7 @@
 ---
 title: "02-RecalcGrowthMetrics"
 author: "Sara Gosline"
-date: "6/21/2021"
+date: "7/1/2021"
 output: html_document
 ---
 
@@ -19,6 +19,7 @@ library(MXM)
 #this function simply loads all the data into memory
 MXM::loadPDXData()
 
+##let's clean up drug Dat
 head(drugData)
 #all.pdxs<<-MXM::formatDataToXeva()
 
@@ -38,16 +39,23 @@ pat.drug<-drugData%>%rename(individualID='Sample')%>%
 
 DT::datatable(pat.drug)
 write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
-pat.drug%>%
-    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
-    ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
+#pat.drug%>%
+#    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
+#    ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
 
  pat.drug%>%
-     tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=Metric,y=Value))+geom_bar(aes(fill=drug),position='dodge',stat='identity')+facet_grid(~individualID)+scale_fill_viridis_d()
+     tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%ggplot(aes(x=drug,y=Value))+geom_bar(aes(fill=individualID),position='dodge',stat='identity')+facet_grid(~Metric)+scale_fill_viridis_d()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ 
 ```
 
-Now we can evaluate any correlates in the data
+It seems that 545 is a growth outlier (in addition to a mutational outlier) so we can remove it and re-plot.
 
+```{r plotting without 545}
+pat.drug%>%
+  subset(individualID!='WU-545')%>%
+  tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
+  ggplot(aes(x=drug,y=Value))+geom_bar(aes(fill=individualID),position='dodge',stat='identity')+facet_grid(~Metric)+scale_fill_viridis_d()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
 ```{r mutational comparison}
 
 library(ggplot2)
@@ -67,10 +75,10 @@ other.cols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clini
   
   vd<-varData%>%
     filter(Symbol%in%topMuts)%>%
-    mutate(AD=as.numeric(AD))%>%
+    #mutate(AD=as.numeric(AD))%>%
     tidyr::separate(specimenID,into=c('patient','sample'),sep='_',fill="right")%>%
     filter(sample!='patient')%>%
-    dplyr::select(-c(patient,sample,other.cols))%>%
+    dplyr::select(-c(patient,synid,sample,other.cols))%>%
     tidyr::pivot_wider(names_from=individualID,values_from=AD,values_fn=list(AD=mean),
                        values_fill=list(AD=0.0))%>%
     tidyr::pivot_longer(-Symbol,names_to="individualID",values_to="AD")
