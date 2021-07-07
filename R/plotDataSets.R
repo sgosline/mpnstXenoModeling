@@ -66,7 +66,8 @@ plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
   }
   
  
-  plots<-drugGeneCors%>%filter(abs(corVal)>minCor)%>%
+  plots<-drugGeneCors%>%
+    subset(abs(corVal)>minCor)%>%
     group_by(Symbol,drug,Metric)%>%
     group_map(~ plotGeneDrug(.x),.keep=TRUE)
   plots

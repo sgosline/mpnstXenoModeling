@@ -37,7 +37,7 @@ drugMutationsCor<-function(pat.drug,mutData){
   
   drugGeneCors<-drug.mut%>%
     group_by(Symbol,drug,Metric)%>%
-    summarize(corVal=cor(AD,Value,method='spearman',use='pairwise.complete.obs'),.groups='keep')%>%
+    summarize(corVal=cor(AD,Value,method='pearson',use='pairwise.complete.obs'),.groups='keep')%>%
     right_join(drug.mut)%>%
     subset(!is.na(corVal))
   
