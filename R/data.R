@@ -51,6 +51,19 @@ loadPDXData<-function(){
     dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
                   sex,species,experimentalCondition)
   
+  #query microtissue drug data
+  mt.df <- syn$tableQuery('SELECT id,individualID,experimentalCondition FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
+  mt.drugIDs <- unique(master.table$experimentalCondition)
+  plt.list <- list()
+  for (drug in drugIDs) {
+    print(drug)
+    res <- filter_byDrug(master.table, drug)
+    plt = plotMicroTissueDrugResponse(res,drug)
+    plt.list[[drug]] = plt
+  }
+  pdf("microTissue_doseResponse_drugPlots.pdf", onefile = TRUE)
+  for (drug in drugIDs) {print(plt.list[[drug]])}
+  dev.off()
  
 }
 
@@ -191,5 +204,96 @@ getLatestVariantData<-function(syn){
 #' until we have fully processed new data, grab missing samples from the old data 
 mergeMutData<-function(mutData,newMutData){
   
+}
+
+filter_byDrug <- function(mcf, drugID) {
+  mcf <- subset(mcf, experimentalCondition == drugID)
+  
+  #ids is list of filenames
+  ids<-mcf$id
+  
+  #indiv is list of patient IDs
+  indiv<-mcf$individualID
+  
+  #sets filenames to names of ids
+  names(indiv)<-ids
+  
+  res=do.call(rbind,lapply(names(indiv),function(x)
+  { 
+    read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')%>%
+      dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                    Viabilities='response', ConcUnit='dosage_unit')
+    
+  }))
+  # Assumes log(M) concentration
+  out = res[order(res$Conc),]
+  return(out)
+}
+
+TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
+  
+  if (var(dose_response$Viabilities) == 0) {
+    dose_response$Viabilties[nrow(dose_response)] <- dose_response$Viabilities[nrow(dose_response)] + 10^-10
+  }
+  
+  nan.handle <- match.arg(nan.handle)
+  #, logDose = exp(10)
+  drug.model <- tryCatch({
+    model_CellLineGroup(dose_response, LL.4(fixed = fixed, names = names), curve_type)
+  }, warning = function(w) {
+    if(nan.handle == "L4"){
+      model_CellLineGroup(dose_response, L.4(fixed = fixed, names = names), curve_type)
+    } else {
+      model_CellLineGroup(dose_response, LL.4(fixed = fixed, names = names), curve_type)
+    }
+  }, error = function(e) {
+    model_CellLineGroup(dose_response, L.4(fixed = fixed, names = names), curve_type)
+  })
+  return(drug.model = drug.model)
+}
+
+model_CellLineGroup <- function(dose_resp, fctval){
+  drm(formula   = Viabilities ~ Conc
+      , curveid   = CellLine
+      , data      = dose_resp
+      , fct       = fctval
+      , na.action = na.omit
+      , control   = drmc(errorm = FALSE)
+  )
+}
+
+plotMicroTissueDrugResponse <- function(res, drugID) {
+  
+  # subset supplied dataframe by X,Y and CurveID/group/levels, convert to data.table
+  dr_df <- res %>% dplyr::select(Conc, Viabilities, CellLine) %>% setDT()
+
+  dt2 <- data.table()
+  dr.dt[,CellLine:=as.factor(CellLine)]
+  scale.num <- nlevels(dr.dt$CellLine)
+  # min, max values for LL.4 and L.4 fits
+  min_value <- 0
+  max_value <- 100
+  
+  for (i in 1:nlevels(dr.dt$CellLine)) {
+    dt <- dr.dt[CellLine %in% levels(CellLine)[i]]
+    dt[, CellLine := as.character(CellLine)]
+    fit.LL4 = TryFit(dt, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
+    dt[, Pred := predict(object=fit.LL4)]
+    sd.lst = dt[, list(SD=sd(Viabilities)/4),by=Conc]
+    dt = merge(dt,sd.lst)
+    dt2 <- rbind(dt2, dt)
+  }
+  
+  temp.plot = ggplot(dt2, aes(x=Conc, y=Viabilities, group=CellLine, color=CellLine, shape=CellLine)) + 
+    geom_ribbon(aes(y=Pred, ymin=Pred-SD, ymax=Pred+SD, fill=CellLine), alpha=0.2, color=NA) +
+    geom_line(aes(y = Pred)) +
+    scale_shape_manual(values=seq(0, scale.num)) +
+    labs(x = "Conc log(M)", y = "Viabilities %", shape="Temp", color="Temp") +
+    theme_bw() +
+    ggtitle(paste("Dose-response curves for Drug:", drugID))
+  
+  # Can save individually, default all to one pdf
+  #ggsave(temp.plot, file=paste0("./dose_response_plots/",drugID,'.png'))
+  return(temp.plot)
 }
 
