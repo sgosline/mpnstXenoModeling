@@ -1,13 +1,14 @@
 ---
 title: "01-molecular-drug-test"
 author: "Sara Gosline"
-date: "5/18/2020"
+date: "7/1/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(MXM)
+library(dplyr)
 ```
 
 Here we have an example of using the `Xeva` package to search for any molecular indicates of drug response in the MPNST PDX data.
@@ -22,97 +23,70 @@ For this project we use the `Xeva` xenograft visualization and analysis tool to 
 
 MXM::loadPDXData()
 
-all.pdxs<<-formatDataToXeva()
- 
-
 ```
 We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the tumor volume data is shown here.
 
 ```{r tumor data, echo=FALSE,message=FALSE,warning=FALSE}
 
-batches=batchInfo(all.pdxs)
+#batches=batchInfo(all.pdxs)
+library(ggplot2)
+plotBySample<-function(dt){
+  #print(dt$Sample)
+  sample=dt$Sample[1]
+  batch=dt$batch[1]
+  #print(sample)
+  tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
+  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),minVol=median(volume)-sd(volume),maxVol=median(volume)+sd(volume))%>%distinct()
+  
+  ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
+}
 
-plots <-lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
-mods <-sapply(batches,function(x) unlist(strsplit(x,split=' '))[1])
+plots <-drugData%>%
+  group_by(Sample,batch,.drop=F)%>%
+  group_map(~plotBySample(.x),.keep=TRUE)
+ # lapply(batches,function(x) plotGrowthForBatch(all.pdxs,x))
+#mods <-sapply(batches,function(x) unlist(strsplit(x,split='_'))[1])
 
-pdf('allTumorVolume.pdf',height=12,width=8)
-cowplot::plot_grid(plotlist=plots,nrow=length(unique(mods)))
+pdf('allTumorVolume.pdf',height=8,width=12)
+#res<-lapply(unique(mods),function(x)
+#  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+res=lapply(plots, print)
 dev.off()
-
-lapply(unique(mods),function(x)
-  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
-
-```
-
-## Use statistics to correlate gene expression
-
-
-First we want to assess the respnse variables for each PDX/drug combination. 
-
-```{r calc response statistics,echo=FALSE,message=FALSE,warning=FALSE}
-#calculate mRECIST
-response<-setResponse(all.pdxs,res.measure='mRECIST',
-                      vol.normal = FALSE,
-                     log.volume=FALSE,
-                     verbose=FALSE,min.time=0,max.time=30)
-response <- setResponse(response,min.time = 0,max.time=30,
-                  res.measure='AUC',vol.normal=FALSE,
-                  log.volume=FALSE,verbose=FALSE)
-
-response <- setResponse(response,min.time = 0,max.time=30,
-                  res.measure='TGI',vol.normal=FALSE,
-                  log.volume=FALSE,verbose=FALSE)
-
-response <- setResponse(response,min.time = 0,max.time=30,
-                  res.measure='slope',vol.normal=FALSE,
-                  log.volume=FALSE,verbose=FALSE)
-
-#not very useful plot. 
-plotmRECIST(summarizeResponse(response),control.name='vehicle')
-```
-
-## Molecular correlations
-Using `Xeva` we can load the molecular data and calculate the correlation of each transcript to the slope of the response data. 
-
-```{r mol data, echo=FALSE,message=FALSE,warning=FALSE}
-#esig<-Xeva::drugSensitivitySig(response,'everolimus',mDataType='RNASeq',fit='lm',verbose=FALSE)
-#dsig<-Xeva::drugSensitivitySig(response,'doxorubicin',mDataType='RNASeq',fit='lm',verbose=FALSE)
-
-#arrange(esig,pvalue)%>%head()
-#arrange(dsig,pvalue)%>%head()
-
-```
-No clearly correlated genes with the drug response, according to a linear model. However, we will rank the correlations and carry out Gene Set Enrichment Analysis.
-
-```{r gene set, echo=FALSE, message=FALSE, warning=FALSE}
-
-#eres<-esig%>%
-#  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='everolimus')
-
-
-#dres<-dsig%>%
-#  dplyr::select(Gene='feature',value='estimate')%>%plotOldGSEA(.,prefix='doxorubicin')
+#res<-lapply(unique(mods),function(x)
+#  cowplot::plot_grid(plotlist=plots[grep(x,mods)]))
+res=lapply(plots, print)
 
 
 ```
+
+## Visualize mutational data and gene expression
+
 
 Now we can look at the mutational data in more detail
 ```{r mut data,echo=FALSE}
- mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
-  dplyr::select(-c(individualID,tranche))%>%
+ mutMat<-varData%>%mutate(AD=as.numeric(AD))%>%
+  dplyr::select(specimenID,Symbol,AD)%>%#,tranche))%>%
+  subset(Symbol!="")%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
                      values_fill=0.0)%>%
     tibble::column_to_rownames('Symbol')
 
+annotes <- varData%>%
+  dplyr::select(Sample,specimenID,Age,Sex,MicroTissueQuality,Location,Size)%>%
+  distinct()%>%
+  tibble::column_to_rownames('specimenID')%>%
+  mutate(Age=as.numeric(Age),Size=as.numeric(Size),MicroTissueQuality=unlist(MicroTissueQuality))
 library(pheatmap)
-  annotes<-mutData%>%
-      dplyr::select(specimenID,tranche)%>%
-    tidyr::separate(specimenID,into=c('patient','sample'),remove=FALSE)%>%
-    distinct()%>%
-    tibble::column_to_rownames('specimenID')%>%
-    filter(sample!='normal')
-  
-  mutMat<-mutMat[,rownames(annotes)]
+  #ssinds=grep('_',varData$specimenID)
+  #varData$specimenID[-ssinds]<-paste(varData$specimenID[-ssinds],'_',sep='')
+  #annotes<-varData%>%
+  #    dplyr::select(specimenID)%>%#,tranche)%>%
+  #  tidyr::separate(specimenID,into=c('patient','sample'),sep='_',remove=F,fill='left')%>%
+  #  distinct()%>%
+  #  tibble::column_to_rownames('specimenID')%>%
+  #  filter(sample!='normal')#
+
+  mutMat<-mutMat[,intersect(rownames(annotes),colnames(mutMat))]
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
  
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
@@ -122,24 +96,27 @@ library(pheatmap)
 
 We then select for those mutations that exist in more than one sample. And then add back TP53.
 ```{r main mutations,echo=FALSE}
-topMuts=filter(mutData,AD>0)%>%
+topMuts=filter(varData,AD>0)%>%
+  subset(!is.na(Symbol))%>%
+  subset(Symbol!="")%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
-    filter(nSamps>1)%>%
+    filter(nSamps>2)%>%
     dplyr::select(Symbol)
+
 topMuts<-union("TP53",topMuts$Symbol)
 
- pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
- pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2', clustering_distance_cols = 'correlation')
+ pheatmap(log10(0.01+mutMat[topMuts,rownames(annotes)]),cellwidth = 10,cellheight=10,annotation_col = annotes,clustering_method='ward.D2')
+ 
+ pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2')
 
 ```
 
-We can also plot the gene expression.
-
-We can also plot how the genes are expressed
-
+We can also plot the gene expression across highly variable genes.
 ```{r mutated gene expression,echo=FALSE,warning=FALSE}
  rnamat<-rnaSeq%>%
+  subset(!is.na(Symbol))%>%
+  subset(!is.na(totalCounts))%>%
   dplyr::select(-c(individualID,species,sex,zScore,experimentalCondition))%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,
                      values_fn=list(totalCounts=mean),values_fill=0.0)%>%
@@ -152,16 +129,17 @@ rownames(rnaSeq)<-c()
     tibble::column_to_rownames('specimenID')
 
  #topMuts<-setdiff(topMuts,'TTN')
-pheatmap(log10(0.01+rnamat[topMuts,]),
+pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
-         annotation_col = annotes,
+       #  annotation_col = annotes,
          cellheight=10,
          labels_col=rep("",ncol(mutMat)))
- pheatmap(log10(0.01+rnamat[topMuts,]),
+
+ pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
-         annotation_col = annotes,
+        # annotation_col = annotes,
          cellheight=10,
          labels_col=rep("",ncol(mutMat)),filename='countsOfMutatedGenes.pdf')
  

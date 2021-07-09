@@ -46,11 +46,13 @@ computeAUC<-function(treatedTab,contTab){
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%
          group_by(model.id)%>%
         group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
+  
   cauc=contTab%>%mutate(volume=as.numeric(volume))%>%
     group_by(model.id)%>%
     dplyr::select(time,volume)%>%
     group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
   #sprint(tauc)
+  
   ret= (mean(as.numeric(unlist(cauc)),na.rm=T)-mean(as.numeric(unlist(tauc)),na.rm=T))/mean(as.numeric(unlist(cauc)),na.rm=T)
   return(ret)
   }
@@ -64,11 +66,16 @@ computeGRI<-function(){
 #' statsForDrugPatient
 #' @description Function that calculates all stats for each drug/patient combo
 #' @export
-statsForDrugPatient<-function(indivId,treat){
-  ptab<-subset(drugData,individualID==indivId)
+statsForDrugPatient<-function(indivId,treat,batch){
+  controls=c('control','n/a',NA)#)('vehicle','vehicle1','vehicle2','vehicle3'))
+  if(treat%in%controls)
+    return(list(AUC=0,SPI=0,TGI=0))
+    
+  print(paste(indivId,treat))
+  ptab<-subset(drugData,Sample==indivId)
   
   ttab<-subset(ptab,drug==treat)
-  ctab<-subset(ptab,drug=='vehicle')
+  ctab<-subset(ptab,drug%in%controls)
   
   nzt<-subset(ttab,time>10)%>%subset(volume>0)
   nzc<-subset(ctab,time>10)%>%subset(volume>0)
@@ -92,7 +99,7 @@ statsForDrugPatient<-function(indivId,treat){
 #' @export
 getAllDrugStats<-function(drug.tab){
   pat.drug<-drug.tab%>%
-    subset(drug!='vehicle')%>%
+    subset(!drug%in%c('vehicle','vehicle1','vehicle2', 'vehicle3','control','vehicle','N/A',NA))%>%
     dplyr::select(c(drug,individualID))%>%
     distinct()
 

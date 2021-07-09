@@ -31,7 +31,7 @@ loadPDXData()
 
 Now we can look at the mutational data in more detail
 ```{r mut data,echo=FALSE}
- mutMat<-mutData%>%mutate(AD=as.numeric(AD))%>%
+ mutMat<-varData%>%mutate(AD=as.numeric(AD))%>%
   dplyr::select(-c(individualID,tranche))%>%
   tidyr::pivot_wider(names_from=specimenID,values_from=AD,values_fn=list(AD=mean),
                      values_fill=0.0)%>%
