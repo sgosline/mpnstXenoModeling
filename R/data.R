@@ -201,8 +201,10 @@ mergeMutData<-function(mutData,newMutData){
 #' @param syn
 #' @param mtd
 #' @import dplyr
+#' @import tidyr
 getMicroTissueDrugData <- function(syn, mtd) {
   library(dplyr)
+  library(tidyr)
   #ids is list of filenames
   ids<-mtd$id
   
