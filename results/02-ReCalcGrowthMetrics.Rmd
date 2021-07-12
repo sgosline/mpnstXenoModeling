@@ -35,10 +35,17 @@ We can now get all the values for all the combinations.
 ```{r drugStats, echo=FALSE,warning=FALSE}
 library(ggplot2)
 pat.drug<-drugData%>%rename(individualID='Sample')%>%
-    MXM::getAllDrugStats(.)
+    MXM::getAllDrugStats(.)%>%
+  subset(drug!='n/a')%>%
+  tidyr::replace_na(list(SPI=0.0))
 
 DT::datatable(pat.drug)
+sync<-reticulate::import('synapseclient')
+syn<-sync$login()
+
 write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
+pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.tsv')
+syn$store(pd)
 #pat.drug%>%
 #    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
 #    ggplot(aes(x=individualID,y=Value))+geom_bar(aes(fill=Metric),position='dodge',stat='identity')+facet_grid(~drug)
