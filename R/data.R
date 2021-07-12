@@ -53,6 +53,7 @@ loadPDXData<-function(){
   
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
+  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
   mt.df <<- getMicroTissueDrugData(mt.meta)
  
 }
@@ -213,10 +214,11 @@ getMicroTissueDrugData <- function(syn, mtd) {
   
   res=do.call(rbind,lapply(names(indiv),function(x)
   { 
-    read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')%>%
-      dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
-                    Viabilities='response', ConcUnit='dosage_unit')
-    
+    read.csv(synGet(x)$path,fileEncoding = 'UTF-8-BOM')%>%
+    dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                  Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+    tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+    dplyr::rename(Viabilities='percent viability')
   }))
   # Assumes log(M) concentration
   return(res[order(res$Conc),])
