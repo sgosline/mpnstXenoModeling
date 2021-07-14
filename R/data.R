@@ -175,6 +175,10 @@ loadPDXData<-function(){
     dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
                   sex,species,experimentalCondition)
   
+  #query microtissue drug data
+  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
+  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
+  mt.df <<- getMicroTissueDrugData(mt.meta)
  
 }
 
@@ -321,4 +325,35 @@ getLatestVariantData<-function(syn){
 mergeMutData<-function(mutData,newMutData){
   
 }
+
+#' getMicroTissueDrugData
+#' @param syn
+#' @param mtd
+#' @import dplyr
+#' @import tidyr
+getMicroTissueDrugData <- function(syn, mtd) {
+  library(dplyr)
+  library(tidyr)
+  #ids is list of filenames
+  ids<-mtd$id
+  
+  #indiv is list of patient IDs
+  indiv<-mtd$individualID
+  
+  #sets filenames to names of ids
+  names(indiv)<-ids
+  
+  res=do.call(rbind,lapply(names(indiv),function(x)
+  { 
+    read.csv(synGet(x)$path,fileEncoding = 'UTF-8-BOM')%>%
+    dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                  Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+    tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+    dplyr::rename(Viabilities='percent viability')
+  }))
+  # Assumes log(M) concentration
+  return(res[order(res$Conc),])
+}
+
+
 
