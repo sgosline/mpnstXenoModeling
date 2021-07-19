@@ -1,0 +1,35 @@
+---
+title: "05-Compare PDX to MicroTissue"
+author: "Sara Gosline"
+date: "7/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load all data from Synapse
+
+Let's load all the data using the `MXM` package function. This will pull the data from synapse and format it accordingly.
+
+
+```{r, echo=FALSE, warning=FALSE}
+library(MXM)
+#this function simply loads all the data into memory
+MXM::loadPDXData()
+
+##let's clean up drug Dat
+head(drugData)
+#all.pdxs<<-MXM::formatDataToXeva()
+
+```
+
+## Load microtissue data and compare
+The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is prety straightforward.
+
+```{r correction, warning=FALSE}
+
+```
+
+  

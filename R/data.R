@@ -144,7 +144,7 @@ fixDrugData<-function(drugData){
 loadPDXData<-function(){
   library(reticulate)
   library(dplyr)
-  syn<-reticulate::import('synapseclient')$login()
+  sync<-reticulate::import('synapseclient')$login()
   
   ##updated to use harmonized data table
   data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
