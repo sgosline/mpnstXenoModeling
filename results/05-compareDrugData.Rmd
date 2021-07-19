@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Let's load all the data using the `MXM` package function. This will pull the data from synapse and format it accordingly.
 
 
-```{r, echo=FALSE, warning=FALSE}
+```{r load data,warning=FALSE}
 library(MXM)
 #this function simply loads all the data into memory
 MXM::loadPDXData()
@@ -26,9 +26,16 @@ head(drugData)
 ```
 
 ## Load microtissue data and compare
-The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is prety straightforward.
+The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
 ```{r correction, warning=FALSE}
+
+#' ebCorrect
+#' @param values
+#' @return list of corrected values
+ebCorrect <-function(values){
+  
+}
 
 ```
 
