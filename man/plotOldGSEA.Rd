@@ -7,9 +7,11 @@
 plotOldGSEA(genes.with.values, prot.univ, prefix)
 }
 \arguments{
-\item{genes.with.values}{of genes and difference values}
+\item{genes.with.values}{data frame of gene names and values}
 
-\item{prot.univ}{the space of all proteins we are considering}
+\item{prot.univ}{total proteins}
+
+\item{prefix}{used to create file}
 }
 \value{
 gSEA output type stuff

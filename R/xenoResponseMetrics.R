@@ -2,8 +2,8 @@
 
 ###calculate metrics for each
 #https://link.springer.com/article/10.1208/s12248-018-0284-8
-#' @description SPI survival prolongation index calculates 
-#' ratio of time it takes treated to tget to volume compared to control
+#' @name computeSPI
+#' @description SPI survival prolongation index calculates ratio of time it takes treated to tget to volume compared to control
 #' @param tvThreshold - thresholl at which to measure
 #' @param treatedTab - table of treated values
 #' @param contTab - table of control values
@@ -21,6 +21,10 @@ computeSPI<-function(treatedTab,contTab,tvThreshold){
   }
 
 #' TGI - tumor growth index
+#' @name computeTGI
+#' @description Computes tumor growth index
+#' @return value
+#' @export
 computeTGI<-function(treatedTab,contTab,finalTimePoint){
   tvt=subset(treatedTab,time==finalTimePoint)%>%
     group_by(model.id)%>%summarize(vol=max(as.numeric(volume)))

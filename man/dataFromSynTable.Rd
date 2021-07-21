@@ -6,6 +6,13 @@
 \usage{
 dataFromSynTable(tab, syn, colname)
 }
+\arguments{
+\item{tab}{table of MPNST samples}
+
+\item{syn}{synapse login client}
+
+\item{colname}{name of column to select}
+}
 \description{
 gets a list of synapse ids and binds them together
 }

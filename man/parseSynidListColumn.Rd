@@ -6,6 +6,9 @@
 \usage{
 parseSynidListColumn(list.column)
 }
+\arguments{
+\item{list.column}{Name of column to select and unlist}
+}
 \value{
 list of lists
 }

@@ -6,6 +6,9 @@
 \usage{
 fixDrugData(drugData)
 }
+\arguments{
+\item{drugData}{data frame of drug data to harmonize}
+}
 \description{
 fixDrugData
 }

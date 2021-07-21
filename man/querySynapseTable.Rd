@@ -7,7 +7,9 @@ This is how you get data from the project}
 \usage{
 querySynapseTable(tableid)
 }
+\arguments{
+\item{tableid}{synapse id of table}
+}
 \description{
-query synapse table
-This is how you get data from the project
+queries synapse table
 }

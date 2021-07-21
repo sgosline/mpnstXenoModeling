@@ -115,6 +115,9 @@
 
 
 #' Old plot using clusterProfiler
+#' @param genes.with.values data frame of gene names and values
+#' @param prot.univ total proteins
+#' @param prefix used to create file
 #' @export 
 #' @import BiocManager
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
@@ -159,11 +162,11 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   return(gr)
 }
 
-#'Runs regular bag of
-#'@name doRegularGo
-#'@description Performs GO enrichment
-#'@export 
-#'@import BiocManager
+#' Runs regular bag of genes enrichment
+#' @name doRegularGo
+#' @description Performs GO enrichment
+#' @export 
+#' @import BiocManager
 doRegularGo<-function(genes,bg=NULL){
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')

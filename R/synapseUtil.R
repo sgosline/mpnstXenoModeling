@@ -69,8 +69,8 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
 #' query synapse table
 #' This is how you get data from the project
 #' @name querySynapseTable
-#' @description
-#' @param tableid
+#' @description queries synapse table
+#' @param tableid synapse id of table
 #' @export
 querySynapseTable<-function(tableid){
   syn=synapseLogin()

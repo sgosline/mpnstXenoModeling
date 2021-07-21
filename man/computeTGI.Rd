@@ -6,6 +6,9 @@
 \usage{
 computeTGI(treatedTab, contTab, finalTimePoint)
 }
+\value{
+value
+}
 \description{
-TGI - tumor growth index
+Computes tumor growth index
 }
