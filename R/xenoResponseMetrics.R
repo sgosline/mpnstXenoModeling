@@ -38,6 +38,8 @@ computeTGI<-function(treatedTab,contTab,finalTimePoint){
 
 #' AUC - area under the curve
 #' computes difference between AUC of treated vs control normalized by treatment
+#' @name computeAUC
+#' @description computes AUC
 #' @import BiocManager
 computeAUC<-function(treatedTab,contTab){
   #https://link.springer.com/article/10.1208/s12248-018-0284-8
@@ -96,6 +98,8 @@ statsForDrugPatient<-function(indivId,treat,batch){
 }
 
 #' getAllDrugStats
+#' @name getAllDrugStats
+#' @description computes all PDX drug growth statistics
 #' @param drugData table
 #' @import dplyr
 #' @import purrr

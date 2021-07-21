@@ -13,6 +13,8 @@
 #condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
 
 #' Logs into Synapse using local information
+#' @name synapseLogin
+#' @description Logs into synapse using `synapseclient` python library
 #' @import reticulate
 #' @return Synapse login python entity
 #' @export
@@ -24,6 +26,8 @@ synapseLogin<-function(){
 }
 
 #' Synapse store 
+#' @name synapseStore
+#' @description stores file in synapse
 #' @import reticulate
 #' @param path to file
 #' @param parentId of folder to store
@@ -40,6 +44,8 @@ synapseStore<-function(path,parentId){
 
 #' Synapse table store
 #' REQUIRES PANDAS ON YOUR PYTHON PATH
+#' @name synTableStore
+#' @description Description
 #' @param table to store on synapse
 #' @param tabname name of table
 #' @param parentId id of project
@@ -62,6 +68,8 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
 
 #' query synapse table
 #' This is how you get data from the project
+#' @name querySynapseTable
+#' @description
 #' @param tableid
 #' @export
 querySynapseTable<-function(tableid){

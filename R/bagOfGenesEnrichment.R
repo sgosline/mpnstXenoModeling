@@ -160,8 +160,10 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
 }
 
 #'Runs regular bag of
+#'@name doRegularGo
+#'@description Performs GO enrichment
 #'@export 
-#'@require BiocManager
+#'@import BiocManager
 doRegularGo<-function(genes,bg=NULL){
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')
@@ -188,6 +190,8 @@ doRegularGo<-function(genes,bg=NULL){
 #'
 #'limmaTwoFactorDEAnalysis
 #'uses Osama's code to compute de from limma
+#'@name limmaTwoFactorDEAnalysis
+#'@description Runs limma on two groups
 #'@author Osama
 #'@import BiocManager
 #'@export

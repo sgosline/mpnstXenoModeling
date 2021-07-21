@@ -7,5 +7,5 @@
 doRegularGo(genes, bg = NULL)
 }
 \description{
-Runs regular bag of
+Performs GO enrichment
 }

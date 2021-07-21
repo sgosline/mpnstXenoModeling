@@ -15,8 +15,7 @@ limmaTwoFactorDEAnalysis(dat, sampleIDs.group1, sampleIDs.group2)
 \item{group2}{ids}
 }
 \description{
-limmaTwoFactorDEAnalysis
-uses Osama's code to compute de from limma
+Runs limma on two groups
 }
 \author{
 Osama

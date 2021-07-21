@@ -1,7 +1,7 @@
 ##get datasets from figshare and whatever drug screening data we have. 
 
 #'parses a list of synapse ids, like form `syn24215021`
-#'@param list.column
+#'@param list.column Name of column to select and unlist
 #'@return list of lists
 parseSynidListColumn<-function(list.column){
   
@@ -14,9 +14,9 @@ parseSynidListColumn<-function(list.column){
 }
 
 #' gets a list of synapse ids and binds them together
-#' @param tab
-#' @param syn
-#' @param colname
+#' @param tab table of MPNST samples
+#' @param syn synapse login client
+#' @param colname name of column to select
 dataFromSynTable<-function(tab,syn,colname){
 
   
@@ -80,7 +80,7 @@ dataFromSynTable<-function(tab,syn,colname){
   return(res)
 }
 #' fixDrugData
-#' @param drugData
+#' @param drugData data frame of drug data to harmonize
 #'@export
 fixDrugData<-function(drugData){
   drugDat = #subset(drugData,individualID==specimenId)%>%

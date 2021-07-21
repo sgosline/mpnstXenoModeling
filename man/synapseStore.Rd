@@ -12,5 +12,5 @@ synapseStore(path, parentId)
 \item{parentId}{of folder to store}
 }
 \description{
-Synapse store
+stores file in synapse
 }

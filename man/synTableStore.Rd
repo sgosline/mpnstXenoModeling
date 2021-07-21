@@ -15,6 +15,5 @@ synTableStore(tab, tabname, parentId = "syn22128879")
 \item{table}{to store on synapse}
 }
 \description{
-Synapse table store
-REQUIRES PANDAS ON YOUR PYTHON PATH
+Description
 }
