@@ -1,5 +1,5 @@
 Package: mpnstXenoModeling
-Title: Models PDX models of MPNST samples
+Title: Modeling MPNST PDX
 Version: 0.1
 Authors@R: person("Sara","Gosline",email="sara.gosline@pnnl.gov",role=c('aut','cre'))
 Depends: R (>= 3.1.0)
