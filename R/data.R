@@ -79,7 +79,7 @@ dataFromSynTable<-function(tab,syn,colname){
   res <- do.call(rbind,res)
   return(res)
 }
-#' fixDrugData
+#' @name fixDrugData
 #' @param drugData data frame of drug data to harmonize
 #'@export
 fixDrugData<-function(drugData){
@@ -259,10 +259,13 @@ processMergedXls<-function(syn,fileid,indId){
 #' james said this is the format for future data
 #' @import dplyr
 #' @import tidyr
-#' @import biomaRt
+#' @import BiocManager
 getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
+  if(!require(biomaRt)){
+    BiocManager::install('biomaRt')
     library(biomaRt)
+  }
 #  print(fileid)
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%

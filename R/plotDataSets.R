@@ -13,11 +13,10 @@ plotSingleGene<-function(gene='CD274'){
 }
 
 
-plotExpressionByResponse<-function(genelist,drugresponse){}
-
 #' plotHistogram of drug data
+#' @name plotDrugData
 #' @export
-#' @param drugData
+#' @param drugData table of drug data to be plotted
 plotDrugData<-function(drugData){
   library(ggplot2)
   library(ggridges)
@@ -32,11 +31,15 @@ plotDrugData<-function(drugData){
 
 
 
-#' plotGrowthForBatch
-#' uses Xeva pacage to plot growth of treatment vs. control
+#' @name plotGrowthForBatch
+#' @description uses Xeva pacage to plot growth of treatment vs. control
 #' @export
-#' @import Xeva
+#' @import BiocManager
 plotGrowthForBatch<-function(xeva.obj,batch){
+  if(!require(Xeva)){
+    BiocManager::install('Xeva')
+    library(Xeva)
+  }
   plotPDX(xeva.obj,batch=batch,SE.plot='ribbon',
           vol.normal=FALSE,
           title=batch,
