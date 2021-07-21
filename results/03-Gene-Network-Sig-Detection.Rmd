@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(MXM)
+library(mpnstXenoModeling)
 ```
 
 ## Get networks and format
@@ -15,7 +15,7 @@ For each sample we've computed a mutational network and the distance of each net
 
 
 ```{r getNetworkMapping, echo=FALSE, warning=FALSE}
-tab<-MXM::querySynapseTable('syn22279826')
+tab<-querySynapseTable('syn22279826')
 
 loadPDXData() # loads all the data
 

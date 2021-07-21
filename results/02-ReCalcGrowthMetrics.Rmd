@@ -15,13 +15,12 @@ knitr::opts_chunk$set(echo = TRUE)
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
 ```{r, echo=FALSE, warning=FALSE}
-library(MXM)
+library(mpnstXenoModeling)
 #this function simply loads all the data into memory
-MXM::loadPDXData()
+loadPDXData()
 
 ##let's clean up drug Dat
 head(drugData)
-#all.pdxs<<-MXM::formatDataToXeva()
 
 ```
 
@@ -35,7 +34,7 @@ We can now get all the values for all the combinations.
 ```{r drugStats, echo=FALSE,warning=FALSE}
 library(ggplot2)
 pat.drug<-drugData%>%rename(individualID='Sample')%>%
-    MXM::getAllDrugStats(.)%>%
+    getAllDrugStats(.)%>%
   subset(drug!='n/a')%>%
   tidyr::replace_na(list(SPI=0.0))
 
@@ -99,7 +98,7 @@ other.samps<-other.samps[-c(norms,tums)]
     subset(!is.na(AD))
 
 drug.gene.cors<-vd%>%
-  MXM::drugMutationsCor(pat.drug=pat.drug,.)
+  drugMutationsCor(pat.drug=pat.drug,.)
 
 ##now get topMuts again
 updatedMuts<-drug.gene.cors%>%

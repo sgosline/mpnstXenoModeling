@@ -4,7 +4,7 @@
 \alias{statsForDrugPatient}
 \title{statsForDrugPatient}
 \usage{
-statsForDrugPatient(indivId, treat)
+statsForDrugPatient(indivId, treat, batch)
 }
 \description{
 Function that calculates all stats for each drug/patient combo

@@ -144,7 +144,7 @@ fixDrugData<-function(drugData){
 loadPDXData<-function(){
   library(reticulate)
   library(dplyr)
-  sync<-reticulate::import('synapseclient')$login()
+  syn<-reticulate::import('synapseclient')$login()
   
   ##updated to use harmonized data table
   data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
@@ -178,7 +178,7 @@ loadPDXData<-function(){
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
   mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
-  mt.df <<- getMicroTissueDrugData(mt.meta)
+  mt.df <<- getMicroTissueDrugData(syn,mt.meta)
  
 }
 
@@ -334,7 +334,8 @@ mergeMutData<-function(mutData,newMutData){
 getMicroTissueDrugData <- function(syn, mtd) {
   library(dplyr)
   library(tidyr)
-  #ids is list of filenames
+  
+  #ids is list of synapse ids
   ids<-mtd$id
   
   #indiv is list of patient IDs
@@ -352,7 +353,8 @@ getMicroTissueDrugData <- function(syn, mtd) {
     dplyr::rename(Viabilities='percent viability')
   }))
   # Assumes log(M) concentration
-  return(res[order(res$Conc),])
+  #return(res[order(res$Conc),]) #this failes
+  return(res)
 }
 
 

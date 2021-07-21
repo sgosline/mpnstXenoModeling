@@ -7,17 +7,18 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(mpnstXenoModeling)
+
 ```
 
 ## Load all data from Synapse
 
-Let's load all the data using the `MXM` package function. This will pull the data from synapse and format it accordingly.
+Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
 
-```{r, echo=FALSE, warning=FALSE}
-library(MXM)
+```{r load data,warning=FALSE}
 #this function simply loads all the data into memory
-MXM::loadPDXData()
+loadPDXData()
 
 ##let's clean up drug Dat
 head(drugData)
@@ -26,9 +27,16 @@ head(drugData)
 ```
 
 ## Load microtissue data and compare
-The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is prety straightforward.
+The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
 ```{r correction, warning=FALSE}
+
+#' ebCorrect
+#' @param values
+#' @return list of corrected values
+ebCorrect <-function(values){
+  
+}
 
 ```
 

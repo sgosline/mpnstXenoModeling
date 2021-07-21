@@ -1,6 +1,6 @@
 ##run multiPLIER
 
-require(MXM)
+require(mpnstXenoModeling)
 
 library(PLIER)
 library(dplyr)

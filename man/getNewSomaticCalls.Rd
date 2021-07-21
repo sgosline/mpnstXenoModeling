@@ -4,7 +4,7 @@
 \alias{getNewSomaticCalls}
 \title{james said this is the format for future data}
 \usage{
-getNewSomaticCalls(syn, fileid, specimen)
+getNewSomaticCalls(tab, specimen)
 }
 \description{
 james said this is the format for future data

@@ -3,10 +3,10 @@
 
 library(reticulate)
 library(dplyr)
-library(MXM)
+library(mpnstXenoModeling)
 syn<-reticulate::import('synapseclient')$login()
 
 
-data<-MXM::getLatestVariantData(syn)
+data<-getLatestVariantData(syn)
 
 res = synTableStore(data,'Updated Somatic Variant Data','syn21984813')
