@@ -1,11 +1,5 @@
 
-#' compute gene set enrichment - osama's code wrapped in package.
-#' @export
-#' @import ggplot2
-#' @author Osama 
-#' @param genes.with.values of genes and difference values
-#' @param prot.univ the space of all proteins we are considering
-#' @return gSEA output type stuff
+
 #' computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
 #'   
 #'   library(WebGestaltR)
@@ -33,7 +27,7 @@
 #'     dplyr::mutate(status = case_when(NES > 0 ~ "Up",
 #'                                      NES < 0 ~ "Down"),
 #'                   status = factor(status, levels = c("Up", "Down"))) %>% 
-#'     #\group_by(status) %>% 
+#'     #group_by(status) %>% 
 #'     top_n(30, wt = NES) %>% 
 #'     ungroup() %>% 
 #'     ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
@@ -192,7 +186,6 @@ doRegularGo<-function(genes,bg=NULL){
 
 #'
 #'limmaTwoFactorDEAnalysis
-#'uses Osama's code to compute de from limma
 #'@name limmaTwoFactorDEAnalysis
 #'@description Runs limma on two groups
 #'@author Osama

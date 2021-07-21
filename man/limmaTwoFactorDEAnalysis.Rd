@@ -2,8 +2,7 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{limmaTwoFactorDEAnalysis}
 \alias{limmaTwoFactorDEAnalysis}
-\title{limmaTwoFactorDEAnalysis
-uses Osama's code to compute de from limma}
+\title{limmaTwoFactorDEAnalysis}
 \usage{
 limmaTwoFactorDEAnalysis(dat, sampleIDs.group1, sampleIDs.group2)
 }
