@@ -1,119 +1,14 @@
 
 
-#' computeGSEA<-function(genes.with.values,prefix,gsea_FDR=0.01){
-#'   
-#'   library(WebGestaltR)
-#'   library(ggplot2)
-#'   inputdfforWebGestaltR <- genes.with.values%>%
-#'     dplyr::rename(genes='Gene',scores='value')%>%
-#'     dplyr::arrange(scores)
-#'   
-#'   
-#'   #' * GSEA using gene ontology biological process gene sets
-#'   
-#'   go.bp.res.WebGestaltR <- WebGestaltR(enrichMethod = "GSEA", 
-#'                                        organism="hsapiens", 
-#'                                        enrichDatabase="geneontology_Biological_Process", 
-#'                                        interestGene=inputdfforWebGestaltR, 
-#'                                        interestGeneType="genesymbol", 
-#'                                        collapseMethod="mean", perNum = 1000,
-#'                                        fdrThr = gsea_FDR, nThreads = 2, isOutput = F)
-#'   write.table(go.bp.res.WebGestaltR, paste0("proteomics_", prefix, "_gseaGO_result.txt"), sep="\t", row.names=FALSE, quote = F)
-#'   
-#'   top_gseaGO <- go.bp.res.WebGestaltR %>% 
-#'     filter(FDR < gsea_FDR) %>% 
-#'     dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
-#'     arrange(desc(NES)) %>% 
-#'     dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-#'                                      NES < 0 ~ "Down"),
-#'                   status = factor(status, levels = c("Up", "Down"))) %>% 
-#'     #group_by(status) %>% 
-#'     top_n(30, wt = NES) %>% 
-#'     ungroup() %>% 
-#'     ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
-#'     geom_bar(stat='identity', aes(fill=status)) +
-#'     scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-#'     coord_flip() +
-#'     theme_minimal() +
-#'     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-#'           axis.title.x = element_text(size=16),
-#'           axis.title.y = element_blank(), 
-#'           axis.text.x = element_text(size = 14),
-#'           axis.text.y=element_text(size = 14),
-#'           axis.line.y = element_blank(),
-#'           axis.ticks.y = element_blank(),
-#'           legend.position = "none") +
-#'     labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-#'     ggtitle(paste('Up-regulated',prefix))
-#'   ggsave(paste0("upRegProts_", prefix,"_gseaGO_plot.pdf"), top_gseaGO, height = 8.5, width = 11, units = "in")
-#'   
-#'   
-#'   all_gseaGO <- go.bp.res.WebGestaltR %>% 
-#'     filter(FDR < gsea_FDR) %>% 
-#'     dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
-#'     arrange(NES) %>% 
-#'     dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-#'                                      NES < 0 ~ "Down"),
-#'                   status = factor(status, levels = c("Up", "Down"))) %>% 
-#'     group_by(status) %>% 
-#'     top_n(20, wt = abs(NES)) %>% 
-#'     ungroup() %>% 
-#'     ggplot2::ggplot(aes(x=reorder(pathway, NES), y=NES)) +
-#'     geom_bar(stat='identity', aes(fill=status)) +
-#'     scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-#'     coord_flip() +
-#'     theme_minimal() +
-#'     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-#'           axis.title.x = element_text(size=16),
-#'           axis.title.y = element_blank(), 
-#'           axis.text.x = element_text(size = 14),
-#'           axis.text.y=element_text(size = 14),
-#'           axis.line.y = element_blank(),
-#'           axis.ticks.y = element_blank(),
-#'           legend.position = "none") +
-#'     labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-#'     ggtitle(paste('All',prefix))
-#'   ggsave(paste0("allRegProts_", prefix,"_gseaGO_plot.pdf"), all_gseaGO, height = 8.5, width = 11, units = "in")
-#'   
-#'   
-#'   bot_gseaGO <- go.bp.res.WebGestaltR %>% 
-#'     filter(FDR < gsea_FDR) %>% 
-#'     dplyr::rename(pathway = description, NES = normalizedEnrichmentScore) %>% 
-#'     arrange(NES) %>% 
-#'     dplyr::mutate(status = case_when(NES > 0 ~ "Up",
-#'                                      NES < 0 ~ "Down"),
-#'                   status = factor(status, levels = c("Up", "Down"))) %>% 
-#'     #group_by(status) %>% 
-#'     top_n(40, wt = rev(NES)) %>% 
-#'     ungroup() %>% 
-#'     ggplot2::ggplot(aes(x=reorder(pathway, rev(NES)), y=NES)) +
-#'     geom_bar(stat='identity', aes(fill=status)) +
-#'     scale_fill_manual(values = c("Up" = "darkred", "Down" = "dodgerblue4")) +
-#'     coord_flip() +
-#'     theme_minimal() +
-#'     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-#'           axis.title.x = element_text(size=16),
-#'           axis.title.y = element_blank(), 
-#'           axis.text.x = element_text(size = 14),
-#'           axis.text.y=element_text(size = 14),
-#'           axis.line.y = element_blank(),
-#'           axis.ticks.y = element_blank(),
-#'           legend.position = "none") +
-#'     labs(title = "", y="NES") +#for some reason labs still works with orientation before cord flip so set y
-#'     ggtitle(paste('Down-regulated',prefix))
-#'   ggsave(paste0("downRegProts_", prefix,"_gseaGO_plot.pdf"), bot_gseaGO, height = 8.5, width = 11, units = "in")
-#'   
-#'   return(go.bp.res.WebGestaltR) 
-#' }
-
-
 
 #' Old plot using clusterProfiler
+#' @name plotOldGSEA
 #' @param genes.with.values data frame of gene names and values
 #' @param prot.univ total proteins
 #' @param prefix used to create file
 #' @export 
 #' @import BiocManager
+#' 
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   
   if(!require(org.Hs.eg.db)){
@@ -140,18 +35,9 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   }
   gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
                              OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
-  #gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
-  #OrgDb=org.Hs.eg.db,
-  #                           pAdjustMethod = 'BH')#,eps=1e-10)
-  
-  # if(nrow(as.data.frame(gr))==0){
-  #    gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
-  #                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH',pvalueCutoff = 0.1)#,eps=1e-10)
-  #  }
   
   enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("KEGG Terms for ",prefix))
   ggplot2::ggsave(paste0(prefix,'_KEGG.pdf'),width=10,height=10)
-  
   
   return(gr)
 }
@@ -161,6 +47,7 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
 #' @description Performs GO enrichment
 #' @export 
 #' @import BiocManager
+#' 
 doRegularGo<-function(genes,bg=NULL){
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')
