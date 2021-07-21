@@ -15,9 +15,9 @@ knitr::opts_chunk$set(echo = TRUE)
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
 ```{r, echo=FALSE, warning=FALSE}
-library(MXM)
+library(mpnstXenoModeling)
 #this function simply loads all the data into memory
-MXM::loadPDXData()
+loadPDXData()
 
 ##let's clean up drug Dat
 head(drugData)

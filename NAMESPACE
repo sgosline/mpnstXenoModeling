@@ -3,6 +3,7 @@
 export(doRegularGo)
 export(drugMutationsCor)
 export(drugTranscriptCor)
+export(fixDrugData)
 export(formatDataToXeva)
 export(getAllDrugStats)
 export(getLatestVariantData)

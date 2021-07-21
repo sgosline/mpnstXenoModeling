@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(MXM)
+library(mpnstXenoModeling)
 library(dplyr)
 ```
 
@@ -21,7 +21,7 @@ For this project we use the `Xeva` xenograft visualization and analysis tool to 
 
 ```{r Build PDX Data Models, echo=FALSE,message=FALSE,warning=FALSE}
 
-MXM::loadPDXData()
+loadPDXData()
 
 ```
 We currently have rnaSeq and drug-sensitivity for 6 PDX models. We can plot the tumor volume data is shown here.

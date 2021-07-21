@@ -1,4 +1,4 @@
-Package: MXM
+Package: mpnstXenoModeling
 Title: Models PDX models of MPNST samples
 Version: 0.1
 Authors@R: person("Sara","Gosline",email="sara.gosline@pnnl.gov",role=c('aut','cre'))

@@ -10,11 +10,11 @@ if(!require(ggplot2))
   install.packages('ggplot2')
 if(!require(purrr))
   install.packages("purrr")
-library(MXM)
+library(mpnstXenoModeling)
 library(stringr)
 
-syn=MXM::synapseLogin()
-df = MXM::querySynapseTable("syn22279826")
+syn=synapseLogin()
+df = querySynapseTable("syn22279826")
 
 
 #independent t test
