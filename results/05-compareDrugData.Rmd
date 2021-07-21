@@ -7,17 +7,18 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(mpnstXenoModeling)
+
 ```
 
 ## Load all data from Synapse
 
-Let's load all the data using the `MXM` package function. This will pull the data from synapse and format it accordingly.
+Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
 
 ```{r load data,warning=FALSE}
-library(MXM)
 #this function simply loads all the data into memory
-MXM::loadPDXData()
+loadPDXData()
 
 ##let's clean up drug Dat
 head(drugData)
