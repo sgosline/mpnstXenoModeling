@@ -38,11 +38,14 @@ computeTGI<-function(treatedTab,contTab,finalTimePoint){
 
 #' AUC - area under the curve
 #' computes difference between AUC of treated vs control normalized by treatment
-#' @import Xeva
+#' @import BiocManager
 computeAUC<-function(treatedTab,contTab){
   #https://link.springer.com/article/10.1208/s12248-018-0284-8
-  library(Xeva)
-  
+  if(!require(Xeva)){
+    BiocManager::install('Xeva')
+    require(Xeva)
+  }
+
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%
          group_by(model.id)%>%
         group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)

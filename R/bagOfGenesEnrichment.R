@@ -116,10 +116,13 @@
 
 #' Old plot using clusterProfiler
 #' @export 
-#' @require org.Hs.eg.db
-#' @import clusterProfiler
+#' @import BiocManager
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
-  require(org.Hs.eg.db)
+  
+  if(!require(org.Hs.eg.db)){
+    BiocManager::install('Biobase')
+    require(org.Hs.eg.db)
+  }
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
     dplyr::rename(Gene='alias_symbol')
   
@@ -134,7 +137,10 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
   # xx <- as.list(org.Hs.egALIAS2EG)
   # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
   # print(ents)
-  
+  if(!require(clusterProfiler)){
+    BiocManager::install('clusterProfiler')
+    library(clusterProfiler)
+  }
   gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
                              OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
   #gr<-clusterProfiler::gseKEGG(genelist[!is.na(genelist)],organism='hsa',keyType="kegg",
@@ -155,16 +161,21 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
 
 #'Runs regular bag of
 #'@export 
-#'@require org.Hs.eg.db
-#'@import clusterProfiler
+#'@require BiocManager
 doRegularGo<-function(genes,bg=NULL){
-  require(org.Hs.eg.db)
+  if(!require(org.Hs.eg.db)){
+    BiocManager::install('Biobase')
+    require(org.Hs.eg.db)
+  }
   #genes<-unique(as.character(genes.df$Gene))
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
     dplyr::rename(Gene='alias_symbol')
   
   eg<-subset(mapping,Gene%in%genes)
-  
+  if(!require(clusterProfiler)){
+    BiocManager::install('clusterProfiler')
+    require(clusterProfiler)
+  }
   res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
     #sprint(res)
   ret=as.data.frame(res)%>%
@@ -199,7 +210,6 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   #https://wiki.bits.vib.be/index.php/Tutorial:_Testing_for_differential_expression_I
   if(!require('limma')){
     BiocManager::install('limma')
-    
     library(limma)
   }
   fac <- factor(rep(c(2,1), c(length(sampleIDs.group2), length(sampleIDs.group1))))
