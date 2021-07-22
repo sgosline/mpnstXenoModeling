@@ -25,9 +25,9 @@ library(ggridges)
 library(org.Hs.eg.db)
 library(clusterProfiler)
 #library(devtools)
-if(!require(MXM))
-    devtools::install_github('sgosline/MXM')
-library(MXM)
+if(!require(mpnstXenoModeling))
+    devtools::install_github('sgosline/mpnstXenoModeling')
+library(mpnstXenoModeling)
 ```
 
 # Differential expression analysis 
