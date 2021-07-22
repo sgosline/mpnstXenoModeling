@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-require(MXM)
+require(mpnstXenoModeling)
 ```
 
 ## Trouble making a Xeva object
@@ -95,10 +95,11 @@ Lastly we get the `modToBiobaseMap`:
 
 So I have all the data! Woohoo! And it has worked if I only put one sample in each object. However, when I put all the samples in it barfs:
 ```{r barf}
- try(xeva.set<- Xeva::createXevaSet(name="MPNST PDX Data", 
-                           model=as.data.frame(model), drug=as.data.frame(drug),
-                           experiment=as.data.frame(experiment), expDesign=expDesign,
-                           molecularProfiles=list(RNASeq = rnaDat),
-                           modToBiobaseMap = as.data.frame(modToBiobaseMap)))
+
+# try(xeva.set<- Xeva::createXevaSet(name="MPNST PDX Data", 
+#                           model=as.data.frame(model), drug=as.data.frame(drug),
+#                           experiment=as.data.frame(experiment), expDesign=expDesign,
+#                           molecularProfiles=list(RNASeq = rnaDat),
+#                           modToBiobaseMap = as.data.frame(modToBiobaseMap)))
  
 ```

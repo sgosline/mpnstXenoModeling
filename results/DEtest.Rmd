@@ -38,16 +38,16 @@ We need to downlood the data and add shuffle the parameters a bit
 
 ```{r query synapse for data}
 
-res<-MXM::synapseLogin()
+res<-synapseLogin()
 
 #' synapse_query_and_save
 #' downloads file to CSV
 synapse_query_and_save <- function(synTableID) {
-    tab<-MXM::querySynapseTable(synTableID)
+    tab<-querySynapseTable(synTableID)
     tab$RNASeq<-unlist(tab$RNASeq)
     #filter for existant RNAseq files
     tab<-subset(tab,RNASeq!='NaN')
- #   results <- MXM::querySynapseTable(toString(sprintf('select %s from %s where RNASeq IS NOT NULL',synParams,synTableID)
+ #   results <- querySynapseTable(toString(sprintf('select %s from %s where RNASeq IS NOT NULL',synParams,synTableID)
   #  syn.df <- as.data.frame(results)
   #  return(syn.df)
     return(tab)
