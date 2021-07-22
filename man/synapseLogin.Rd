@@ -10,5 +10,5 @@ synapseLogin()
 Synapse login python entity
 }
 \description{
-Logs into Synapse using local information
+Logs into synapse using `synapseclient` python library
 }

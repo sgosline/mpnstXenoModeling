@@ -1,19 +1,20 @@
-##Xeva-specific analyses
 
 
 #' This function takes a tidied table of data and makes into expresion dataset
 #' can be used for RNASeq
 #' TODO: expand for genomic data and latent variables
-#'@import Biobase
 #'@import tibble 
 #'@import tidyr
 #'@import dplyr
+#'@import BiocManager
 #'@export
 #'
 tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
                                      nonFeatures=c('Symbol','zScore','parent','synid')){
-  require(Biobase)
-  
+  if(!require(Biobase)){
+    BiocManager::install('Biobase')
+    require(Biobase)
+  }  
   vfn=list(mean)
   names(vfn)<-featureVar
   
@@ -39,11 +40,14 @@ tidiedTableToExpressionSet<-function(tidied.tb,featureVar='totalCounts',
 }
 
 #' formatDataToXeva
-#'@import Xeva
+#'@import BiocManager
 #'@import dplyr
 #'@export
 formatDataToXeva<-function(){
-  require(Xeva)
+  if(!require(Xeva)){
+    BiocManager::install('Xeva')
+    require(Xeva)
+  }  
   require(dplyr)
 
   drugDat<-drugData

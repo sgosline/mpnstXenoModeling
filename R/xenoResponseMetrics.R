@@ -2,8 +2,8 @@
 
 ###calculate metrics for each
 #https://link.springer.com/article/10.1208/s12248-018-0284-8
-#' @description SPI survival prolongation index calculates 
-#' ratio of time it takes treated to tget to volume compared to control
+#' @name computeSPI
+#' @description SPI survival prolongation index calculates ratio of time it takes treated to tget to volume compared to control
 #' @param tvThreshold - thresholl at which to measure
 #' @param treatedTab - table of treated values
 #' @param contTab - table of control values
@@ -21,6 +21,10 @@ computeSPI<-function(treatedTab,contTab,tvThreshold){
   }
 
 #' TGI - tumor growth index
+#' @name computeTGI
+#' @description Computes tumor growth index
+#' @return value
+#' @export
 computeTGI<-function(treatedTab,contTab,finalTimePoint){
   tvt=subset(treatedTab,time==finalTimePoint)%>%
     group_by(model.id)%>%summarize(vol=max(as.numeric(volume)))
@@ -38,11 +42,16 @@ computeTGI<-function(treatedTab,contTab,finalTimePoint){
 
 #' AUC - area under the curve
 #' computes difference between AUC of treated vs control normalized by treatment
-#' @import Xeva
+#' @name computeAUC
+#' @description computes AUC
+#' @import BiocManager
 computeAUC<-function(treatedTab,contTab){
   #https://link.springer.com/article/10.1208/s12248-018-0284-8
-  library(Xeva)
-  
+  if(!require(Xeva)){
+    BiocManager::install('Xeva')
+    require(Xeva)
+  }
+
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%
          group_by(model.id)%>%
         group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
@@ -93,6 +102,8 @@ statsForDrugPatient<-function(indivId,treat,batch){
 }
 
 #' getAllDrugStats
+#' @name getAllDrugStats
+#' @description computes all PDX drug growth statistics
 #' @param drugData table
 #' @import dplyr
 #' @import purrr

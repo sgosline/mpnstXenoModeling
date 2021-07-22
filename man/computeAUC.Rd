@@ -8,6 +8,5 @@ computes difference between AUC of treated vs control normalized by treatment}
 computeAUC(treatedTab, contTab)
 }
 \description{
-AUC - area under the curve
-computes difference between AUC of treated vs control normalized by treatment
+computes AUC
 }

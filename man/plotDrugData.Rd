@@ -6,6 +6,9 @@
 \usage{
 plotDrugData(drugData)
 }
+\arguments{
+\item{drugData}{table of drug data to be plotted}
+}
 \description{
 plotHistogram of drug data
 }

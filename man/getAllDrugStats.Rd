@@ -10,5 +10,5 @@ getAllDrugStats(drug.tab)
 \item{drugData}{table}
 }
 \description{
-getAllDrugStats
+computes all PDX drug growth statistics
 }

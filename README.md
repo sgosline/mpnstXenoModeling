@@ -1,5 +1,5 @@
 # mpnstXenoModeling
-MPNST Xenograft Modeling Framework defined by the `MXM` R package inside.
+MPNST Xenograft Modeling Framework defined by the `mpnstXenoModeling` R package inside.
  <!-- badges: start -->
   [![R-CMD-check](https://github.com/sgosline/mpnstXenoModeling/workflows/R-CMD-check/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
   <!-- badges: end -->

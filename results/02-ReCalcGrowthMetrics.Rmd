@@ -2,7 +2,10 @@
 title: "02-RecalcGrowthMetrics"
 author: "Sara Gosline"
 date: "7/1/2021"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
@@ -31,7 +34,7 @@ Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-
 
 We can now get all the values for all the combinations.
 
-```{r drugStats, echo=FALSE,warning=FALSE}
+```{r drugStats, warning=FALSE}
 library(ggplot2)
 pat.drug<-drugData%>%rename(individualID='Sample')%>%
     getAllDrugStats(.)%>%
@@ -56,7 +59,7 @@ syn$store(pd)
 
 It seems that 545 is a growth outlier (in addition to a mutational outlier) so we can remove it and re-plot.
 
-```{r plotting without 545}
+```{r plotting without 545,warning=FALSE}
 pat.drug%>%
   subset(individualID!='WU-545')%>%
   tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
@@ -123,7 +126,7 @@ ggsave('allMUtCors.pdf',width=12,height=12)
 Now that we have the correlation values, which gene mutations are correlated with which drugs?
 
 
-```{r plot gene ADs again}
+```{r plot gene ADs again,warning=FALSE}
 library(pheatmap)
 p.order<-pat.drug%>%subset(drug=='everolimus')%>%arrange(TGI)%>%dplyr::select(individualID)
 
