@@ -1,7 +1,7 @@
 ---
 title: "02-RecalcGrowthMetrics"
 author: "Sara Gosline"
-date: "7/1/2021"
+date: "7/26/2021"
 output: 
   html_document:
     toc: true
@@ -12,13 +12,19 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+The goal of this analysis is to collect growth curves from the PDX models. 
+
 ## Recalculate Growth metrics
 `Xeva` is coming across as being clunky to use. While it is useful for plotting dose response curves with error bars, I'm not convinced it will be helpful for more quantitative analysis since everything is stored in the object and hard to acces.
 
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
 ```{r, echo=FALSE, warning=FALSE}
-library(mpnstXenoModeling)
+require(devtools)
+if(!require(mpnstXenoModeling)){
+  devtools::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
 #this function simply loads all the data into memory
 loadPDXData()
 
@@ -64,81 +70,4 @@ pat.drug%>%
   subset(individualID!='WU-545')%>%
   tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
   ggplot(aes(x=drug,y=Value))+geom_bar(aes(fill=individualID),position='dodge',stat='identity')+facet_grid(~Metric)+scale_fill_viridis_d()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-```
-```{r mutational comparison}
-
-library(ggplot2)
-library(ggridges)
-
-topMuts=filter(varData,AD>0)%>%
-  subset(!is.na(Symbol))%>%
-    group_by(Symbol)%>%
-    summarize(nSamps=n_distinct(individualID))%>%
-    filter(nSamps>1)%>%
-    dplyr::select(Symbol)%>%
-  subset(Symbol!="")
-
-topMuts<-union("TP53",topMuts$Symbol)
-
-other.cols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical.Status')
-
-other.samps<-unique(varData$specimenID)
-norms<-grep('normal',other.samps)
-tums<-grep('tumor',other.samps)
-other.samps<-other.samps[-c(norms,tums)]
-  
-  vd<-varData%>%
-    subset(specimenID%in%other.samps)%>%
-    mutate(AD=as.numeric(AD))%>%
-    filter(Symbol%in%topMuts)%>%
-    #mutate(AD=as.numeric(AD))%>%
-   # tidyr::separate(specimenID,into=c('patient','sample'),sep='_',fill="right")%>%
-    #filter(sample!='patient')%>%
-    dplyr::select(-c(synid,specimenID,other.cols))%>%
-    tidyr::pivot_wider(names_from=individualID,values_from=AD,values_fn=list(AD=mean),
-                       values_fill=list(AD=0.0))%>%
-    tidyr::pivot_longer(-Symbol,names_to="individualID",values_to="AD")%>%
-    subset(!is.na(AD))
-
-drug.gene.cors<-vd%>%
-  drugMutationsCor(pat.drug=pat.drug,.)
-
-##now get topMuts again
-updatedMuts<-drug.gene.cors%>%
-  subset(AD>0)%>%
-  group_by(Symbol)%>%
-  summarize(numPats=n_distinct(individualID))%>%
-  filter(numPats>2)%>%
-  ungroup()%>%
-  dplyr::select(Symbol)%>%
-  distinct()
-
-ggplot(drug.gene.cors,aes(x=corVal))+geom_density_ridges(aes(fill=Metric,y=drug,alpha=0.8))+scale_fill_viridis_d()
-
-indivPlots<-drug.gene.cors%>%
-  subset(Metric=='AUC')%>%
-  filter(Symbol%in%updatedMuts$Symbol)%>%
-  plotTumorGrowthCorrelations(minCor=0.8)
-
-cowplot::plot_grid(plotlist=indivPlots)
-ggsave('allMUtCors.pdf',width=12,height=12)
-```
-Now that we have the correlation values, which gene mutations are correlated with which drugs?
-
-
-```{r plot gene ADs again,warning=FALSE}
-library(pheatmap)
-p.order<-pat.drug%>%subset(drug=='everolimus')%>%arrange(TGI)%>%dplyr::select(individualID)
-
-tgi<-pat.drug%>%dplyr::select(drug,individualID,TGI)%>%tidyr::pivot_wider(values_from='TGI',names_from='drug')%>%tibble::column_to_rownames('individualID')
-auc<-pat.drug%>%dplyr::select(drug,individualID,AUC)%>%tidyr::pivot_wider(values_from='AUC',names_from='drug',values_fill=list(AUC=0.0))%>%tibble::column_to_rownames('individualID')
-
-mmat<-drug.gene.cors%>%
-  filter(abs(corVal)>0.8)%>%
-  ungroup()%>%
-  dplyr::select(Symbol,AD,individualID)%>%distinct()%>%
-  tidyr::pivot_wider(names_from=individualID,values_from=AD,values_fill=list(AD=0.0))%>%
-  tibble::column_to_rownames('Symbol')
-p.order<-intersect(p.order$individualID,colnames(mmat))
-pheatmap(log(0.01+mmat[,p.order]),cluster_cols=FALSE,annotation_col=auc,clustering_method='ward.D2',filename = 'correlatedMuts.pdf')
 ```
