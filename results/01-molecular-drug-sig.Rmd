@@ -55,7 +55,7 @@ plotBySample<-function(dt){
   
   p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
   #ggsave(paste0(sample,'PDXmodeling.png'),p)
-  print(P)
+  print(p)
 }
 
 plots <-drugData%>%

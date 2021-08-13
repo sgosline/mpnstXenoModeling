@@ -8,8 +8,8 @@ The goals are to collect data from the NF1 MPNST pre-clinical modeling project a
 
 1. Get access to the [MXM synapse project](https://www.synapse.org/#!Synapse:syn21984813/wiki/602362) - currently under development. Contact sara.gosline@pnnl.gov if you are interested.
 2. Clone this repository 
-3. Build and load `mpnstXenoModeling` package. 
-4. R CMD install .
+3. install devtools `install.packages("devtools")`
+4. The Rmds should be able to run from there!
 
   Then you should be able to run the code in this repo.
 
