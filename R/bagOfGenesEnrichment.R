@@ -201,7 +201,7 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png'))
                     )
   if (isTRUE(upload)) {
-    synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID))
+    synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
   }
   return(heatmap)
 
