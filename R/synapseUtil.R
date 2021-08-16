@@ -83,7 +83,8 @@ querySynapseTable<-function(tableid){
 #' @name queryPartSynapseTable
 #' @description queries synapse table
 #' @param tableid synapse id of table
-#' @param query1, query2
+#' @param query1
+#' @param query2
 #' @export
 queryPartSynapseTable<-function(tableid, query1, query2){
   syn=synapseLogin()

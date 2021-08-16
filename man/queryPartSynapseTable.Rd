@@ -9,8 +9,6 @@ queryPartSynapseTable(tableid, query1, query2)
 }
 \arguments{
 \item{tableid}{synapse id of table}
-
-\item{query1, }{query2}
 }
 \description{
 queries synapse table
