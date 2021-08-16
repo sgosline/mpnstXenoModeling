@@ -25,7 +25,7 @@ synapseLogin<-function(){
   sync=syn$login()
 }
 
-#' Synapse store 
+#' Synapse store
 #' @name synapseStore
 #' @description stores file in synapse
 #' @import reticulate
@@ -35,7 +35,7 @@ synapseLogin<-function(){
 synapseStore<-function(path,parentId){
   library(reticulate)
  # reticulate::use_condaenv(condaenv)
-  
+
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
   sync$store(synapse$File(path,parentId=parentId))
@@ -58,11 +58,11 @@ synTableStore<-function(tab,tabname,parentId='syn22128879'){
   fpath=write.table(tab,file='tmp.csv',sep=',',row.names = FALSE,quote=FALSE)
  # reticulate::use_condaenv(condaenv)
   synapse=reticulate::import('synapseclient')
-  
+
   tab<-synapse$build_table(tabname,parentId,'tmp.csv')
   sync=synapse$login()
   sync$store(tab)
-  
+
 }
 
 
@@ -78,3 +78,15 @@ querySynapseTable<-function(tableid){
   return(res)
 }
 
+#' query synapse table more selectively
+#' This is how you get data from the project
+#' @name querySynapseTable
+#' @description queries synapse table
+#' @param tableid synapse id of table
+#' @param query1, query2
+#' @export
+queryPartSynapseTable<-function(tableid, query1, query2){
+  syn=synapseLogin()
+  res<-syn$tableQuery(paste('select', query1, 'from', tableid, 'where', query2))$asDataFrame()
+  return(res)
+}
