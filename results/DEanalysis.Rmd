@@ -8,10 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 require(devtools)
-if(!require(mpnstXenoModeling)){
-  devtools::install_github('sgosline/mpnstXenoModeling')
-  library(mpnstXenoModeling)
-}
+#if(!require(mpnstXenoModeling)){
+devtools::install_github('jessbade/mpnstXenoModeling', force=TRUE)
+library(mpnstXenoModeling)
+#}
 if(!require('biomaRt')){
   BiocManager::install('biomaRt')
   library('biomaRt')
@@ -40,12 +40,9 @@ if(!require('clusterProfiler')){
 
 ```{r loadData,warning=FALSE}
 #this function simply loads all the data into memory
-synapse_query_and_save <- function(synParams,synTableID,synTableFN) {
-  syn.df <- syn$tableQuery(toString(sprintf('select %s from %s where RNASeq IS NOT NULL',synParams,synTableID)))$asDataFrame()
-  return(syn.df)
-}                      
 
-syn.df <- synapse_query_and_save('*','syn24215021','MPNST_PDX_MODELS.csv')
+syn.df <- queryPartSynapseTable('syn24215021', '*', 'RNASeq IS NOT NULL')
+
 
 ```
 
