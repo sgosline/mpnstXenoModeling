@@ -120,11 +120,12 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 #'@param txid, genename identifieres
 #'@param str var
 #'@param df of var
-plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5, upload=TRUE, path='.') {
+plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
-  #   counts: Expression data matrix, rows are genes, columns are samples
+  #   de.out: Expression data matrix, rows are genes, columns are samples
+  #   counts: Count data matrix, columns are sampleID.Count or sampleID.TPM, rows are TXID
   #   identifiers: Dataframe, columns include 'TXID', 'GENENAME', merged output from do_ensembl_match
   #   myvar: Str, variable tested for differential expression
   #   var.ID: Dataframe, rows are sample IDs and columns are variables used in DE
@@ -148,7 +149,6 @@ plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5,
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
-  de.out <- read.csv(file=paste0(myvar,'_DE.csv'),row.names=1)
   names(de.out)[names(de.out) == "featureID"] <- "TXID"
   dge <- DGEList(counts)
   dge <- calcNormFactors(dge)
@@ -164,7 +164,7 @@ plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5,
   de.df <- de.df[de.df$adj.P.Val < adjpval,]
   if (isTRUE(upload)) {
     write.csv(de.df, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
-    sync$store(synapse$File(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentId))
+    synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
   }
   if (dim(de.df)[1] == 0) {
     stop("No top genes within specified adj.p.val threshold to make heatmap")
@@ -200,6 +200,9 @@ plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5,
                      clustering_distance_rows = as.dist(1 - rows.cor),
                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png'))
                     )
+  if (isTRUE(upload)) {
+    synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID))
+  }
   return(heatmap)
 
 }
