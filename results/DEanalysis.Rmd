@@ -8,10 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 require(devtools)
-#if(!require(mpnstXenoModeling)){
-devtools::install_github('jessbade/mpnstXenoModeling', force=TRUE)
-library(mpnstXenoModeling)
-#}
+if(!require(mpnstXenoModeling)){
+  devtools::install_github('jessbade/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
 if(!require('biomaRt')){
   BiocManager::install('biomaRt')
   library('biomaRt')
