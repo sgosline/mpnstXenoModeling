@@ -109,16 +109,29 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   return(arrange(res,P.Value))
 }
 
+#'plotTopGenesHeatmap
+#'@name plotTopGenesHeatmap
+#'@description Filters and plots expression matrix
+#'@author Jess
+#'@import BiocManager
+#'@import reticulate
+#'@export
+#'@param data matrix
+#'@param txid, genename identifieres
+#'@param str var
+#'@param df of var
 plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5, upload=TRUE, path='.') {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
-  #   dat: Expression data matrix, rows are genes, columns are samples
-  #   sampleIDs.group1: Vector with ids of samples in reference group (eg. normal samples)
-  #   sampleIDs.group2: Vector with ids of samples in interest group (eg. tumor samples)
-  #
+  #   counts: Expression data matrix, rows are genes, columns are samples
+  #   identifiers: Dataframe, columns include 'TXID', 'GENENAME', merged output from do_ensembl_match
+  #   myvar: Str, variable tested for differential expression
+  #   var.ID: Dataframe, rows are sample IDs and columns are variables used in DE
+  #   upload: Bool, should filtered gene dataframe be written to file and uploaded to synapse
+  #   path: Str, path to filewrite location
   # Returns:
-  #   limma Differential Expression results.
+  #   pheatmap results.
   library(reticulate)
   if(!require('pheatmap')){
     BiocManager::install('pheatmap')
