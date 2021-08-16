@@ -80,7 +80,7 @@ querySynapseTable<-function(tableid){
 
 #' query synapse table more selectively
 #' This is how you get data from the project
-#' @name querySynapseTable
+#' @name queryPartSynapseTable
 #' @description queries synapse table
 #' @param tableid synapse id of table
 #' @param query1, query2
