@@ -137,6 +137,14 @@ plotTopGenesHeatmap <- function(counts, identifiers, myvar, var.ID, adjpval=0.5,
     BiocManager::install('pheatmap')
     library(pheatmap)
   }
+  if(!require('edgeR')){
+    BiocManager::install('edgeR')
+    library(edgeR)
+  }
+  if(!require('tibble')){
+    BiocManager::install('tibble')
+    library(tibble)
+  }
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
