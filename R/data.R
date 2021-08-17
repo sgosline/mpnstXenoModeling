@@ -330,10 +330,12 @@ mergeMutData<-function(mutData,newMutData){
 }
 
 #' getMicroTissueDrugData
+#'@name getMicroTissueDrugData
 #' @param syn
 #' @param mtd
 #' @import dplyr
 #' @import tidyr
+#' @export
 getMicroTissueDrugData <- function(syn, mtd) {
   library(dplyr)
   library(tidyr)
