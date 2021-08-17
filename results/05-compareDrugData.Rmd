@@ -12,6 +12,26 @@ if(!require(mpnstXenoModeling)){
   devtools::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
+if(!require('dplyr')){
+  BiocManager::install('dplyr')
+  library(dplyr)
+}
+if(!require('tidyr')){
+  BiocManager::install('tidyr')
+  library(tidyr)
+}
+if(!require('drc')){
+  BiocManager::install('drc')
+  library(drc)
+}
+if(!require('ggplot2')){
+  BiocManager::install('ggplot2')
+  library(ggplot2)
+}
+if(!require('data.table')){
+  BiocManager::install('data.table')
+  library(data.table)
+}
 
 ```
 
@@ -20,28 +40,107 @@ if(!require(mpnstXenoModeling)){
 Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
 
-```{r load data,warning=FALSE}
+```{r loadData, warning=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
-
 ##let's clean up drug Dat
-head(drugData)
+head(mt.df)
 #all.pdxs<<-MXM::formatDataToXeva()
-
 ```
 
 ## Load microtissue data and compare
 The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
-```{r correction, warning=FALSE}
-
-#' ebCorrect
-#' @param values
-#' @return list of corrected values
-ebCorrect <-function(values){
-  
+```{r processMicroTissueDat, warning=FALSE}
+filter_byDrug <- function(syn, mcf, drugID) {
+  mcf <- subset(mcf, experimentalCondition == drugID)
+  #ids is list of filenames
+  ids<-mcf$id
+  #indiv is list of patient IDs
+  indiv<-mcf$individualID
+  #sets filenames to names of ids
+  names(indiv)<-ids
+  res=do.call(rbind,lapply(names(indiv),function(x)
+  {
+    read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')%>%
+    dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                  Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+    tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+    dplyr::rename(Viabilities='percent viability')
+  }))
+  out = res[order(res$Conc),]
+  return(out)
 }
-
+TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
+  if (var(dose_response$Viabilities) == 0) {
+    dose_response$Viabilties[nrow(dose_response)] <- dose_response$Viabilities[nrow(dose_response)] + 10^-10
+  }
+  nan.handle <- match.arg(nan.handle)
+  #, logDose = exp(10)
+  drug.model <- tryCatch({
+    drcmod(dose_response, LL.4(fixed = fixed, names = names), curve_type)
+  }, warning = function(w) {
+    if(nan.handle == "L4"){
+      drcmod(dose_response, L.4(fixed = fixed, names = names), curve_type)
+    } else {
+      drcmod(dose_response, LL.4(fixed = fixed, names = names), curve_type)
+    }
+  }, error = function(e) {
+    drcmod(dose_response, L.4(fixed = fixed, names = names), curve_type)
+  })
+  return(drug.model = drug.model)
+}
+drcmod <- function(dose_resp, fctval, curve_type){
+  drm(formula   = Viabilities ~ Conc
+      , curveid   = CellLine
+      , data      = dose_resp
+      , fct       = fctval
+      , na.action = na.omit
+      , control   = drmc(errorm = FALSE)
+  )
+}
+generate_DR_plots <- function(res, drugID) {
+  require(data.table)
+  dr.dt <- res %>% dplyr::select(Conc, Viabilities, CellLine) %>% setDT()
+  dt2 <- data.table()
+  dt.dat <- data.table()
+  dr.dt[,CellLine:=as.factor(CellLine)]
+  scale.num <- nlevels(dr.dt$CellLine)
+  for (i in 1:nlevels(dr.dt$CellLine)) {
+    dt <- dr.dt[CellLine %in% levels(CellLine)[i]]
+    dt[, CellLine := as.character(CellLine)]
+    fit.LL4 <- TryFit(dt, fixed = c(NA, min(dt$Viabilities), max(dt$Viabilities), NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
+    auc <- computeAUC(fit.LL4, dmin = min(dt$Conc), dmax = max(dt$Conc), islogd = TRUE)
+    cbind(auc,ED(fit.LL4,50))
+    rbindlist(dt.dat,auc)
+    dt[, Pred := predict(object=fit.LL4)]
+    sd.lst = dt[, list(SD=sd(Viabilities)/4),by=Conc]
+    dt = merge(dt,sd.lst)
+    dt2 <- rbind(dt2, dt)
+  }
+  temp.plot = ggplot(dt2, aes(x=Conc, y=Viabilities, group=CellLine, color=CellLine, shape=CellLine)) +
+                geom_ribbon(aes(y=Pred, ymin=Pred-SD, ymax=Pred+SD, fill=CellLine), alpha=0.2, color=NA) +
+                geom_line(aes(y = Pred)) +
+                scale_shape_manual(values=seq(0, scale.num)) +
+                labs(x = "Conc log(M)", y = "Viabilities %", shape="Temp", color="Temp") + theme_bw() +
+                ggtitle(paste("Dose-response curves for Drug:", drugID))
+  #ggsave(temp.plot, file=paste0("./dose_response_plots/",drugID,'.png'))
+  return('plot'=temp.plot,'table'=dt.dat)
+}
+process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.', parentID=NULL){
+  drugIDs <- unique(mod.mt$experimentalCondition)
+  plt.list <- list()
+  for (drug in drugIDs) {
+    res <- filter_byDrug(mod.mt, drug)
+    plt = generate_DR_plots(res$plot,drug)
+    plt.list[[drug]] = plt
+  }
+  pdf("doseResponsePlots.pdf", onefile = TRUE)
+  for (drug in drugIDs) {print(plt.list[[drug]])}
+  dev.off()
+  if (isTRUE(upload)) {
+    synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
+  }
+}
+process_MicroTissueDrugData(syn, mt.df, upload=TRUE, parentID='syn25323411')
 ```
-
-  
