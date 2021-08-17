@@ -177,8 +177,7 @@ loadPDXData<-function(){
 
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
-  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
-  mt.df <<- getMicroTissueDrugData(syn,mt.meta)
+  mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
 
 }
 
@@ -330,10 +329,12 @@ mergeMutData<-function(mutData,newMutData){
 }
 
 #' getMicroTissueDrugData
+#' @name getMicroTissueDrugData
 #' @param syn
 #' @param mtd
 #' @import dplyr
 #' @import tidyr
+#' @export
 getMicroTissueDrugData <- function(syn, mtd) {
   library(dplyr)
   library(tidyr)
@@ -355,7 +356,5 @@ getMicroTissueDrugData <- function(syn, mtd) {
     tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
     dplyr::rename(Viabilities='percent viability')
   }))
-  # Assumes log(M) concentration
-  #return(res[order(res$Conc),]) #this failes
   return(res)
 }
