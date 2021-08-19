@@ -13,11 +13,15 @@ jobs:
      - uses: r-lib/actions/setup-r@v1
      - uses: r-lib/actions/setup-pandoc@v1
      - uses: r-lib/actions/setup-tinytex@v1
+     - name: Install synapse client
+       run: pip install synapseclient
      - name: Install rmarkdown
        run: Rscript -e 'install.packages("rmarkdown")'
      - name: Install devtools
-       run: Rscript -e 'install.packageS("devtools")'
+       run: Rscript -e 'install.packages("devtools")'
      - name: Install packages
        run: Rscript -e 'devtools::build();devtools::install()'
      - name: Render my document to all types
-       run: Rscript -e 'rmarkdown::render("results/02-ReCalcGrowthMetrics.Rmd", output_format = "all")'
+       run: Rscript -e 'for(file in list.files("results/",pattern='*Rmd')) rmarkdown::render(paste0("results/",file))'
+     - name: Store on synapse
+       run: for $file in results/*html do synapse store $file --parentId syn26093047
