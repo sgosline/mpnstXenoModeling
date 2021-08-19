@@ -1,5 +1,5 @@
 ---
-title: "DEanalysis"
+title: "DE analysis"
 author: "Jess Bade"
 date: "8/13/2021"
 output: html_document
