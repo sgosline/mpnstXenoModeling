@@ -24,5 +24,6 @@ jobs:
        run: Rscript -e 'devtools::build();devtools::install()'
      - name: Render my document to all types
        run: Rscript -e 'for(file in list.files("results/",pattern="*Rmd")) rmarkdown::render(paste0("results/",file))'
-     - name: Store on synapse
-       run: for $file in results/*html do synapse store $file --parentId syn26093047
+#     - name: Store on synapse
+#       run: for $file in results/*html do synapse store $file --parentId syn26093047
+#       with:
