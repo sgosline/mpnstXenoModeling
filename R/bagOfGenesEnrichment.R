@@ -99,6 +99,9 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
     BiocManager::install('limma')
     library(limma)
   }
+  sampleIDs.group1 <- intersect(sampleIDs.group1,colnames(dat))
+  sampleIDs.group2 <- intersect(sampleIDs.group2,colnames(dat))
+  
   fac <- factor(rep(c(2,1), c(length(sampleIDs.group2), length(sampleIDs.group1))))
   design <- model.matrix(~fac)
   fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
@@ -167,7 +170,8 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
     synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
   }
   if (dim(de.df)[1] == 0) {
-    stop("No top genes within specified adj.p.val threshold to make heatmap")
+    print("No top genes within specified adj.p.val threshold to make heatmap")
+    return(NULL)
   }
 
   de.table <- de.df %>% select(GENENAME,contains(c('WU', 'JHU', 'MN')))

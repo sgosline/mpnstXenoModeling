@@ -119,8 +119,11 @@ do_ensembl_match <- function(database, file, filename) {
 synget_quants_and_format <- function(df) {
   edb <- EnsDb.Hsapiens.v86
   syns <- df$RNASeq
-  names(syns) <- sampleIDs
+  sampleIDs <- df$Sample
 
+  names(syns) <- sampleIDs
+  
+  syn <- synapseLogin()
   entity <- lapply(syns, function(x) syn$get(x))
   edb <- EnsDb.Hsapiens.v86
   master.table <- data.frame(TXID=character(),GENEID=character(),GENENAME=character())
