@@ -12,7 +12,6 @@ if(!require(mpnstXenoModeling)){
   devtools::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
-
 ```
 
 ## Load all data from Synapse
