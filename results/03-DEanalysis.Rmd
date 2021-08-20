@@ -202,7 +202,6 @@ plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
 
 
 ```{r analysingQual, warning=FALSE}
-
 qual_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$qual == "Robust",]), row.names(var.ID[var.ID$qual == "Unusable",]))
 
 plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
