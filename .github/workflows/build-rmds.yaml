@@ -31,7 +31,7 @@ jobs:
      - name: Install devtools
        run: Rscript -e 'install.packages("devtools"); install.packages("gridExtra")'
      - name: Install packages
-       run: Rscript -e 'devtools::install_github("rstudio/reticulate");devtools::build();devtools::install()'
+       run: Rscript -e 'library(devtools);devtools::install_github("rstudio/reticulate");devtools::build();devtools::install()'
      - name: Render my document to all types
        run: Rscript -e 'for(file in list.files("results/",pattern="*Rmd")) rmarkdown::render(paste0("results/",file))'
 #     - name: Store on synapse
