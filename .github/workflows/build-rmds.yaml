@@ -2,12 +2,13 @@ on:
   push:
     paths:
       - results/*Rmd
+      - .github/workfows/*
 
 name: Render RMDs
 
 jobs:
   render:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       SYNAPSE_AUTH_TOKEN: ${{ secrets.SYNAPSE_AUTH_TOKEN }}
       GITHUB_PAT: ${{ secrets.PAT }}
