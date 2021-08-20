@@ -21,7 +21,7 @@ jobs:
      - name: Install rmarkdown
        run: Rscript -e 'install.packages("rmarkdown")'
      - name: Install devtools
-       run: Rscript -e 'install.packages("devtools")'
+       run: Rscript -e 'install.packages("devtools"); install.packages("gridExtra")'
      - name: Install packages
        run: Rscript -e 'devtools::install_github("rstudio/reticulate");devtools::build();devtools::install()'
      - name: Render my document to all types
