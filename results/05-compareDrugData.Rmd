@@ -19,7 +19,6 @@ if(!require(mpnstXenoModeling)){
 
 Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
-
 ```{r load data,warning=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
