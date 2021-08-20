@@ -7,9 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-require(devtools)
+require(remotes)
 if(!require(mpnstXenoModeling)){
-  devtools::install_github('sgosline/mpnstXenoModeling')
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
 library(dplyr)

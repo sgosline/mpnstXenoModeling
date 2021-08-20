@@ -20,9 +20,9 @@ The goal of this analysis is to collect growth curves from the PDX models.
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
 ```{r, echo=FALSE, warning=FALSE}
-require(devtools)
+require(remotes)
 if(!require(mpnstXenoModeling)){
-  devtools::install_github('sgosline/mpnstXenoModeling')
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
 #this function simply loads all the data into memory

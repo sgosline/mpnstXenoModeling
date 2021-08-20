@@ -7,7 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE, warning=FALSE, echo=FALSE}
 renv::restore()
-library('biomaRt')
 library(tidyr)
 library(dplyr)
 library(edgeR)
