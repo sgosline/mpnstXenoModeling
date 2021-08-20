@@ -1,0 +1,65 @@
+---
+title: "Expression correlation analysis"
+author: "Sara gosline"
+date: "8/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+
+```
+
+Here we bring in the RNASeq data and the `leapR` package to measure and identify correlated pathways across the samples.
+
+
+## Load data from synapse query
+
+
+```{r loadData,warning=FALSE}
+#this function simply loads all the data into memory
+
+syn<-reticulate::import('synapseclient')$login()
+data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
+
+
+
+```
+
+
+## Filter genes by low expression
+
+
+```{r filtering, warning=FALSE}
+
+
+```
+
+## First let's plot the most variable fully expressed genes
+
+```{r most variable}
+
+
+by.gene <- master.table%>%
+  group_by(Symbol,Sample)%>%
+  summarize(totalCounts=sum(NumReads))
+
+pat.var <-by.gene%>%group_by(Symbol)%>%
+  summarize(geneVar=var(totalCounts))
+
+#most.var <- apply(counts,1,var)%>%sort(decreasing=TRUE)
+```
+
+## Correlate all genes across Samples
+
+```{r leapr cor}
+
+```

@@ -44,20 +44,6 @@ Now we can plot the individual experiments run on the PDXs to summarize.
 
 ```{r tumor data, message=FALSE,warning=FALSE}
 
-#batches=batchInfo(all.pdxs)
-plotBySample<-function(dt){
-  #print(dt$Sample)
-  sample=dt$Sample[1]
-  batch=dt$batch[1]
-  #print(sample)
-  tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
-  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),minVol=median(volume)-sd(volume),maxVol=median(volume)+sd(volume))%>%distinct()
-  
-  p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
-  #ggsave(paste0(sample,'PDXmodeling.png'),p)
-  print(P)
-}
-
 plots <-drugData%>%
   group_by(Sample,batch,.drop=F)%>%
   group_map(~plotBySample(.x),.keep=TRUE)

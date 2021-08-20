@@ -1,7 +1,7 @@
 ---
 title: "05-Compare PDX to MicroTissue"
 author: "Sara Gosline, Jess Bade"
-date: "7/18/2021"
+date: "8/18/2021"
 output: html_document
 ---
 
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 require(devtools)
 if(!require(mpnstXenoModeling)){
-  devtools::install_github('sgosline/mpnstXenoModeling')
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
 if(!require('dplyr')){
@@ -42,10 +42,12 @@ if(!require('pROC')){
 
 Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
-
-```{r loadData, warning=FALSE}
+```{r load data,warning=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
+##let's clean up drug Dat
+head(drugData)
+
 
 ```
 

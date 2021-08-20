@@ -4,7 +4,17 @@
 \alias{plotOldGSEA}
 \title{Old plot using clusterProfiler}
 \usage{
-plotOldGSEA(genes.with.values, prot.univ, prefix)
+plotOldGSEA(
+  genes.with.values,
+  prot.univ,
+  prefix,
+  useEns = FALSE,
+  pathway.plot.size = 3,
+  order.by = "NES",
+  clean.names = F,
+  width = 11,
+  height = 8.5
+)
 }
 \arguments{
 \item{genes.with.values}{data frame of gene names and values}
