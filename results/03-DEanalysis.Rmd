@@ -151,7 +151,6 @@ filter_by_low_expressed_genes <- function(master.table) {
   names(counts) <- sapply(strsplit(names(counts), ".C"), '[', 1)
   return(counts)
 }
-
 counts <- filter_by_low_expressed_genes(master.table)
 
 ```
