@@ -13,6 +13,29 @@ parseSynidListColumn<-function(list.column){
   
 }
 
+#'do_ensembl_match
+#'@param database
+#'@param file
+#'@param filename
+do_ensembl_match <- function(file, filename) {
+  library("EnsDb.Hsapiens.v86")
+  database <- EnsDb.Hsapiens.v86
+  
+  qnt.table <- read.table(file,header=T)
+  ensembl.trans <- qnt.table$Name
+  TXNAME <- gsub("\\..*","",ensembl.trans)
+  trans.table <- cbind(qnt.table,TXNAME)
+  geneIDs <- ensembldb::select(database, keys=TXNAME, keytype = "TXNAME", columns = c("GENEID", "GENENAME"))
+  temp.table <- left_join(geneIDs,trans.table,by=c("TXNAME"))%>%
+    dplyr::select(TXID,GENEID,GENENAME,TPM,NumReads)# %>%
+
+  #names(temp.table)[4] <- sprintf("%s.TPM",filename)
+  #names(temp.table)[5] <- sprintf("%s.Count",filename)
+  return(temp.table)
+}
+
+ 
+
 #' gets a list of synapse ids and binds them together
 #' @param tab table of MPNST samples
 #' @param syn synapse login client
@@ -30,21 +53,22 @@ dataFromSynTable<-function(tab,syn,colname){
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
-              RnaSeq=c('totalCounts','Symbol','zScore','specimenID','individualID',
-                       'sex','species','experimentalCondition'),
+              RNASeq=c('TXID','GENENAME','TPM','NumReads'),
               `Microtissue Drug Data`=c())
   
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
 
   res<-lapply(samps,function(y){
-    other.vals<-subset(tab,Sample==y)%>%dplyr::select(othercols)
+    other.vals<-subset(tab,Sample==y)%>%
+      dplyr::select(othercols)
     synds = synids[[y]]
     if(synds[1]=='NaN')
       return(NULL)
     
     full.tab<-do.call(rbind,lapply(synds,function(x){
       #print(x)
+      x=unlist(x)
       path <-syn$get(x)$path
       fend<-unlist(strsplit(basename(path),split='.',fixed=T))
       fend <- fend[length(fend)]
@@ -67,7 +91,10 @@ dataFromSynTable<-function(tab,syn,colname){
       }else if(fend=='tsv'){
         tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
-      else
+      else if(fend=='sf'){##add check from rnaseq data
+        tab<-do_ensembl_match(path,x)
+       # print(head(tab))
+      }else
         tab<-readxl::read_xls(path)
      # print(head(tab))
       tab<-tab[,schemas[[colname]]]%>%mutate(synid=x)
@@ -151,9 +178,9 @@ loadPDXData<-function(){
     
  
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
-  
-  ##query mutational data based on files in `Somatic Mutations` column
- # newMutData<-getLatestVariantData(syn)%>%
+
+##query mutational data based on files in `Somatic Mutations` column
+# newMutData<-getLatestVariantData(syn)%>%
 #    dplyr::select(Symbol='Gene',AD,specimenID,individualID)
 #  
 #  mutData<-getOldVariantData(syn)%>%
@@ -171,7 +198,8 @@ loadPDXData<-function(){
     
   #now get RNA-Seq
   #update to use `RNAseq` column
-  rnaSeq<<-getPdxRNAseqData(syn)%>%
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
+    #getPdxRNAseqData(syn)%>%
     dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
                   sex,species,experimentalCondition)
   
