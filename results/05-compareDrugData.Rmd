@@ -21,7 +21,6 @@ Let's load all the data using the `mpnstXenoModeling` package function. This wil
 ```{r load data,warning=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
-
 ##let's clean up drug Dat
 head(drugData)
 #all.pdxs<<-MXM::formatDataToXeva()
