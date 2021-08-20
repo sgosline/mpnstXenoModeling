@@ -53,7 +53,10 @@ by.gene <- master.table%>%
   summarize(totalCounts=sum(NumReads))
 
 pat.var <-by.gene%>%group_by(Symbol)%>%
-  summarize(geneVar=var(totalCounts))
+  summarize(geneVar=var(totalCounts))%>%
+  arrange(desc(geneVar))
+
+symbs<-pat.var$Symbol[1:100]
 
 #most.var <- apply(counts,1,var)%>%sort(decreasing=TRUE)
 ```
