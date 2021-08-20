@@ -238,6 +238,7 @@ plotGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, pathway.plot.size =
                    order.by = "NES", height = 8.5, width = 11,
                    term.2.gene, term.2.name, ...){
   
+  
   genes.with.values<-arrange(genes.with.values,desc(value))
   # print(head(genes.with.values))
   genelist=genes.with.values$value
