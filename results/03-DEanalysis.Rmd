@@ -159,13 +159,17 @@ counts <- filter_by_low_expressed_genes(master.table)
 
 
 ```{r analysingSex, warning=FALSE}
-
+library(Biobase)
 sex_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$sex == "Male",]), row.names(var.ID[var.ID$sex == "Female",]))
 
 plotTopGenesHeatmap(sex_res, counts, identifiers,'sex',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
 genes.with.values<-sex_res%>%
   dplyr::select(Gene='featureID',value='logFC')
+
+plotGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, 
+                   term.2.gene=org.Hs.egENSEMBL2EG, term.2.name)
+                   
 plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
 
 ```

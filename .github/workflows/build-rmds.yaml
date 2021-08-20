@@ -10,6 +10,7 @@ jobs:
     runs-on: macOS-latest
     env:
       SYNAPSE_AUTH_TOKEN: ${{ secrets.SYNAPSE_AUTH_TOKEN }}
+      GITHUB_PAT: ${{ secrets.PAT }}
     steps:
      - uses: actions/checkout@v2
      - uses: r-lib/actions/setup-r@v1
