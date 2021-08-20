@@ -29,7 +29,7 @@ jobs:
           sudo apt-get upgrade
           sudo apt-get install python3-virtualenv
           sudo apt-get install python3-venv
-        shell: /bin/bash {0}
+       shell: /bin/bash {0}
      - name: Install packages
        run: Rscript -e 'devtools::install_github("rstudio/reticulate");devtools::build();devtools::install()'
      - name: Render my document to all types
