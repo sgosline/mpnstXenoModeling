@@ -13,6 +13,10 @@ if(!require(mpnstXenoModeling)){
   remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
+if(!require(leapR)){
+  remotes::install_github('biodataganache/leapR')
+  library(leapR)
+}
 
 ```
 

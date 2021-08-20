@@ -13,10 +13,7 @@ if(!require(mpnstXenoModeling)){
   devtools::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
-#if(!require('biomaRt')){
-#  BiocManager::install('biomaRt')
-#  library('biomaRt')
-#}
+
 if(!require('dplyr')){
   BiocManager::install('dplyr')
   library(dplyr)
@@ -38,7 +35,8 @@ if(!require('EnsDb.Hsapiens.v86')){
 ```{r loadData,warning=FALSE}
 #this function simply loads all the data into memory
 
-loadPdxData()
+loadPDXData()
+
 #syn.df <- queryPartSynapseTable('syn24215021', '*', 'RNASeq IS NOT NULL')
 master.table<-rnaSeq
 var.ID<-rnaSeq%>%
@@ -67,7 +65,7 @@ format_clinical_data <- function(df) {
   return(df)
 }
 
-#df <- format_clinical_data(syn.df)
+df<- format_clinical_data(var.ID)
 
 ```
 
@@ -96,7 +94,7 @@ organize_vars <- function(df) {
   return(var.ID)
 }
 
-#var.ID <- organize_vars(df)
+var.ID <- organize_vars(df)
 
 ```
 

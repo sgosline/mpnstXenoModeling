@@ -19,6 +19,7 @@ parseSynidListColumn<-function(list.column){
 #'@param filename
 do_ensembl_match <- function(file, filename) {
   library("EnsDb.Hsapiens.v86")
+  library(ensembldb)
   database <- EnsDb.Hsapiens.v86
   
   qnt.table <- read.table(file,header=T)
@@ -290,10 +291,9 @@ processMergedXls<-function(syn,fileid,indId){
 #' @import BiocManager
 getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
-  if(!require(biomaRt)){
-    BiocManager::install('biomaRt')
-    library(biomaRt)
-  }
+  library("EnsDb.Hsapiens.v86")
+  library(ensembldb)
+  
 #  print(fileid)
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
@@ -301,13 +301,16 @@ getNewSomaticCalls<-function(tab,specimen){
     tidyr::separate(HGVSp,into=c('prot_id','pvar'))%>%
     mutate(prot_id=stringr::str_replace(prot_id,'\\.[0-9]+',''))
   
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=tab$trans_id, keytype = "TXNAME", columns = c("GENENAME"))
+  
 #  ensembl <- biomaRt::useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl")
-  ensembl <- biomaRt::useMart("ensembl",dataset="hsapiens_gene_ensembl")
-  pmap<-biomaRt::getBM(mart=ensembl,
-                       attributes=c('ensembl_transcript_id','ensembl_peptide_id','hgnc_symbol'))
-  ftab<-tab%>%rename(ensembl_transcript_id='trans_id')%>%left_join(pmap)
+  #ensembl <- biomaRt::useMart("ensembl",dataset="hsapiens_gene_ensembl")
+  #pmap<-biomaRt::getBM(mart=ensembl,
+  #                     attributes=c('ensembl_transcript_id','ensembl_peptide_id','hgnc_symbol'))
+  ftab<-tab%>%rename(TXNAME='trans_id')%>%left_join(pmap)
   res<-ftab%>%
-    dplyr::select(c('hgnc_symbol',colnames(ftab)[grep('.AD$',colnames(ftab))]))%>%
+    dplyr::select(c('GENENAME',colnames(ftab)[grep('.AD$',colnames(ftab))]))%>%
     distinct()%>%
     mutate(specimenID=specimen)%>%
     mutate(individualID=specimen)
