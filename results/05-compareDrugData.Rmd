@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 require(devtools)
 if(!require(mpnstXenoModeling)){
-  devtools::install_github('sgosline/mpnstXenoModeling')
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
 ```

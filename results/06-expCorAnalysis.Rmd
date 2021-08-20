@@ -1,6 +1,6 @@
 ---
 title: "Expression correlation analysis"
-author: "Sar agosline"
+author: "Sara gosline"
 date: "8/20/2021"
 output: html_document
 ---
@@ -13,10 +13,7 @@ if(!require(mpnstXenoModeling)){
   remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
-if(!require(leapR)){
-  remotes::install_github('biodataganache/leapR')
-  library(leapR)
-}
+
 
 ```
 
@@ -29,164 +26,40 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 ```{r loadData,warning=FALSE}
 #this function simply loads all the data into memory
 
-loadPDXData()
+syn<-reticulate::import('synapseclient')$login()
+data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
 
-```
-
-## Format the clinical data to distinct factors
-
-
-```{r formatting, warning=FALSE}
 
 
 ```
 
-## Organize factor levels of variable group dataframe
-
-
-```{r organizing, warning=FALSE}
-
-organize_vars <- function(df) {
-  #Get IDs from synapse table
-  sampleIDs <- df$Sample
-
-  #create factors of clinical variables in synapse table
-  group <- factor(df$Clinical.Status)
-  sex <- factor(df$Sex)
-  age <- factor(df$Age)
-  qual <- factor(df$UpdatedTissueQuality)
-
-  #generate clinical variable partitions for heatmap legend
-  var.ID <- data.frame(group)
-
-  var.ID$sex <- sex
-  var.ID$age <- age
-  var.ID$qual <- qual
-  rownames(var.ID) <- sampleIDs
-  return(var.ID)
-}
-
-var.ID <- organize_vars(df)
-
-```
-
-## Do ensembl match from quants to database
-
-
-```{r matching, warning=FALSE}
-
-do_ensembl_match <- function(database, file, filename) {
-  qnt.table <- read.table(file$path,header=T)
-  ensembl.trans <- qnt.table$Name
-  TXNAME <- gsub("\\..*","",ensembl.trans)
-  trans.table <- cbind(qnt.table,TXNAME)
-  geneIDs <- ensembldb::select(database, keys=TXNAME, keytype = "TXNAME", columns = c("GENEID", "GENENAME"))
-  temp.table <- left_join(geneIDs,trans.table,by=c("TXNAME"))%>%
-    dplyr::select(TXID,GENEID,GENENAME,TPM,NumReads)# %>%
-  names(temp.table)[4] <- sprintf("%s.TPM",filename)
-  names(temp.table)[5] <- sprintf("%s.Count",filename)
-  return(temp.table)
-}
-
-synget_quants_and_format <- function(df) {
-  edb <- EnsDb.Hsapiens.v86
-  syns <- df$RNASeq
-  sampleIDs <- df$Sample
-
-  names(syns) <- sampleIDs
-  
-  syn <- synapseLogin()
-  entity <- lapply(syns, function(x) syn$get(x))
-  edb <- EnsDb.Hsapiens.v86
-  master.table <- data.frame(TXID=character(),GENEID=character(),GENENAME=character())
-  for (x in 1:length(sampleIDs)) {
-    file <- entity[[x]]
-    fn <- sampleIDs[x]
-    temp.table = do_ensembl_match(edb,file,fn)
-    master.table <- merge(master.table,temp.table, by=c('TXID','GENEID','GENENAME'), all=TRUE)
-  }
-  return(master.table)
-}
-master.table <- synget_quants_and_format(df)
-identifiers <- master.table[,c(1,3)]
-
-```
 
 ## Filter genes by low expression
 
 
 ```{r filtering, warning=FALSE}
 
-filter_by_low_expressed_genes <- function(master.table) {
-  #Filter lowly expressed genes
-  sum.table <- master.table %>% mutate(sum = rowSums(.[grep("TPM", names(.))]))
-  keep<-sum.table[!(sum.table$sum<1),]
-  row.names(keep) <- keep$TXID
-  counts <- keep %>% dplyr:: select(contains("Count"))
-  names(counts) <- sapply(strsplit(names(counts), ".C"), '[', 1)
-  return(counts)
-}
-counts <- filter_by_low_expressed_genes(master.table)
 
 ```
 
-## Do DE analysis on sex variable groups
+## First let's plot the most variable fully expressed genes
+
+```{r most variable}
 
 
-```{r analysingSex, warning=FALSE}
-library(Biobase)
-sex_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$sex == "Male",]), row.names(var.ID[var.ID$sex == "Female",]))
+by.gene <- master.table%>%
+  group_by(Symbol,Sample)%>%
+  summarize(totalCounts=sum(NumReads))
 
-plotTopGenesHeatmap(sex_res, counts, identifiers,'sex',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+pat.var <-by.gene%>%group_by(Symbol)%>%
+  summarize(geneVar=var(totalCounts))
 
-genes.with.values<-sex_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-
-#plotGSEA<-function(genes.with.values, prefix, gsea_FDR=0.05, 
-#                   term.2.gene=org.Hs.egENSEMBL2EG, term.2.name)
-                   
-plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
-
+#most.var <- apply(counts,1,var)%>%sort(decreasing=TRUE)
 ```
 
-## Do DE analysis on life status variable groups
+## Correlate all genes across Samples
 
+```{r leapr cor}
 
-```{r analysingExist, warning=FALSE}
-exist_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$group == "Alive",]), row.names(var.ID[var.ID$group == "Deceased",]))
-
-plotTopGenesHeatmap(exist_res, counts, identifiers,'exist',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
-
-
-genes.with.values<-exist_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'prognosisDiff',useEns=TRUE)
-```
-
-## Do DE analysis on age variable groups
-
-
-```{r analysingAge, warning=FALSE}
-age_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$age == "Over.18",]), row.names(var.ID[var.ID$age == "Under.and.18",]))
-
-plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
-
-
-genes.with.values<-age_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
-```
-
-## Do DE analysis on sample quality variable groups
-
-
-```{r analysingQual, warning=FALSE}
-qual_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$qual == "Robust",]), row.names(var.ID[var.ID$qual == "Unusable",]))
-
-plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
-
-
-genes.with.values<-qual_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'qualDifferences',useEns=TRUE)
 ```

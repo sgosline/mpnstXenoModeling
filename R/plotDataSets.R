@@ -31,19 +31,21 @@ plotDrugData<-function(drugData){
 
 
 
-#' @name plotGrowthForBatch
-#' @description uses Xeva pacage to plot growth of treatment vs. control
+#' plotPDXTreatmentBySample
+#' @param dt is the drugDatatable
 #' @export
-#' @import BiocManager
-plotGrowthForBatch<-function(xeva.obj,batch){
-  if(!require(Xeva)){
-    BiocManager::install('Xeva')
-    library(Xeva)
-  }
-  plotPDX(xeva.obj,batch=batch,SE.plot='ribbon',
-          vol.normal=FALSE,
-          title=batch,
-          control.name='vehicle')
+plotPDXTreatmentBySample<-function(dt){
+  #print(dt$Sample)
+  sample=dt$Sample[1]
+  batch=dt$batch[1]
+  #print(sample)
+  tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
+  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),minVol=median(volume)-sd(volume),maxVol=median(volume)+sd(volume))%>%distinct()
+  
+  p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
+  #ggsave(paste0(sample,'PDXmodeling.png'),p)
+  print(p)
+  return(p)
 }
 
 

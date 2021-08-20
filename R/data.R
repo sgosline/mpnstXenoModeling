@@ -16,8 +16,7 @@ parseSynidListColumn<-function(list.column){
 #'do_ensembl_match
 #'@param database
 #'@param file
-#'@param filename
-do_ensembl_match <- function(file, filename) {
+do_ensembl_match <- function(file) {
   library("EnsDb.Hsapiens.v86")
   library(ensembldb)
   database <- EnsDb.Hsapiens.v86
@@ -32,6 +31,7 @@ do_ensembl_match <- function(file, filename) {
 
   #names(temp.table)[4] <- sprintf("%s.TPM",filename)
   #names(temp.table)[5] <- sprintf("%s.Count",filename)
+  #print(head(temp.table))
   return(temp.table)
 }
 
@@ -41,6 +41,7 @@ do_ensembl_match <- function(file, filename) {
 #' @param tab table of MPNST samples
 #' @param syn synapse login client
 #' @param colname name of column to select
+#' @export
 dataFromSynTable<-function(tab,syn,colname){
 
   
@@ -54,7 +55,7 @@ dataFromSynTable<-function(tab,syn,colname){
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
-              RNASeq=c('TXID','GENENAME','TPM','NumReads'),
+              RNASeq=c('TXID','Symbol','TPM','NumReads'),
               `Microtissue Drug Data`=c())
   
   ##the columns in the table we need
@@ -93,7 +94,7 @@ dataFromSynTable<-function(tab,syn,colname){
         tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
       else if(fend=='sf'){##add check from rnaseq data
-        tab<-do_ensembl_match(path,x)
+        tab<-do_ensembl_match(path)%>%dplyr::rename(Symbol='GENENAME')
        # print(head(tab))
       }else
         tab<-readxl::read_xls(path)
@@ -199,10 +200,10 @@ loadPDXData<-function(){
     
   #now get RNA-Seq
   #update to use `RNAseq` column
-  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')#%>%
     #getPdxRNAseqData(syn)%>%
-    dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
-                  sex,species,experimentalCondition)
+    #dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
+    #              sex,species,experimentalCondition)
   
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
@@ -304,11 +305,7 @@ getNewSomaticCalls<-function(tab,specimen){
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, keys=tab$trans_id, keytype = "TXNAME", columns = c("GENENAME"))
   
-#  ensembl <- biomaRt::useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl")
-  #ensembl <- biomaRt::useMart("ensembl",dataset="hsapiens_gene_ensembl")
-  #pmap<-biomaRt::getBM(mart=ensembl,
-  #                     attributes=c('ensembl_transcript_id','ensembl_peptide_id','hgnc_symbol'))
-  ftab<-tab%>%rename(TXNAME='trans_id')%>%left_join(pmap)
+  ftab<-tab%>%dplyr::rename(TXNAME='trans_id')%>%left_join(pmap)
   res<-ftab%>%
     dplyr::select(c('GENENAME',colnames(ftab)[grep('.AD$',colnames(ftab))]))%>%
     distinct()%>%

@@ -31,8 +31,11 @@ loadPDXData()
 
 ```
 
+## Show example Growth Metrics
 
-## Calculate Growth Metrics
+Let's see how the various growth metrics compare.
+
+## Compare Growth Metrics
 
 Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-018-0284-8.pdf) there are numerous metrics by which we can compare various treatments in models. They each have their own biases but we need to evaluate in detail.
 

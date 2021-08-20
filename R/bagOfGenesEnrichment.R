@@ -1,4 +1,13 @@
 
+#' Used to make reversed logarithmic scales
+#' @import scales
+reverselog_trans <- function(base = exp(1)) {
+  trans <- function(x) -log(x, base)
+  inv <- function(x) base^(-x)
+  trans_new(paste0("reverselog-", format(base)), trans, inv, 
+            log_breaks(base = base), 
+            domain = c(1e-100, Inf))
+}
 
 
 #' Old plot using clusterProfiler
@@ -9,7 +18,8 @@
 #' @export
 #' @import BiocManager
 #'
-plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE){
+plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.size=3,
+                      order.by='NES',clean.names=F,width=11,height=8.5){
 
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')
@@ -45,7 +55,7 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE){
   gr<-NULL
   try(gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="ENTREZID",
                                OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH'))
-  #,eps=1e-10)
+  gsea_FDR=0.1
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
   if(nrow(res)==0){
     return(gr)
@@ -269,4 +279,86 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
 
 }
 
-
+#' Plot using correlation enrichment from leapR package. 
+#' A single plot is saved to the working directory
+#' @export 
+#' @import ggplot2
+#' @import gridExtra
+#' @import scales
+#' @import dplyr
+#' @import leapr
+#' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
+#' @param prefix string, used for naming the saved plots.
+#' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.
+#' @param geneset Pathway/Kinase database, eg ncipid, msigdb, both of which are included in leapr.
+#' @param clean.names Boolean, if TRUE removes the "_pathway" ending in pathway names, making the plot easier to read.
+plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05, 
+                                      corr.cutoff = 0.1, prefix, width = 11, 
+                                      height = 8.5, order.by = "Ingroup mean", 
+                                      clean.names = FALSE, pathway.plot.size = 3) {
+  if(!require('leapr')){
+    remotes::install_github('biodataganache/leapr')
+    library(leapr)
+  }
+  corr.enrichment <- leapr::leapR(geneset, 
+                           enrichment_method = "correlation_enrichment",
+                           datamatrix = exprs) 
+  corr.enrichment <- corr.enrichment %>%
+    mutate(Pathway = rownames(.)) %>%
+    rename(`Ingroup mean` = ingroup_mean,
+           `Outgroup mean` = outgroup_mean) %>%
+    mutate(Status = case_when(`Ingroup mean` > 0 ~ "Positively Correlated", 
+                              `Ingroup mean` < 0 ~ "Negatively Correlated")) %>%
+    select(Pathway, `Ingroup mean`, `Outgroup mean`, 
+           ingroup_n, outgroup_n, pvalue, BH_pvalue, Status)
+  
+  corr.enrichment.filtered <- corr.enrichment %>%
+    filter(BH_pvalue < fdr.cutoff & abs(`Ingroup mean`) > corr.cutoff) %>%
+    mutate(BH_pvalue = case_when(BH_pvalue > 1e-10 ~ BH_pvalue,
+                                 BH_pvalue < 1e-10 ~ 1e-10))
+  
+  if (clean.names) {
+    corr.enrichment.filtered$Pathway <- sub("_pathway$", "", 
+                                            corr.enrichment.filtered$Pathway)
+  }
+  
+  p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
+                                                 y = reorder(Pathway, get(order.by)))) +
+    geom_bar(stat='identity', aes(fill = Status)) +
+    scale_fill_manual(values = c("Positively Correlated" = "mediumturquoise", 
+                                 "Negatively Correlated" = "firebrick2")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 9),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") + 
+    labs(x = "Average correlation") +
+    ggtitle("Correlation Enrichment")
+  
+  p.pval <- ggplot(corr.enrichment.filtered, aes(x = BH_pvalue, 
+                                                 y = reorder(Pathway, get(order.by)))) +
+    geom_bar(stat='identity') +
+    scale_x_continuous(trans = reverselog_trans(10)) + 
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 14),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.line.y = element_line(color = "black"),
+          legend.position = "none") + 
+    labs(x = "Adjusted p-value") +
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
+  p.both <- grid.arrange(p.corr,p.pval,layout_matrix = arrange_matrix)
+  
+  ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
+         height = height, width = width, units = "in")
+  return(corr.enrichment)
+}
