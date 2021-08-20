@@ -9,22 +9,31 @@
 #' @export
 #' @import BiocManager
 #'
-plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
+plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE){
 
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')
     require(org.Hs.eg.db)
   }
+  
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
     dplyr::rename(Gene='alias_symbol')
 
+  emapping <-as.data.frame(org.Hs.egENSEMBLTRANS2EG)%>%
+    dplyr::rename(Gene='trans_id')
+  
+  if(useEns)
+    mapping <- emapping
+  
   genes.with.values<-genes.with.values%>%
-   # dplyr::left_join(mapping,by='Gene')%>%
-    arrange(desc(value))
+    dplyr::left_join(mapping,by='Gene')%>%
+    arrange(desc(value))%>%
+    subset(!is.na(gene_id))
 
   genelist=genes.with.values$value
-  names(genelist)=genes.with.values$Gene
+  names(genelist)=as.character(genes.with.values$gene_id)
 
+  print(head(genelist))
   # symbs<-names(genelist)[!is.na(genelist)]
   # xx <- as.list(org.Hs.egALIAS2EG)
   # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
@@ -33,11 +42,15 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix){
     BiocManager::install('clusterProfiler')
     library(clusterProfiler)
   }
-  gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="SYMBOL",
-                             OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH')#,eps=1e-10)
-
-  enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("KEGG Terms for ",prefix))
-  ggplot2::ggsave(paste0(prefix,'_KEGG.pdf'),width=10,height=10)
+  gr<-NULL
+  try(gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="ENTREZID",
+                               OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH'))
+  #,eps=1e-10)
+  if(!is.null(gr)){
+    enrichplot::ridgeplot(gr,showCategory = 50,fill='pvalue')+ggplot2::ggtitle(paste0("KEGG Terms for ",prefix))
+  
+    ggplot2::ggsave(paste0(prefix,'_KEGG.pdf'),width=10,height=10)
+  }
 
   return(gr)
 }

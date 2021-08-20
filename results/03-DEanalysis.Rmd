@@ -28,10 +28,6 @@ if(!require('EnsDb.Hsapiens.v86')){
   BiocManager::install('EnsDb.Hsapiens.v86')
   library(EnsDb.Hsapiens.v86)
 }
-if(!require('clusterProfiler')){
-  BiocManager::install('clusterProfiler')
-  library(clusterProfiler)
-}
 
 ```
 
@@ -168,6 +164,9 @@ sex_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$sex == "Male
 
 plotTopGenesHeatmap(sex_res, counts, identifiers,'sex',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
+genes.with.values<-sex_res%>%
+  dplyr::select(Gene='featureID',value='logFC')
+plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
 
 ```
 
@@ -179,6 +178,10 @@ exist_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$group == "
 
 plotTopGenesHeatmap(exist_res, counts, identifiers,'exist',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
+
+genes.with.values<-exist_res%>%
+  dplyr::select(Gene='featureID',value='logFC')
+plotOldGSEA(genes.with.values,NULL,'prognosisDiff',useEns=TRUE)
 ```
 
 ## Do DE analysis on age variable groups
@@ -189,6 +192,10 @@ age_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$age == "Over
 
 plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
+
+genes.with.values<-age_res%>%
+  dplyr::select(Gene='featureID',value='logFC')
+plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
 ```
 
 ## Do DE analysis on sample quality variable groups
@@ -199,4 +206,9 @@ plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, uplo
 qual_res <- limmaTwoFactorDEAnalysis(counts, row.names(var.ID[var.ID$qual == "Robust",]), row.names(var.ID[var.ID$qual == "Unusable",]))
 
 plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+
+
+genes.with.values<-qual_res%>%
+  dplyr::select(Gene='featureID',value='logFC')
+plotOldGSEA(genes.with.values,NULL,'qualDifferences',useEns=TRUE)
 ```
