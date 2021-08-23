@@ -53,26 +53,30 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   library(ggfortify)
   met <- dat.table %>%
     dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
-    distinct()
+    distinct()%>%
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(Clinical.Status=unlist(Clinical.Status))
+
     
   mat <- dat.table %>% dplyr::select(TXID,NumReads,Sample) %>%
     distinct() %>%
     mutate(Reads=as.numeric(NumReads)) %>%
-    tidyr::pivot_wider(names_from='sample', values_from='Reads',
-                       values_fn=list(Reads=function(x) mean(x,na.rm=T)),
+    select(-NumReads)%>%
+    tidyr::pivot_wider(names_from='Sample', values_from='Reads',
+                       values_fn=list(Reads=mean),
                        values_fill=list(Reads=0)) %>%
     tibble::remove_rownames() %>%
     tibble::column_to_rownames('TXID')
-  mat <- mat[complete.cases(mat),]
+ # mat <- mat[complete.cases(mat),]
   x <- prcomp(t(mat))$x
   x <- as.data.frame(x)
-  x$sample <- rownames(x)
+  x$Sample <- rownames(x)
   ggdata <- inner_join(x, met, by="Sample")
   
   library(ggforce)
-  ggplot(ggdata, aes_string(x="PC1", y="PC2", ...)) +
-    geom_point(size=2.5) +
-    ggforce::geom_mark_ellipse(color = NA, alpha=alpha, expand=expand)
+  ggplot(ggdata, aes_string(x="PC1", y="PC2", color = 'MicroTissueQuality',shape='Clinical.Status')) +
+    geom_point(size=2.5)# +
+    #ggforce::geom_mark_ellipse( alpha=alpha, expand=expand)
  
 }
 
@@ -93,7 +97,7 @@ pat.var <-by.gene%>%group_by(Symbol)%>%
 
 symbs<-pat.var$Symbol[1:100]
 
-#most.var <- apply(counts,1,var)%>%sort(decreasing=TRUE)
+
 ```
 
 ## Correlate all genes across Samples
