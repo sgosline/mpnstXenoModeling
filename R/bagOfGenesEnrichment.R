@@ -286,7 +286,7 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
 #' @import gridExtra
 #' @import scales
 #' @import dplyr
-#' @import leapr
+#' @import remotes
 #' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.
