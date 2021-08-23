@@ -45,6 +45,8 @@ rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
 
 ## First let's plot the most variable fully expressed genes
 
+We want to plot the variable genes in a heatmap and also the PCA
+
 ```{r most variable}
 
 
