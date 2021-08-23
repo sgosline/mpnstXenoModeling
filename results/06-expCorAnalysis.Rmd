@@ -76,8 +76,10 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
  
 }
 
-
+plotAllData(master.table)
 ```
+
+
 ```{r most variable}
 
 
