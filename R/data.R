@@ -16,9 +16,15 @@ parseSynidListColumn<-function(list.column){
 #'do_ensembl_match
 #'@param database
 #'@param file
+#'@import BiocManager
 do_ensembl_match <- function(file) {
-  library("EnsDb.Hsapiens.v86")
-  library(ensembldb)
+  
+  
+  if(!require("EnsDb.Hsapiens.v86")){
+    BiocManager::install('EnsDb.Hsapiens.V86')
+    library("EnsDb.Hsapiens.v86")
+  }
+    library(ensembldb)
   database <- EnsDb.Hsapiens.v86
   
   qnt.table <- read.table(file,header=T)
@@ -292,8 +298,11 @@ processMergedXls<-function(syn,fileid,indId){
 #' @import BiocManager
 getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
-  library("EnsDb.Hsapiens.v86")
-  library(ensembldb)
+  if(!require('EnsDb.Hsapiens.v86')){
+    BiocManager::install('EnsDb.Hsapiens.V86')
+    library("EnsDb.Hsapiens.v86")
+  }
+    library(ensembldb)
   
 #  print(fileid)
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
