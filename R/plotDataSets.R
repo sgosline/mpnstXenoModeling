@@ -9,7 +9,7 @@ plotSingleGene<-function(gene='CD274'){
   dotplot<-subset(all.dat,Symbol==gene)%>%ggplot()+geom_point(aes(x=totalCounts,y=zScore,col=tumorType,shape=studyName))
   barplot<-subset(all.dat,Symbol==gene)%>%ggplot()+geom_boxplot(aes(x=studyName,y=totalCounts,fill=tumorType))
   cowplot::plot_grid(dotplot,barplot,nrow=2)
-  ggsave(paste(gene,'expresion.png',sep=''))
+  ggsave(paste(gene,'expression.png',sep=''))
 }
 
 
@@ -54,6 +54,7 @@ plotPDXTreatmentBySample<-function(dt){
 #' @param minCor absolutely correlation to plot
 #' @export
 #' @import ggplot2
+#' @import ggridges
 #' 
 plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
   library(ggplot2)

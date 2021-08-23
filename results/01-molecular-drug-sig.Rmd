@@ -46,7 +46,7 @@ Now we can plot the individual experiments run on the PDXs to summarize.
 
 plots <-drugData%>%
   group_by(Sample,batch,.drop=F)%>%
-  group_map(~plotBySample(.x),.keep=TRUE)
+  group_map(~plotPDXTreatmentBySample(.x),.keep=TRUE)
 
 pdf('allTumorVolume.pdf',height=8,width=12)
 
@@ -86,7 +86,8 @@ library(pheatmap)
 
 There are so many one-off somatic variants, let's filter by those that exist in at least 3 samples and then add back TP53.
 ```{r main mutations,echo=FALSE}
-topMuts=filter(varData,AD>0)%>%
+
+topMuts=subset(varData,AD>0)%>%
   subset(!is.na(Symbol))%>%
   subset(Symbol!="")%>%
     group_by(Symbol)%>%
