@@ -47,6 +47,39 @@ rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
 
 We want to plot the variable genes in a heatmap and also the PCA
 
+
+```{r Pca plot}
+plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
+  library(ggfortify)
+  met <- dat.table %>%
+    dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
+    distinct()
+    
+  mat <- dat.table %>% dplyr::select(TXID,NumReads,Sample) %>%
+    distinct() %>%
+    mutate(Reads=as.numeric(NumReads)) %>%
+    tidyr::pivot_wider(names_from='sample', values_from='Reads',
+                       values_fn=list(Reads=function(x) mean(x,na.rm=T)),
+                       values_fill=list(Reads=0)) %>%
+    tibble::remove_rownames() %>%
+    tibble::column_to_rownames('TXID')
+  mat <- mat[complete.cases(mat),]
+  x <- prcomp(t(mat))$x
+  x <- as.data.frame(x)
+  x$sample <- rownames(x)
+  ggdata <- inner_join(x, met, by="Sample")
+  
+  library(ggforce)
+  ggplot(ggdata, aes_string(x="PC1", y="PC2", ...)) +
+    geom_point(size=2.5) +
+    ggforce::geom_mark_ellipse(color = NA, alpha=alpha, expand=expand)
+ 
+}
+
+plotAllData(master.table)
+```
+
+
 ```{r most variable}
 
 
