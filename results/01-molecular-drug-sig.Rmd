@@ -11,7 +11,7 @@ output:
 This document focuses on loading the data and visualizing the PDX model data that we have.
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 require(remotes)
 if(!require('mpnstXenoModeling')){
   remotes::install_github('sgosline/mpnstXenoModeling')
