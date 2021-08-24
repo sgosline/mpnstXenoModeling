@@ -21,8 +21,8 @@ do_ensembl_match <- function(file) {
   
   
   if(!require("EnsDb.Hsapiens.v86")){
-    BiocManager::install('EnsDb.Hsapiens.V86')
-    library("EnsDb.Hsapiens.v86")
+    BiocManager::install('EnsDb.Hsapiens.V86',ask=F)
+    library(EnsDb.Hsapiens.v86)
   }
     library(ensembldb)
   database <- EnsDb.Hsapiens.v86
@@ -47,6 +47,9 @@ do_ensembl_match <- function(file) {
 #' @param tab table of MPNST samples
 #' @param syn synapse login client
 #' @param colname name of column to select
+#' @import readxl
+#' @import tidyr
+#' @import dplyr
 #' @export
 dataFromSynTable<-function(tab,syn,colname){
 
@@ -100,12 +103,14 @@ dataFromSynTable<-function(tab,syn,colname){
         tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
       else if(fend=='sf'){##add check from rnaseq data
-        tab<-do_ensembl_match(path)%>%dplyr::rename(Symbol='GENENAME')
+        tab<-do_ensembl_match(path)%>%
+          dplyr::rename(Symbol='GENENAME')
        # print(head(tab))
       }else
         tab<-readxl::read_xls(path)
      # print(head(tab))
-      tab<-tab[,schemas[[colname]]]%>%mutate(synid=x)
+      tab<-tab[,schemas[[colname]]]%>%
+        mutate(synid=x)
       #print(head(tab))
       data.frame(cbind(tab,other.vals))
     }))
@@ -202,16 +207,10 @@ loadPDXData<-function(){
     rename(drug='compound_name',time='experimental_time_point',volume='assay_value')%>%
     fixDrugData()
 
-  ##add another function to get microtissue drug data
-
   #now get RNA-Seq
   #update to use `RNAseq` column
-  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')#%>%
-    #getPdxRNAseqData(syn)%>%
-    #dplyr::select(totalCounts,Symbol,zScore,specimenID,individualID,
-    #              sex,species,experimentalCondition)
-  
-
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')
+   
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
   mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
@@ -300,7 +299,7 @@ getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
   if(!require('EnsDb.Hsapiens.v86')){
     BiocManager::install('EnsDb.Hsapiens.V86')
-    library("EnsDb.Hsapiens.v86")
+    library(EnsDb.Hsapiens.v86)
   }
     library(ensembldb)
   

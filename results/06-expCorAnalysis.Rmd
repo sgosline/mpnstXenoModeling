@@ -77,10 +77,10 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   ggplot(ggdata, aes_string(x="PC1", y="PC2", color = 'MicroTissueQuality',shape='Clinical.Status')) +
     geom_point(size=2.5)# +
     #ggforce::geom_mark_ellipse( alpha=alpha, expand=expand)
- 
+ return(mat)
 }
 
-plotAllData(master.table)
+data.mat<-plotAllData(master.table)
 ```
 
 
@@ -95,13 +95,31 @@ pat.var <-by.gene%>%group_by(Symbol)%>%
   summarize(geneVar=var(totalCounts))%>%
   arrange(desc(geneVar))
 
+
+pat.annote <- master.table %>%
+    dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
+    distinct()%>%
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(Clinical.Status=unlist(Clinical.Status))%>%
+  tibble::column_to_rownames('Sample')
+
+
 symbs<-pat.var$Symbol[1:100]
 
+count.mat<-by.gene%>%
+  dplyr::select(totalCounts,Symbol,Sample)%>%
+  pivot_wider(values_from=totalCounts,names_from=Sample,values_fn=list(totalCounts=mean))%>%
+  tibble::column_to_rownames('Symbol')
 
+library(pheatmap)
+pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_col = pat.annote,filename='mostVarTrans.pdf')
+pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_col = pat.annote)
 ```
 
 ## Correlate all genes across Samples
 
 ```{r leapr cor}
+
+##now let's look at the pathways that are correlated across all
 
 ```
