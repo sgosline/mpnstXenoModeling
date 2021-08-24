@@ -21,8 +21,8 @@ do_ensembl_match <- function(file) {
   
   
   if(!require("EnsDb.Hsapiens.v86")){
-    BiocManager::install('EnsDb.Hsapiens.V86')
-    library("EnsDb.Hsapiens.v86")
+    BiocManager::install('EnsDb.Hsapiens.V86',ask=F)
+    library(EnsDb.Hsapiens.v86)
   }
     library(ensembldb)
   database <- EnsDb.Hsapiens.v86
@@ -207,8 +207,6 @@ loadPDXData<-function(){
     rename(drug='compound_name',time='experimental_time_point',volume='assay_value')%>%
     fixDrugData()
 
-  ##add another function to get microtissue drug data
-
   #now get RNA-Seq
   #update to use `RNAseq` column
   rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')
@@ -301,7 +299,7 @@ getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
   if(!require('EnsDb.Hsapiens.v86')){
     BiocManager::install('EnsDb.Hsapiens.V86')
-    library("EnsDb.Hsapiens.v86")
+    library(EnsDb.Hsapiens.v86)
   }
     library(ensembldb)
   

@@ -120,4 +120,6 @@ pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_c
 
 ```{r leapr cor}
 
+##now let's look at the pathways that are correlated across all
+
 ```
