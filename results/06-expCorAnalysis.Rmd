@@ -29,9 +29,7 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
-
-
-
+master.table<-rnaSeq
 ```
 
 
@@ -49,7 +47,7 @@ We want to plot the variable genes in a heatmap and also the PCA
 
 
 ```{r Pca plot}
-plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
+plotAllExpData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   library(ggfortify)
   met <- dat.table %>%
     dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
@@ -61,7 +59,7 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   mat <- dat.table %>% dplyr::select(TXID,NumReads,Sample) %>%
     distinct() %>%
     mutate(Reads=as.numeric(NumReads)) %>%
-    select(-NumReads)%>%
+    dplyr::select(-NumReads)%>%
     tidyr::pivot_wider(names_from='Sample', values_from='Reads',
                        values_fn=list(Reads=mean),
                        values_fill=list(Reads=0)) %>%
@@ -80,12 +78,12 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
  return(mat)
 }
 
-data.mat<-plotAllData(master.table)
+data.mat<-plotAllExpData(master.table)
 ```
 
 
 ```{r most variable}
-
+library(tidyr)
 
 by.gene <- master.table%>%
   group_by(Symbol,Sample)%>%
@@ -139,15 +137,15 @@ keggpaths <- list(names = names.kegg,
                  desc = desc.kegg,
                  sizes = sizes.kegg,
                  matrix = matrix.kegg)
-term.2.gene <- as.data.frame(keggpaths$matrix) %>%
-  mutate(term = keggpaths$names) %>%
-  pivot_longer(!term, names_to = "Column", values_to = "gene") %>%
-  filter(!(gene == "null")) %>%
-  select(term, gene)
-term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
+#term.2.gene <- as.data.frame(keggpaths$matrix) %>%
+#  mutate(term = keggpaths$names) %>%
+#  pivot_longer(!term, names_to = "Column", values_to = "gene") %>%
+#  filter(!(gene == "null")) %>%
+#  select(term, gene)
+#term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
   
-plotCorrelationEnrichment(exprs, keggpaths, fdr.cutoff = 0.05, 
-                                      corr.cutoff = 0.1, prefix, width = 11, 
+plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, fdr.cutoff = 0.05, 
+                                      corr.cutoff = 0.1, prefix='allSamps', width = 11, 
                                       height = 8.5, order.by = "Ingroup mean", 
                                       clean.names = FALSE, pathway.plot.size = 3)
 

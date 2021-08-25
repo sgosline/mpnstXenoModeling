@@ -23,6 +23,8 @@ do_ensembl_match <- function(file) {
   if(!require("EnsDb.Hsapiens.v86")){
     BiocManager::install('EnsDb.Hsapiens.V86',ask=F)
     library(EnsDb.Hsapiens.v86)
+  }else{
+    library('EnsDb.Hsapiens.V86')
   }
     library(ensembldb)
   database <- EnsDb.Hsapiens.v86
@@ -264,6 +266,33 @@ getGermlineCsv<-function(syn,fileid,specimen){
   return(tab)
 }
 
+
+normDiffEx<-function(data.table){
+  library(limma)
+      # create data structure to hold counts and subtype information for each sample.
+  counts <- data.table%>%
+    dplyr::select(TXID,NumReads,Sample)%>%
+    tidyr::pivot_wider(values_from='NumReads',names_from='Sample')%>%
+    tibble::column_to_rownames('TXID')
+
+    dge <- limma::voom(counts)
+
+    # Specify a design matrix without an intercept term
+    #design <- model.matrix(~ Clinical.Status + MicroTissueQuality + Age + Sex)
+  
+    #row.names(design) <- colnames(counts)[as.numeric(rownames(design))] #sampleIDs[names]
+    #attr(design, "row.names") <- subset.names
+    
+    # Limma voom model fitting
+   # v <- voom(dge[,row.names(design)],design,plot=TRUE)
+    
+    # Limma fit analysis
+    fit <- limma::lmFit(dge)
+    #fit <- contrasts.fit(fit, contrasts=contr.matrix)
+    fit <- limma::eBayes(fit,trend=TRUE)
+
+}
+
 ##out of date xls data
 #DEPRACATED
 #' @param syn
@@ -300,6 +329,8 @@ getNewSomaticCalls<-function(tab,specimen){
   if(!require('EnsDb.Hsapiens.v86')){
     BiocManager::install('EnsDb.Hsapiens.V86')
     library(EnsDb.Hsapiens.v86)
+  }else{
+    library('EnsDb.Hsapiens.V86')
   }
     library(ensembldb)
   
