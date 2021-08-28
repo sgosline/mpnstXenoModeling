@@ -26,7 +26,6 @@ if(!require('EnsDb.Hsapiens.v86')){
   BiocManager::install('EnsDb.Hsapiens.v86')
   library(EnsDb.Hsapiens.v86)
 }
-
 ```
 
 ## Load data from synapse query

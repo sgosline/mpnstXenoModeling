@@ -17,6 +17,8 @@ parseSynidListColumn<-function(list.column){
 #'@param database
 #'@param file
 #'@import BiocManager
+#' @import EnsDb.Hsapiens.v86
+#' @import ensembldb
 do_ensembl_match <- function(file) {
   
   
@@ -324,6 +326,8 @@ processMergedXls<-function(syn,fileid,indId){
 #' @import dplyr
 #' @import tidyr
 #' @import BiocManager
+#' @import EnsDb.Hsapiens.v86
+#' @import ensembldb
 getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
   if(!require('EnsDb.Hsapiens.v86')){

@@ -33,11 +33,27 @@ master.table<-rnaSeq
 ```
 
 
-## Filter genes by low expression
+## Normalize counts
 
 
 ```{r filtering, warning=FALSE}
 
+normalize_counts_deseq2<-function(long.table){
+  library(DESeq2)
+  require(dplyr)
+  require(tidyr)
+  count.mat<-master.table%>%
+    dplyr::select(TXID,NumReads,Sample)%>%
+    pivot_wider(values_from=NumReads,names_from=Sample)%>%
+    tibble::column_to_rownames('TXID')
+  met.mat<-master.table%>%
+    dplyr::select(Sample,Age,MicroTissueQuality,Sex,Clinical.Status)%>%
+    distinct()%>%
+    tibble::column_to_rownames('Sample')
+  
+  dds <- DESeqDataSetFromMatrix(countData = count.mat, colData = met.mat)
+
+}
 
 ```
 
