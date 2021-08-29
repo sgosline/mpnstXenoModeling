@@ -74,8 +74,10 @@ annotes <- varData%>%
   distinct()%>%
   tibble::column_to_rownames('specimenID')%>%
   mutate(Age=as.numeric(Age),Size=as.numeric(Size),MicroTissueQuality=unlist(MicroTissueQuality))
-library(pheatmap)
- 
+if(!require('pheatmap')){
+  install.packages('pheatmap')
+  library(pheatmap)
+}
   mutMat<-mutMat[,intersect(rownames(annotes),colnames(mutMat))]
   
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))

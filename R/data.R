@@ -17,16 +17,14 @@ parseSynidListColumn<-function(list.column){
 #'@param database
 #'@param file
 #'@import BiocManager
-#' @import EnsDb.Hsapiens.v86
-#' @import ensembldb
 do_ensembl_match <- function(file) {
   
   
   if(!require("EnsDb.Hsapiens.v86")){
-    BiocManager::install('EnsDb.Hsapiens.V86',ask=F)
+    BiocManager::install('EnsDb.Hsapiens.v86',ask=F)
     library(EnsDb.Hsapiens.v86)
   }else{
-    library('EnsDb.Hsapiens.V86')
+    library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
   database <- EnsDb.Hsapiens.v86
@@ -326,15 +324,13 @@ processMergedXls<-function(syn,fileid,indId){
 #' @import dplyr
 #' @import tidyr
 #' @import BiocManager
-#' @import EnsDb.Hsapiens.v86
-#' @import ensembldb
 getNewSomaticCalls<-function(tab,specimen){
     library(dplyr)
   if(!require('EnsDb.Hsapiens.v86')){
-    BiocManager::install('EnsDb.Hsapiens.V86')
+    BiocManager::install('EnsDb.Hsapiens.v86')
     library(EnsDb.Hsapiens.v86)
   }else{
-    library('EnsDb.Hsapiens.V86')
+    library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
   
