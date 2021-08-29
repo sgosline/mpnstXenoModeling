@@ -16,6 +16,8 @@ plotSingleGene<-function(gene='CD274'){
 #' plotHistogram of drug data
 #' @name plotDrugData
 #' @export
+#' @import ggridges
+#' @import ggplot2
 #' @param drugData table of drug data to be plotted
 plotDrugData<-function(drugData){
   library(ggplot2)
