@@ -47,9 +47,9 @@ computeTGI<-function(treatedTab,contTab,finalTimePoint){
 #' @import BiocManager
 computeAUC<-function(treatedTab,contTab){
   #https://link.springer.com/article/10.1208/s12248-018-0284-8
-  if(!require(Xeva)){
+  if(!require('Xeva')){
     BiocManager::install('Xeva')
-    require(Xeva)
+    library(Xeva)
   }
 
   tauc=treatedTab%>%mutate(volume=as.numeric(volume))%>%

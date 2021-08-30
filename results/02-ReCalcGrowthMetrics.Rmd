@@ -54,10 +54,10 @@ DT::datatable(pat.drug) ##why do i have missing values??
 sync<-reticulate::import('synapseclient')
 syn<-sync$login()
 
-write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
+write.table(pat.drug,file='patientByDrugSens.csv',sep=',',row.names=F,col.names=T)
 res  = syn$tableQuery('select * from syn25955439')
 syn$delete(res)
-pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.tsv')
+pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.csv')
 syn$store(pd)
 #pat.drug%>%
 #    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
