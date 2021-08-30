@@ -48,7 +48,6 @@ loadPDXData()
 ##let's clean up drug Dat
 head(drugData)
 
-
 ```
 
 ## Load microtissue data and compare
@@ -83,6 +82,8 @@ TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, N
     })
     return(drug.model = drug.model)
 }
+
+
 drcmod <- function(dose_resp, fctval, curve_type){
   drm(formula   = Viabilities ~ Conc
       , curveid   = CellLine
@@ -92,6 +93,8 @@ drcmod <- function(dose_resp, fctval, curve_type){
       , control   = drmc(errorm = FALSE)
   )
 }
+
+
 generate_DR_plots <- function(res, drugID) {
   require(data.table)
   dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine) #%>% setDT()
@@ -152,6 +155,8 @@ generate_DR_plots <- function(res, drugID) {
             ggtitle(paste("Dose-response curves for Drug:", drugID))
   return(list('plot'=temp.plot,'table'=dat.dt))
 }
+
+
 process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.', parentID=NULL){
   drugIDs <- unique(master.table$experimentalCondition)
   meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())

@@ -48,11 +48,15 @@ pat.drug<-drugData%>%rename(individualID='Sample')%>%
   subset(drug!='n/a')%>%
   tidyr::replace_na(list(SPI=0.0))
 
-DT::datatable(pat.drug)
+DT::datatable(pat.drug) ##why do i have missing values??
+
+
 sync<-reticulate::import('synapseclient')
 syn<-sync$login()
 
 write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
+res  = syn$query('select * from syn25955439')
+syn$delete(res)
 pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.tsv')
 syn$store(pd)
 #pat.drug%>%

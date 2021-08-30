@@ -94,7 +94,7 @@ topMuts=subset(varData,AD>0)%>%
   subset(Symbol!="")%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
-    filter(nSamps>2)%>%
+    dplyr::filter(nSamps>2)%>%
     dplyr::select(Symbol)
 
 topMuts<-union("TP53",topMuts$Symbol)
