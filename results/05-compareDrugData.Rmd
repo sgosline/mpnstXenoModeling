@@ -53,7 +53,8 @@ head(drugData)
 ## Load microtissue data and compare
 The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
-```{r processMicroTissueDat, warning=FALSE}
+```{r processMicroTissueData functions, warning=FALSE}
+
 filter_byDrug <- function(syn, mtd, drugID) {
   mtd <- subset(mtd, experimentalCondition == drugID)
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
@@ -61,6 +62,8 @@ filter_byDrug <- function(syn, mtd, drugID) {
   # Assumes log(M) concentration
   return(out)
 }
+
+
 TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
 
     if (var(dose_response$Viabilities) == 0) {
@@ -176,7 +179,18 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
   if (isTRUE(upload)) {
     synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
     synapseStore(file.path(path, "doseResponse_table.csv"),parentId=parentID)
+    synTableStore('Microtissue ResponseValues',"doseResponse_table.csv",parentId='syn21984813')
   }
 }
+
+
+```
+
+## Reprocess MT data
+```{r reprocess data, warning=FALSE,echo=FALSE}
+library(reticulate)
+library(dplyr)
+syn<-reticulate::import('synapseclient')$login()
+
 process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
 ```

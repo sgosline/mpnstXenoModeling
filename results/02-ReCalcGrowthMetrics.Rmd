@@ -57,6 +57,7 @@ syn<-sync$login()
 write.table(pat.drug,file='patientByDrugSens.csv',sep=',',row.names=F,col.names=T)
 res  = syn$tableQuery('select * from syn25955439')
 syn$delete(res)
+res  = syn$tableQuery('select * from syn25955439')
 pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.csv')
 syn$store(pd)
 #pat.drug%>%
