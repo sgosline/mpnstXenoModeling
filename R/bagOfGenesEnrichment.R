@@ -21,9 +21,9 @@ reverselog_trans <- function(base = exp(1)) {
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.size=3,
                       order.by='NES',clean.names=F,width=11,height=8.5){
 
-  if(!require(org.Hs.eg.db)){
-    BiocManager::install('Biobase')
-    require(org.Hs.eg.db)
+  if(!require('org.Hs.eg.db')){
+    BiocManager::install('org.Hs.eg.db')
+    library(org.Hs.eg.db)
   }
   
   mapping<-as.data.frame(org.Hs.egALIAS2EG)%>%
