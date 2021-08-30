@@ -111,17 +111,19 @@ We can also plot the gene expression across highly variable genes.
 ```{r mutated gene expression,echo=FALSE,warning=FALSE}
  rnamat<-rnaSeq%>%
   subset(!is.na(Symbol))%>%
-  subset(!is.na(totalCounts))%>%
-  dplyr::select(-c(individualID,species,sex,zScore,experimentalCondition))%>%
-  tidyr::pivot_wider(names_from=specimenID,values_from=totalCounts,
-                     values_fn=list(totalCounts=mean),values_fill=0.0)%>%
+  subset(!is.na(NumReads))%>%
+  dplyr::select(-c(Sample,Sex,TXID,TPM,Clinical.Status,Size,Location,Age,MicroTissueQuality))%>%
+  distinct()%>%#View()
+  tidyr::pivot_wider(names_from=synid,values_from=NumReads,
+                     values_fn=list(NumReads=mean),values_fill=list(NumReads=0.0))%>%
     tibble::column_to_rownames('Symbol')
 
-rownames(rnaSeq)<-c()
+#rownames(rnaSeq)<-c()
  annotes<-rnaSeq%>%
-      dplyr::select(specimenID,individualID,sex)%>%
-   distinct()%>%
-    tibble::column_to_rownames('specimenID')
+      dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size)%>%
+  distinct()%>%
+  tibble::column_to_rownames('synid')%>%
+  mutate(Age=as.numeric(Age),Size=as.numeric(Size),MicroTissueQuality=unlist(MicroTissueQuality))
 
  #topMuts<-setdiff(topMuts,'TTN')
 pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),

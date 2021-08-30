@@ -71,7 +71,8 @@ topMuts=dplyr::filter(varData,AD>0)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     dplyr::filter(nSamps>1)%>%
     dplyr::select(Symbol)
-topMuts<-union("TP53",topMuts$Symbol)
+
+topMuts<-intersect(rownames(mutMat),union("TP53",topMuts$Symbol))
 
  pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,labels_col=rep("",ncol(mutMat)),clustering_method='ward.D2', clustering_distance_cols = 'correlation')
  pheatmap(log10(0.01+mutMat[topMuts,]),cellwidth = 10,cellheight=10,annotation_col = annotes,filename='recMutations.pdf',clustering_method='ward.D2', clustering_distance_cols = 'correlation')
