@@ -32,7 +32,7 @@ jobs:
      - name: Install rmarkdown
        run: Rscript -e 'install.packages("rmarkdown")'
      - name: Install remotes and gridextra and biocmanager
-       run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra"); install.packages("BiocManager")'
+       run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra"); install.packages("BiocManager"); install.packages("ggfortify")
      - name: bioc install
        run: Rscript -e 'BiocManager::install("EnsDb.Hsapiens.v86");BiocManager::install("org.Hs.eg.db")'
      - name: Install packages from github
