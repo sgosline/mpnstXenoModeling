@@ -172,6 +172,8 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
     meta.dt <- rbind(meta.dt, plt$table)
     plt.list[[drug]] = plt$plot
   }
+  meta.dt<-meta.dt%>%tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
+
   fwrite(meta.dt,file="doseResponse_table.csv")
   pdf("doseResponsePlots.pdf", onefile = TRUE)
   for (drug in drugIDs) {print(plt.list[[drug]])}
@@ -179,10 +181,10 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
   if (isTRUE(upload)) {
     synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
     synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
-    synTableStore(tabname='Microtissue Response Values',tab=meta.dt,parentId='syn21984813')
-    #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
+     #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
    
   }
+  return(meta.dt)
 }
 
 ```
@@ -191,7 +193,18 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
 ```{r reprocess data, warning=FALSE,echo=FALSE}
 library(reticulate)
 library(dplyr)
-syn<-reticulate::import('synapseclient')$login()
+sync<-reticulate::import('synapseclient')
+syn=sync$login()
 
-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
+meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
+
+res  = syn$tableQuery('select * from syn26136282')
+syn$delete(res)
+res  = syn$tableQuery('select * from syn26136282')
+#synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
+
+pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
+syn$store(pd)
+
+
 ```
