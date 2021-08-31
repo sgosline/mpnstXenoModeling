@@ -178,7 +178,9 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
   dev.off()
   if (isTRUE(upload)) {
     synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
-    synapseStore(f synTableStore(tabname='Microtissue Response Values',tab=meta.dt,parentId='syn21984813')ile.path(path, "doseResponse_table.csv"),parentId=parentID)
+    synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
+    synTableStore(tabname='Microtissue Response Values',tab=meta.dt,parentId='syn21984813')
+    #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
    
   }
 }
