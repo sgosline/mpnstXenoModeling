@@ -43,17 +43,22 @@ We can now get all the values for all the combinations.
 
 ```{r drugStats, warning=FALSE}
 library(ggplot2)
-pat.drug<-drugData%>%rename(individualID='Sample')%>%
+pat.drug<-drugData%>%dplyr::rename(individualID='Sample')%>%
     getAllDrugStats(.)%>%
   subset(drug!='n/a')%>%
   tidyr::replace_na(list(SPI=0.0))
 
-DT::datatable(pat.drug)
+DT::datatable(pat.drug) ##why do i have missing values??
+
+
 sync<-reticulate::import('synapseclient')
 syn<-sync$login()
 
-write.table(pat.drug,file='patientByDrugSens.tsv',sep=',',row.names=F,col.names=T)
-pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.tsv')
+write.table(pat.drug,file='patientByDrugSens.csv',sep=',',row.names=F,col.names=T)
+res  = syn$tableQuery('select * from syn25955439')
+syn$delete(res)
+res  = syn$tableQuery('select * from syn25955439')
+pd <- sync$build_table('PDX drug sensitivities','syn21984813','patientByDrugSens.csv')
 syn$store(pd)
 #pat.drug%>%
 #    tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%

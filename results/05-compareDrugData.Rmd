@@ -48,13 +48,13 @@ loadPDXData()
 ##let's clean up drug Dat
 head(drugData)
 
-
 ```
 
 ## Load microtissue data and compare
 The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
-```{r processMicroTissueDat, warning=FALSE}
+```{r processMicroTissueData functions, warning=FALSE}
+
 filter_byDrug <- function(syn, mtd, drugID) {
   mtd <- subset(mtd, experimentalCondition == drugID)
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
@@ -62,6 +62,8 @@ filter_byDrug <- function(syn, mtd, drugID) {
   # Assumes log(M) concentration
   return(out)
 }
+
+
 TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
 
     if (var(dose_response$Viabilities) == 0) {
@@ -83,6 +85,8 @@ TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, N
     })
     return(drug.model = drug.model)
 }
+
+
 drcmod <- function(dose_resp, fctval, curve_type){
   drm(formula   = Viabilities ~ Conc
       , curveid   = CellLine
@@ -92,6 +96,8 @@ drcmod <- function(dose_resp, fctval, curve_type){
       , control   = drmc(errorm = FALSE)
   )
 }
+
+
 generate_DR_plots <- function(res, drugID) {
   require(data.table)
   dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine) #%>% setDT()
@@ -152,6 +158,8 @@ generate_DR_plots <- function(res, drugID) {
             ggtitle(paste("Dose-response curves for Drug:", drugID))
   return(list('plot'=temp.plot,'table'=dat.dt))
 }
+
+
 process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.', parentID=NULL){
   drugIDs <- unique(master.table$experimentalCondition)
   meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
@@ -170,8 +178,18 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
   dev.off()
   if (isTRUE(upload)) {
     synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
-    synapseStore(file.path(path, "doseResponse_table.csv"),parentId=parentID)
+    synapseStore(f synTableStore(tabname='Microtissue Response Values',tab=meta.dt,parentId='syn21984813')ile.path(path, "doseResponse_table.csv"),parentId=parentID)
+   
   }
 }
+
+```
+
+## Reprocess MT data
+```{r reprocess data, warning=FALSE,echo=FALSE}
+library(reticulate)
+library(dplyr)
+syn<-reticulate::import('synapseclient')$login()
+
 process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
 ```

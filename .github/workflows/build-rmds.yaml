@@ -23,6 +23,7 @@ jobs:
           sudo apt-get upgrade
           sudo apt-get install python3-virtualenv
           sudo apt-get install python3-venv
+          sudo apt-get install libcurl4-openssl-dev
        shell: /bin/bash {0}
      - name: Install synapse client
        run: |
@@ -30,8 +31,10 @@ jobs:
          pip install synapseclient
      - name: Install rmarkdown
        run: Rscript -e 'install.packages("rmarkdown")'
-     - name: Install remotes and gridextra
-       run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra")'
+     - name: Install remotes and gridextra and biocmanager
+       run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra"); install.packages("BiocManager")'
+     - name: bioc install
+       run: Rscript -e 'BiocManager::install("EnsDb.Hsapiens.v86");BiocManager::install("org.Hs.eg.db")'
      - name: Install packages from github
        run: Rscript -e 'remotes::install_github("rstudio/reticulate");remotes::install_github("sgosline/mpnstXenoModeling")'
      - name: Render my document to all types

@@ -29,17 +29,31 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
-
-
-
+master.table<-rnaSeq
 ```
 
 
-## Filter genes by low expression
+## Normalize counts
 
 
 ```{r filtering, warning=FALSE}
 
+normalize_counts_deseq2<-function(long.table){
+  library(DESeq2)
+  require(dplyr)
+  require(tidyr)
+  count.mat<-master.table%>%
+    dplyr::select(TXID,NumReads,Sample)%>%
+    pivot_wider(values_from=NumReads,names_from=Sample)%>%
+    tibble::column_to_rownames('TXID')
+  met.mat<-master.table%>%
+    dplyr::select(Sample,Age,MicroTissueQuality,Sex,Clinical.Status)%>%
+    distinct()%>%
+    tibble::column_to_rownames('Sample')
+  
+  dds <- DESeqDataSetFromMatrix(countData = count.mat, colData = met.mat)
+
+}
 
 ```
 
@@ -49,7 +63,7 @@ We want to plot the variable genes in a heatmap and also the PCA
 
 
 ```{r Pca plot}
-plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
+plotAllExpData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   library(ggfortify)
   met <- dat.table %>%
     dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
@@ -61,7 +75,7 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
   mat <- dat.table %>% dplyr::select(TXID,NumReads,Sample) %>%
     distinct() %>%
     mutate(Reads=as.numeric(NumReads)) %>%
-    select(-NumReads)%>%
+    dplyr::select(-NumReads)%>%
     tidyr::pivot_wider(names_from='Sample', values_from='Reads',
                        values_fn=list(Reads=mean),
                        values_fill=list(Reads=0)) %>%
@@ -80,12 +94,12 @@ plotAllData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
  return(mat)
 }
 
-data.mat<-plotAllData(master.table)
+data.mat<-plotAllExpData(master.table)
 ```
 
 
 ```{r most variable}
-
+library(tidyr)
 
 by.gene <- master.table%>%
   group_by(Symbol,Sample)%>%
@@ -121,5 +135,35 @@ pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_c
 ```{r leapr cor}
 
 ##now let's look at the pathways that are correlated across all
+library(leapr)
+#data(ncipid)
+data("krbpaths")
+idx.kegg <- grepl("^KEGG_", krbpaths$names)
+names.kegg <- krbpaths$names[idx.kegg]
+names.kegg <- sub("KEGG_", "", names.kegg)
+names.kegg <- gsub("_", " ", names.kegg)
+names.kegg <- sapply(names.kegg, function(y) paste(strwrap(y, 45), 
+                                          collapse = "\n"), 
+                     USE.NAMES = FALSE)
+desc.kegg <- krbpaths$desc[idx.kegg]
+sizes.kegg <- krbpaths$sizes[idx.kegg]
+Max <- max(sizes.kegg)
+matrix.kegg <- krbpaths$matrix[idx.kegg, 1:Max]
+keggpaths <- list(names = names.kegg,
+                 desc = desc.kegg,
+                 sizes = sizes.kegg,
+                 matrix = matrix.kegg)
+#term.2.gene <- as.data.frame(keggpaths$matrix) %>%
+#  mutate(term = keggpaths$names) %>%
+#  pivot_longer(!term, names_to = "Column", values_to = "gene") %>%
+#  filter(!(gene == "null")) %>%
+#  select(term, gene)
+#term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
+  
+plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, fdr.cutoff = 0.05, 
+                                      corr.cutoff = 0.1, prefix='allSamps', width = 11, 
+                                      height = 8.5, order.by = "Ingroup mean", 
+                                      clean.names = FALSE, pathway.plot.size = 3)
+
 
 ```
