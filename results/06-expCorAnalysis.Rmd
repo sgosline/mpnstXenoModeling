@@ -14,6 +14,12 @@ if(!require(mpnstXenoModeling)){
   library(mpnstXenoModeling)
 }
 
+if(!require(leapr)){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+
 
 ```
 
