@@ -39,6 +39,6 @@ jobs:
        run: Rscript -e 'remotes::install_github("rstudio/reticulate");remotes::install_github("sgosline/mpnstXenoModeling");remotes::install_github("biodataganche/leapR")'
      - name: Render my document to all types
        run: Rscript -e 'for(file in list.files("results/",pattern="*Rmd")) rmarkdown::render(paste0("results/",file))'
-#     - name: Store on synapse
-#       run: for $file in results/*html do synapse store $file --parentId syn26093047
-#       with:
+     - name: Store on synapse
+       run: for $file in results/*html do synapse store $file --parentId syn26093047
+       #       with:
