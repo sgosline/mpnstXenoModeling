@@ -30,6 +30,8 @@ if(!require('EnsDb.Hsapiens.v86')){
 
 ## Load data from synapse query
 
+The RNASEq data processing was updated on 9/3/2021 so these functions have also been udpated. 
+
 
 ```{r loadData,warning=FALSE}
 #These three commands load RNAseq data
@@ -47,8 +49,8 @@ var.ID<-rnaSeq%>%
 
 
 ##select gene mapping
-identifiers<-rnaSeq%>%
-  dplyr::select(TXID,Symbol)%>%distinct()
+identifiers<-''
+
 ```
 
 ## Format the clinical data to distinct factors

@@ -13,34 +13,29 @@ parseSynidListColumn<-function(list.column){
 
 }
 
-#'do_ensembl_match
-#'@param database
-#'@param file
-#'@import BiocManager
-do_ensembl_match <- function(file) {
+#' do_deseq2 import
+#' Uses tximport functionality to properly re-count salmon based estimates and returns
+#' counts
+#' TODO: update to include more than just counts
+#' @param file in sf format
+#' @import BiocManager
+#' @export 
+do_deseq_import <- function(file) {
   
-  
-  if(!require("EnsDb.Hsapiens.v86")){
-    BiocManager::install('EnsDb.Hsapiens.v86',ask=F)
-    library(EnsDb.Hsapiens.v86)
-  }else{
-    library('EnsDb.Hsapiens.v86')
+  if(!require('DESeq2')){
+    BiocManager::install("DESeq2")
+    library(DESeq2)
   }
-    library(ensembldb)
-  database <- EnsDb.Hsapiens.v86
-  
-  qnt.table <- read.table(file,header=T)
-  ensembl.trans <- qnt.table$Name
-  TXNAME <- gsub("\\..*","",ensembl.trans)
-  trans.table <- cbind(qnt.table,TXNAME)
-  geneIDs <- ensembldb::select(database, keys=TXNAME, keytype = "TXNAME", columns = c("GENEID", "GENENAME"))
-  temp.table <- left_join(geneIDs,trans.table,by=c("TXNAME"))%>%
-    dplyr::select(TXID,GENEID,GENENAME,TPM,NumReads)# %>%
 
-  #names(temp.table)[4] <- sprintf("%s.TPM",filename)
-  #names(temp.table)[5] <- sprintf("%s.Count",filename)
-  #print(head(temp.table))
-  return(temp.table)
+  library(tximportData)
+  dir <- system.file("extdata", package="tximportData")
+  tx2gene <- read.csv(file.path(dir, "tx2gene.gencode.v27.csv"))
+
+  qnt.table <- data.frame(counts=tximport::tximport(file,type='salmon',
+                                                    tx2gene = tx2gene)$counts)%>%
+    tibble::rownames_to_column('GENEID')
+
+  return(qnt.table)
 }
 
  
@@ -66,7 +61,8 @@ dataFromSynTable<-function(tab,syn,colname){
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
-              RNASeq=c('TXID','Symbol','TPM','NumReads'),
+              #RNASeq=c('TXID','Symbol','TPM','NumReads'),
+              RNASeq=c('GENEID','counts'),
               `Microtissue Drug Data`=c())
 
   ##the columns in the table we need
@@ -105,8 +101,8 @@ dataFromSynTable<-function(tab,syn,colname){
         tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
       else if(fend=='sf'){##add check from rnaseq data
-        tab<-do_ensembl_match(path)%>%
-          dplyr::rename(Symbol='GENENAME')
+        tab<-do_deseq_import(path)#%>%
+        # dplyr::rename(counts=x)
        # print(head(tab))
       }else
         tab<-readxl::read_xls(path)
@@ -121,6 +117,7 @@ dataFromSynTable<-function(tab,syn,colname){
   res <- do.call(rbind,res)
   return(res)
 }
+
 #' @name fixDrugData
 #' @param drugData data frame of drug data to harmonize
 #'@export
@@ -194,16 +191,6 @@ loadPDXData<-function(){
 
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
 
-##query mutational data based on files in `Somatic Mutations` column
-# newMutData<-getLatestVariantData(syn)%>%
-#    dplyr::select(Symbol='Gene',AD,specimenID,individualID)
-#
-#  mutData<-getOldVariantData(syn)%>%
-#    mutate(AD=as.numeric(AD))
-
-#  mutData<<-rbind(data.frame(mutData,tranche='oldData'),
-#                  data.frame(newMutData,tranche='newData'))
-
 
   drugData<<-dataFromSynTable(data.tab,syn,'PDX Drug Data')%>%
     rename(drug='compound_name',time='experimental_time_point',volume='assay_value')%>%
@@ -221,29 +208,34 @@ loadPDXData<-function(){
 
 
 
-#'getPdxRNAseqData gets all rna seq counts for xenografts
-#'#'@export
-#'@param syn synapse item from
-getPdxRNAseqData<-function(syn){
-#  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
-  jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
-    subset(individualID=='2-002')
-  jh.rnaSeq$individualID<-'JHU 2-002'
-  #updated 6/8
-  new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
+#' #'getPdxRNAseqData gets all rna seq counts for xenografts
+#' #'#'@export
+#' #'DEPRACATED
+#' #'@param syn synapse item from
+#' getPdxRNAseqData<-function(syn){
+#' #  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
+#'   jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
+#'     subset(individualID=='2-002')
+#'   jh.rnaSeq$individualID<-'JHU 2-002'
+#'   #updated 6/8
+#'   new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
+#' 
+#'   com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
+#'     setdiff(c("ROW_ID","ROW_VERSION"))
+#'   count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
+#'  # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
+#' #  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
+#' 
+#' 
+#'   return(count.tab)
+#' 
+#' }
 
-  com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
-    setdiff(c("ROW_ID","ROW_VERSION"))
-  count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
- # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
-#  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
-
-
-  return(count.tab)
-
-}
-
-#' getAllNF1Expression collects all data from NF1 processed data in synapse
+#' getAllNF1Expression 
+#' @title getAllNF1Expression
+#' collects all data from NF1 processed data in synapse
+#' @export
+#' @param syn object
 getAllNF1Expression<-function(syn){
   tabs<-syn$tableQuery('select * from syn21221980')$asDataFrame()
 
@@ -257,16 +249,58 @@ getAllNF1Expression<-function(syn){
 }
 
 
-#germline CSV calls
-#are we using thesee?
-getGermlineCsv<-function(syn,fileid,specimen){
-  tab<- read.csv2(syn$get(fileid)$path,sep='\t')%>%
-    dplyr::select(gene_name,Tumor_VAF)%>%
-    mutate(specimenID=specimen)
-  return(tab)
+# #germline CSV calls
+# #are we using thesee?
+# getGermlineCsv<-function(syn,fileid,specimen){
+#   tab<- read.csv2(syn$get(fileid)$path,sep='\t')%>%
+#     dplyr::select(gene_name,Tumor_VAF)%>%
+#     mutate(specimenID=specimen)
+#   return(tab)
+# }
+
+
+
+#' deseq2NormFilter
+#' Utilizes the geometric mean to normalize the entire table to generate a normalized
+#' list of RNAseq counts filtered for low abundance
+#' Only does column normalization and returns DESeq2 object
+#' @param data.table
+#' #' @import BiocManager
+#' @export 
+deseq2NormFilter<-function(data.table){
+  library(dplyr)
+  
+  if(!require('DESeq2')){
+    BiocManager::install('DESeq2')
+    library(DESeq2)
+  }
+  
+  counts <- data.table%>%
+    dplyr::select(GENEID,counts,Sample)%>%
+    tidyr::pivot_wider(values_from='counts',names_from='Sample')%>%
+    tibble::column_to_rownames('GENEID')%>%
+    round()
+  
+  coldata<-data.table%>%
+    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`)%>%
+    distinct()%>%
+  #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
+    tibble::column_to_rownames('Sample')
+  
+  dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
+                                colData = coldata,
+                                design = ~ Sex)# + Clinical.Status)
+  
+  keep <- rowSums(counts(dds)) >= 10
+  dds <- dds[keep,]
+  dds<-DESeq2::DESeq(dds)
+  
+  return(dds)
+
 }
 
-
+#' normDiffEx
+#' Normalizes differential data using limma and voom
 normDiffEx<-function(data.table){
   library(limma)
       # create data structure to hold counts and subtype information for each sample.
@@ -293,33 +327,32 @@ normDiffEx<-function(data.table){
 
 }
 
-##out of date xls data
-#DEPRACATED
-#' @param syn
-#' @param fileid
-#' @param indId
-#' @import dplyr
-#' @import readxl
-processMergedXls<-function(syn,fileid,indId){
-  library(readxl)
-  library(dplyr)
-#  id_list=list(BI3686='',)
-  tab<- readxl::read_excel(syn$get(fileid)$path)
-  tab<- tab%>%
-    dplyr::select(gene_name,ends_with("_var_count"))%>%
-    tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
-    tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
-    mutate(individualID=indId)%>%
-    rowwise()%>%
-    mutate(specimenID=paste(individualID,CountType,sep='_'))%>%
-    ungroup()%>%
-    subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
-    dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
+#' ##out of date xls data
+#' #DEPRACATED
+#' #' @param syn
+#' #' @param fileid
+#' #' @param indId
+#' #' @import dplyr
+#' #' @import readxl
+#' processMergedXls<-function(syn,fileid,indId){
+#'   library(readxl)
+#'   library(dplyr)
+#'   tab<- readxl::read_excel(syn$get(fileid)$path)
+#'   tab<- tab%>%
+#'     dplyr::select(gene_name,ends_with("_var_count"))%>%
+#'     tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
+#'     tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
+#'     mutate(individualID=indId)%>%
+#'     rowwise()%>%
+#'     mutate(specimenID=paste(individualID,CountType,sep='_'))%>%
+#'     ungroup()%>%
+#'     subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
+#'     dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
+#' 
+#'   return(tab)
+#' }
 
-  return(tab)
-}
-
-#'
+#' @title getNewSomaticCalls
 #' james said this is the format for future data
 #' @import dplyr
 #' @import tidyr
