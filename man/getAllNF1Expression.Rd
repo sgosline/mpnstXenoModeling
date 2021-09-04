@@ -2,10 +2,17 @@
 % Please edit documentation in R/data.R
 \name{getAllNF1Expression}
 \alias{getAllNF1Expression}
-\title{getAllNF1Expression collects all data from NF1 processed data in synapse}
+\title{getAllNF1Expression
+collects all data from NF1 processed data in synapse}
 \usage{
 getAllNF1Expression(syn)
 }
+\arguments{
+\item{syn}{object}
+}
 \description{
-getAllNF1Expression collects all data from NF1 processed data in synapse
+
+}
+\details{
+
 }

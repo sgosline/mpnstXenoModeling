@@ -2,10 +2,14 @@
 % Please edit documentation in R/data.R
 \name{getNewSomaticCalls}
 \alias{getNewSomaticCalls}
-\title{james said this is the format for future data}
+\title{getNewSomaticCalls
+james said this is the format for future data}
 \usage{
 getNewSomaticCalls(tab, specimen)
 }
 \description{
-james said this is the format for future data
+
+}
+\details{
+
 }

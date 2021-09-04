@@ -19,7 +19,7 @@ reverselog_trans <- function(base = exp(1)) {
 #' @import BiocManager
 #'
 plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.size=3,
-                      order.by='NES',clean.names=F,width=11,height=8.5){
+                      order.by='NES',clean.names=F,width=11,height=8.5,  gsea_FDR=0.05){
 
   if(!require('org.Hs.eg.db')){
     BiocManager::install('org.Hs.eg.db')
@@ -55,7 +55,6 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.pl
   gr<-NULL
   try(gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="ENTREZID",
                                OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH'))
-  gsea_FDR=0.1
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
   if(nrow(res)==0){
     return(gr)
@@ -107,6 +106,7 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.pl
          height = height, width = width, units = "in")
   
   df<-as.data.frame(gr)%>%mutate(Condition=prefix)
+  return(df)
   
 }
 
@@ -130,6 +130,7 @@ doRegularGo<-function(genes,bg=NULL){
     BiocManager::install('clusterProfiler')
     require(clusterProfiler)
   }
+  print(head(eg))
   res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
     #sprint(res)
   ret=as.data.frame(res)%>%
@@ -139,6 +140,43 @@ doRegularGo<-function(genes,bg=NULL){
 
 }
 
+
+
+#' ds2FactorDE
+#' @name ds2FactorDE
+#' @author Sara
+#' @import BiocManager
+#' @param dds DESeq object
+#' @param ids1 Sample ids
+#' @param ids2 Other sample ids
+#' @param name for condition
+#' @export
+#' @import BiocManager
+ds2FactorDE<-function(dds,ids1,ids2,name){
+  if(!require('DESeq2')){
+    BiocManager::install('DESeq2')
+    library(DESeq2)
+  }
+  ##create an additional column
+  tcd<-colData(dds)
+  
+  tcd$newvar<-rep(NA,nrow(tcd))
+  tcd[ids1,]$newvar<-TRUE
+  tcd[ids2,]$newvar<-FALSE
+  tcd<-subset(tcd,!is.na(newvar))#%>%
+    #dplyr::rename(newvar=name)
+
+  new.counts<-counts(dds)[,rownames(tcd)]
+ 
+  new.dds<-DESeq2::DESeqDataSetFromMatrix(new.counts,design=~newvar,colData=tcd)
+  ###re run dds  
+  #design(dds)<-~newvar
+  new.dds <- DESeq(new.dds) ##rerun
+  res <- results(new.dds)
+  print(summary(res))  
+  as.data.frame(results(new.dds))%>%arrange(pvalue)
+
+}
 #'
 #'limmaTwoFactorDEAnalysis
 #'@name limmaTwoFactorDEAnalysis
@@ -186,12 +224,13 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 #'@author Jess
 #'@import BiocManager
 #'@import reticulate
+#'@import pheatmap
 #'@export
-#'@param data matrix
-#'@param txid, genename identifieres
-#'@param str var
-#'@param df of var
-plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
+#'@param de.out diffex results
+#'@param dds, DESEq object
+#'@param identifiers mapping to gene name
+#'@param myvar is name of variable
+plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -209,10 +248,6 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
     BiocManager::install('pheatmap')
     library(pheatmap)
   }
-  if(!require('edgeR')){
-    BiocManager::install('edgeR')
-    library(edgeR)
-  }
   if(!require('tibble')){
     BiocManager::install('tibble')
     library(tibble)
@@ -220,58 +255,48 @@ plotTopGenesHeatmap <- function(de.out, counts, identifiers, myvar, var.ID, adjp
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
-  names(de.out)[names(de.out) == "featureID"] <- "TXID"
-  dge <- DGEList(counts)
-  dge <- calcNormFactors(dge)
-
-  #gather read counts that are normalized to 1 via calcnormfactors()
-  norm.counts <- dge$counts
-  norm.counts <- as.data.frame(norm.counts)
-  norm.counts <- tibble::rownames_to_column(norm.counts,var='TXID')
-
+  de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
+    subset(!is.na('GENENAME'))%>%
+    subset(GENENAME!="")
+  
+  #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
+  
   #combined differentially expressed txids, genenames, and normalized counts
-  de.df <- left_join(de.out,identifiers,by="TXID")
-  de.df <- left_join(de.df,norm.counts,by="TXID")
-  de.df <- de.df[de.df$adj.P.Val < adjpval,]
+ # de.df <- left_join(de.out,identifiers,by="TXID")
+#  de.df <- left_join(de.df,norm.counts,by="TXID")
+#  de.df <- de.df[de.df$adj.P.Val < adjpval,]
   if (isTRUE(upload)) {
-    write.csv(de.df, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
+    write.csv(de.out, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
     synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
   }
-  if (dim(de.df)[1] == 0) {
+  if (dim(de.out)[1] == 0) {
     print("No top genes within specified adj.p.val threshold to make heatmap")
     return(NULL)
   }
 
-  de.table <- de.df %>% select(GENENAME,contains(c('WU', 'JHU', 'MN')))
-  de.table <- de.table[!is.na(de.table$GENENAME),]
-  de.table <- de.table[!duplicated(de.table$GENENAME), ]
-  de.table <- tibble::remove_rownames(de.table)
-  de.table <- tibble::column_to_rownames(de.table,var = 'GENENAME')
+  
+  sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
+  var.ID<-colData(dds)[,c('Sex','MicroTissueQuality','Clinical Status','Age')]%>%
+    as.data.frame()%>%
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))
 
-  h.t <- sapply(de.table,as.numeric)
-  h.t <- as.matrix(h.t)
-  rownames(h.t) = rownames(de.table)
-  # remove genes with no counts
-  h.t <- h.t[rowSums(h.t)>0,]
+  
+  count.mat<-counts(dds,normalized=TRUE)[rownames(sigs),]%>%
+    as.data.frame()%>%
+    tibble::rownames_to_column("GENEID")%>%
+    tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
+    left_join(tibble::rownames_to_column(identifiers,'GENEID'))%>%
+    group_by(GENENAME)%>%
+    dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
+    tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
+    tibble::column_to_rownames('GENENAME')%>%as.matrix()
 
-  # Convert counts to zScore of relevant genes
-  cal_z_score <- function(x){(x - mean(x)) / sd(x)}
-  data_subset_norm <- t(apply(h.t, 1, cal_z_score))
-
-  # Pairwise correlation between samples (columns)
-  cols.cor <- cor(h.t, use = "pairwise.complete.obs", method = "pearson")
-  # Pairwise correlation between rows (genes)
-  rows.cor <- cor(t(h.t), use = "pairwise.complete.obs", method = "pearson")
-
-  # Plot pheatmap
-  heatmap <- pheatmap(data_subset_norm,
-                     show_rownames=TRUE,
+  library(pheatmap)
+    heatmap <- pheatmap(log10(0.01+count.mat),
                      cellheight=10,
                      annotation_col=var.ID,
-                     clustering_distance_cols = as.dist(1 - cols.cor),
-                     clustering_distance_rows = as.dist(1 - rows.cor),
-                     filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png'))
-                    )
+                     filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
+
   if (isTRUE(upload)) {
     synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
   }

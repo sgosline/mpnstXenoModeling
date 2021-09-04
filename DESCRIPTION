@@ -11,4 +11,12 @@ Author: Sara Gosline [aut, cre]
 Maintainer: Sara Gosline <sara.gosline@pnnl.gov>
 License: BSD
 Description: This package is an end-to-end framework for analyzing the data from the NFRI-funded pre-clinical model group and assessing their validity. modeling framework that d
-Imports: BiocManager,cowplot,dplyr,ggplot2,purrr,readxl,reticulate,tibble,tidyr,gridExtra,remotes,scales,ggridges
+Imports: BiocManager,cowplot,dplyr,ggplot2,purrr,readxl,reticulate,tibble,tidyr,gridExtra,pheatmap,remotes,scales,ggridges
+Collate: 
+    'bagOfGenesEnrichment.R'
+    'data.R'
+    'drugBiomarkers.R'
+    'plotDataSets.R'
+    'synapseUtil.R'
+    'xenoResponseMetrics.R'
+    'xevaProcessing.R'

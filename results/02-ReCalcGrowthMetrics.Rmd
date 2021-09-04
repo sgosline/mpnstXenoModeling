@@ -28,7 +28,6 @@ if(!require(mpnstXenoModeling)){
 #this function simply loads all the data into memory
 loadPDXData()
 
-
 ```
 
 ## Show example Growth Metrics

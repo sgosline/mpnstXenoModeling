@@ -14,6 +14,12 @@ if(!require(mpnstXenoModeling)){
   library(mpnstXenoModeling)
 }
 
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+library(dplyr)
 
 ```
 
@@ -23,115 +29,80 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 ## Load data from synapse query
 
 
-```{r loadData,warning=FALSE}
+```{r loadData,warning=FALSE,echo=FALSE}
 #this function simply loads all the data into memory
 
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
-master.table<-rnaSeq
+rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
+  mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))
+
 ```
 
 
-## Normalize counts
+## RNASeq DAta
+
+We have now implemented DESeq2 column normalization to enable the visualization of RNASeq Data. Let's plot them, after normalization, via PCA to see how they cluster and group independently. Then we can interrogate the genes themselves.
 
 
 ```{r filtering, warning=FALSE}
+library(DESeq2)
 
-normalize_counts_deseq2<-function(long.table){
-  library(DESeq2)
-  require(dplyr)
-  require(tidyr)
-  count.mat<-master.table%>%
-    dplyr::select(TXID,NumReads,Sample)%>%
-    pivot_wider(values_from=NumReads,names_from=Sample)%>%
-    tibble::column_to_rownames('TXID')
-  met.mat<-master.table%>%
-    dplyr::select(Sample,Age,MicroTissueQuality,Sex,Clinical.Status)%>%
-    distinct()%>%
-    tibble::column_to_rownames('Sample')
+dds <-mpnstXenoModeling::deseq2NormFilter(rnaSeq)
   
-  dds <- DESeqDataSetFromMatrix(countData = count.mat, colData = met.mat)
+vsd <- DESeq2::vst(dds)
 
-}
 
 ```
 
-## First let's plot the most variable fully expressed genes
+### How do samples cluster?
 
 We want to plot the variable genes in a heatmap and also the PCA
 
 
 ```{r Pca plot}
-plotAllExpData <- function(dat.table, expand=0.01, alpha=0.1, ...) {
-  library(ggfortify)
-  met <- dat.table %>%
-    dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
-    distinct()%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
-    mutate(Clinical.Status=unlist(Clinical.Status))
+library(ggplot2)
+pcaData <- plotPCA(vsd, intgroup=c("Sex", "Clinical Status"), returnData=TRUE)
 
-    
-  mat <- dat.table %>% dplyr::select(TXID,NumReads,Sample) %>%
-    distinct() %>%
-    mutate(Reads=as.numeric(NumReads)) %>%
-    dplyr::select(-NumReads)%>%
-    tidyr::pivot_wider(names_from='Sample', values_from='Reads',
-                       values_fn=list(Reads=mean),
-                       values_fill=list(Reads=0)) %>%
-    tibble::remove_rownames() %>%
-    tibble::column_to_rownames('TXID')
- # mat <- mat[complete.cases(mat),]
-  x <- prcomp(t(mat))$x
-  x <- as.data.frame(x)
-  x$Sample <- rownames(x)
-  ggdata <- inner_join(x, met, by="Sample")
-  
-  library(ggforce)
-  ggplot(ggdata, aes_string(x="PC1", y="PC2", color = 'MicroTissueQuality',shape='Clinical.Status')) +
-    geom_point(size=2.5)# +
-    #ggforce::geom_mark_ellipse( alpha=alpha, expand=expand)
- return(mat)
-}
+percentVar <- round(100 * attr(pcaData, "percentVar"))
 
-data.mat<-plotAllExpData(master.table)
+ggplot(pcaData, aes(PC1, PC2, color=Sex, shape=`Clinical.Status`)) +
+  geom_point(size=3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()+ggtitle('Samples by normalized expression')
 ```
 
+### Heatmap of most variable
+
+What genes are the most variable after normalization?
 
 ```{r most variable}
-library(tidyr)
+library(pheatmap)
 
-by.gene <- master.table%>%
-  group_by(Symbol,Sample)%>%
-  summarize(totalCounts=sum(NumReads))
-
-pat.var <-by.gene%>%group_by(Symbol)%>%
-  summarize(geneVar=var(totalCounts))%>%
-  arrange(desc(geneVar))
-
-
-pat.annote <- master.table %>%
-    dplyr::select(Sample, MicroTissueQuality, Clinical.Status, Sex) %>%
+pat.annote <- rnaSeq %>%
+    dplyr::select(Sample, MicroTissueQuality, `Clinical Status`, Sex) %>%
     distinct()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
-    mutate(Clinical.Status=unlist(Clinical.Status))%>%
   tibble::column_to_rownames('Sample')
 
 
-symbs<-pat.var$Symbol[1:100]
+keep <- which(rowMin(counts(dds,normalized=TRUE))>10)
+pat.var <- apply(counts(dds[keep,],normalized=TRUE),1,var)%>%sort()
 
-count.mat<-by.gene%>%
-  dplyr::select(totalCounts,Symbol,Sample)%>%
-  pivot_wider(values_from=totalCounts,names_from=Sample,values_fn=list(totalCounts=mean))%>%
-  tibble::column_to_rownames('Symbol')
+symbs<-names(pat.var)[1:100]
+
+count.mat<-counts(dds,normalized=TRUE)#[symbs,]
 
 library(pheatmap)
-pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_col = pat.annote,filename='mostVarTrans.pdf')
-pheatmap(log10(0.01+count.mat[symbs,]),cellwidth = 10,cellheight=10,annotation_col = pat.annote)
+pheatmap(count.mat[symbs,],cellwidth = 10,cellheight=10,annotation_col = pat.annote,filename='mostVarTrans.pdf')
+pheatmap(count.mat[symbs,],cellwidth = 10,cellheight=10,annotation_col = pat.annote)
+
 ```
 
 ## Correlate all genes across Samples
 
+What pathways are enriched in correlation across these? 
 ```{r leapr cor}
 
 ##now let's look at the pathways that are correlated across all
@@ -160,10 +131,10 @@ keggpaths <- list(names = names.kegg,
 #  select(term, gene)
 #term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
   
-plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, fdr.cutoff = 0.05, 
-                                      corr.cutoff = 0.1, prefix='allSamps', width = 11, 
-                                      height = 8.5, order.by = "Ingroup mean", 
-                                      clean.names = FALSE, pathway.plot.size = 3)
+#plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, fdr.cutoff = 0.05, 
+#                                      corr.cutoff = 0.1, prefix='allSamps', width = 11, 
+#                                      height = 8.5, order.by = "Ingroup mean", 
+#                                      clean.names = FALSE, pathway.plot.size = 3)
 
 
 ```
