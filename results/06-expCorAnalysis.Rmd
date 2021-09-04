@@ -97,6 +97,7 @@ count.mat<-counts(dds,normalized=TRUE)#[symbs,]
 library(pheatmap)
 pheatmap(count.mat[symbs,],cellwidth = 10,cellheight=10,annotation_col = pat.annote,filename='mostVarTrans.pdf')
 pheatmap(count.mat[symbs,],cellwidth = 10,cellheight=10,annotation_col = pat.annote)
+
 ```
 
 ## Correlate all genes across Samples

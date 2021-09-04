@@ -139,6 +139,41 @@ doRegularGo<-function(genes,bg=NULL){
 
 }
 
+
+
+#' ds2FactorDE
+#' @name ds2FactorDE
+#' @author Sara
+#' @import BiocManager
+#' @param dds DESeq object
+#' @param ids1 Sample ids
+#' @param ids2 Other sample ids
+#' @param name for condition
+#' @import BiocManager
+ds2FactorDE<-function(dds,ids1,ids2,name){
+  if(!require('DESeq2')){
+    BiocManager::install('DESeq2')
+    library(DESeq2)
+  }
+  ##create an additional column
+  tcd<-colData(dds)
+  
+  tcd$newvar<-rep(NA,nrow(tcd))
+  tcd[ids1,]$newvar<-TRUE
+  tcd[ids2,]$newvar<-FALSE
+  tcd<-subset(tcd,!is.na(newvar))#%>%
+    #dplyr::rename(newvar=name)
+  
+  #re add teh condition
+  colData(dds)<-tcd
+  ##re run dds  
+  design(dds)<-~newvar
+  dds <- DESeq(dds) ##rerun
+  res <- results(dds)
+  print(summary(res))  
+  as.data.frame(results(dds))%>%arrange(pvalue)
+
+}
 #'
 #'limmaTwoFactorDEAnalysis
 #'@name limmaTwoFactorDEAnalysis

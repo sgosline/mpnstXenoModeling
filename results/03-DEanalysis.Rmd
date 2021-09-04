@@ -37,19 +37,39 @@ The RNASEq data processing was updated on 9/3/2021 so these functions have also 
 #These three commands load RNAseq data
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')#%>%
+rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
+  mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+  separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+
 
 
 master.table<-rnaSeq
 
 ##select clinical variables
 var.ID<-rnaSeq%>%
-  dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status)%>%distinct()%>%
+  dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,`Clinical Status`)%>%
+  distinct()%>%
   tibble::column_to_rownames('synid')
 
-
 ##select gene mapping
-identifiers<-''
+  if(!require('EnsDb.Hsapiens.v86')){
+    BiocManager::install('EnsDb.Hsapiens.v86')
+    library(EnsDb.Hsapiens.v86)
+  }else{
+    library('EnsDb.Hsapiens.v86')
+  }
+    library(ensembldb)
+  
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=rnaSeq$GENE,keytype = "GENEID", columns = c("GENENAME"))%>%
+    dplyr::rename(GENE='GENEID')%>%
+    right_join(rnaSeq)%>%
+    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+    tibble::column_to_rownames('GENEID')
+  
+  dds <-mpnstXenoModeling::deseq2NormFilter(rnaSeq)
+
+  
 
 ```
 
@@ -72,7 +92,7 @@ format_clinical_data <- function(df) {
   return(df)
 }
 
-df<- format_clinical_data(var.ID)
+#df<- format_clinical_data(var.ID)
 
 ```
 
@@ -127,7 +147,7 @@ filter_by_low_expressed_genes <- function(master.table) {
   
   return(counts)
 }
-counts <- filter_by_low_expressed_genes(master.table)
+#counts <- filter_by_low_expressed_genes(master.table)
 
 ```
 
@@ -135,17 +155,16 @@ counts <- filter_by_low_expressed_genes(master.table)
 
 
 ```{r analysingSex, warning=FALSE}
-library(Biobase)
-sex_res <- limmaTwoFactorDEAnalysis(counts, rownames(subset(var.ID,Sex=='Male')),
-                                    rownames(subset(var.ID,Sex=='Female')))
+sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=subset(var.ID,Sex=='Male')$Sample,
+                                    ids2=subset(var.ID,Sex=='Female')$Sample,name='sex')
                                    
 
-plotTopGenesHeatmap(sex_res, counts, identifiers,'sex',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+#plotTopGenesHeatmap(sex_res, counts(dds,normalized=TRUE), identifiers,'sex',var.ID, adjpval=0.05, upload=TRUE, parentID='syn25323411')
 
-genes.with.values<-sex_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
+#genes.with.values<-sex_res%>%
+#  dplyr::select(Gene='featureID',value='logFC')
                    
-plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
+#plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
 
 ```
 
@@ -157,28 +176,28 @@ exist_res <- limmaTwoFactorDEAnalysis(counts,
                                       row.names(subset(var.ID,Clinical.Status%in%c('Alive','NED','Alive with metastatic disease'))),
                                       row.names(subset(var.ID,Clinical.Status=='Deceased')))
 
-plotTopGenesHeatmap(exist_res, counts, identifiers,'exist',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+#plotTopGenesHeatmap(exist_res, counts, identifiers,'exist',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
 
-genes.with.values<-exist_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'prognosisDiff',useEns=TRUE)
+#genes.with.values<-exist_res%>%
+#  dplyr::select(Gene='featureID',value='logFC')
+#plotOldGSEA(genes.with.values,NULL,'prognosisDiff',useEns=TRUE)
 ```
 
 ## Do DE analysis on age variable groups
 
 
 ```{r analysingAge, warning=FALSE}
-age_res <- limmaTwoFactorDEAnalysis(counts,  
-                                    row.names(subset(var.ID,Age>18)),
-                                    row.names(subset(var.ID,Age<19)))
+#age_res <- limmaTwoFactorDEAnalysis(counts,  
+#                                    row.names(subset(var.ID,Age>18)),
+#                                    row.names(subset(var.ID,Age<19)))
 
-plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+#plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
 
-genes.with.values<-age_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
+#genes.with.values<-age_res%>%
+#  dplyr::select(Gene='featureID',value='logFC')
+#plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
 ```
 
 ## Do DE analysis on sample quality variable groups
@@ -189,10 +208,10 @@ qual_res <- limmaTwoFactorDEAnalysis(counts,
                                      row.names(subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))), 
                                      row.names(subset(var.ID,MicroTissueQuality=='Unusable')))
 
-plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+#plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
 
 
-genes.with.values<-qual_res%>%
-  dplyr::select(Gene='featureID',value='logFC')
-plotOldGSEA(genes.with.values,NULL,'qualDifferences',useEns=TRUE)
+#genes.with.values<-qual_res%>%
+#  dplyr::select(Gene='featureID',value='logFC')
+#plotOldGSEA(genes.with.values,NULL,'qualDifferences',useEns=TRUE)
 ```
