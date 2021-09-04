@@ -13,7 +13,8 @@ plotOldGSEA(
   order.by = "NES",
   clean.names = F,
   width = 11,
-  height = 8.5
+  height = 8.5,
+  gsea_FDR = 0.05
 )
 }
 \arguments{

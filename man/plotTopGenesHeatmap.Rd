@@ -6,10 +6,9 @@
 \usage{
 plotTopGenesHeatmap(
   de.out,
-  counts,
+  dds,
   identifiers,
   myvar,
-  var.ID,
   adjpval = 0.5,
   upload = FALSE,
   path = ".",
@@ -17,13 +16,13 @@ plotTopGenesHeatmap(
 )
 }
 \arguments{
-\item{data}{matrix}
+\item{de.out}{diffex results}
 
-\item{txid, }{genename identifieres}
+\item{dds, }{DESEq object}
 
-\item{str}{var}
+\item{identifiers}{mapping to gene name}
 
-\item{df}{of var}
+\item{myvar}{is name of variable}
 }
 \description{
 Filters and plots expression matrix

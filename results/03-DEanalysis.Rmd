@@ -5,6 +5,8 @@ date: "8/13/2021"
 output: html_document
 ---
 
+The goal of this document is to provide examples of how to do differential expression analysis using the RNASeq datq processed by the Salmon pipeline and analyzed via DESeq2. We experimented with various forms of normalization and this seems to be ideal given the samples we have.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -30,7 +32,7 @@ if(!require('EnsDb.Hsapiens.v86')){
 
 ## Load data from synapse query
 
-The RNASEq data processing was updated on 9/3/2021 so these functions have also been udpated. 
+The RNASEq data processing was updated on 9/3/2021 so these functions have also been udpated. This pulls the data in from the `tximport` command of the DESeq2 package and then uses the gene length and sample normalization to account for sample differences. The only clinical variable considered is Sex.
 
 
 ```{r loadData,warning=FALSE}
@@ -73,145 +75,114 @@ var.ID<-rnaSeq%>%
 
 ```
 
-## Format the clinical data to distinct factors
+##  Differential expression
 
+The  differential expression analysis requires three basic steps:
+1- Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2- Plot the significant gene in a heatmap
+3- Evaluate the functional enrichment of the significant genes only
+4- Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
-```{r formatting, warning=FALSE}
+The following four steps are depicted here, using biological sex as the first variable.
 
-format_clinical_data <- function(df) {
-  #Modify table naming for data subsetting
-  names(df)[names(df) == "Clinical Status"] <- "Clinical.Status"
-  df$Clinical.Status = gsub("NED","Alive",df$Clinical.Status)
-  df$Clinical.Status = gsub("Alive with metastatic disease","Alive",df$Clinical.Status)
-  df$Clinical.Status = gsub("Unknown",NA,df$Clinical.Status)
-  df$UpdatedTissueQuality <- df$MicroTissueQuality
-  df$UpdatedTissueQuality <- gsub("Good", "Robust",df$UpdatedTissueQuality)
-  df$Age <- ifelse(df$Age < 19,  sub('[0-9]*', 'Under.and.18',df$Age), gsub('[0-9]*', 'Over.18',df$Age))
-  df$Sample = gsub(" ",".",df$Sample)
-  df$Sample = gsub("-",".",df$Sample)
-  return(df)
-}
+### Do DE analysis on sex variable groups
 
-#df<- format_clinical_data(var.ID)
+Here we do the four steps described above.
 
-```
-
-## Organize factor levels of variable group dataframe
-
-
-```{r organizing, warning=FALSE}
-
-organize_vars <- function(df) {
-  #Get IDs from synapse table
-  synds<-df$synid
-  #create factors of clinical variables in synapse table
-  group <- factor(df$Clinical.Status)
-  sex <- factor(df$Sex)
-  age <- factor(df$Age)
-  qual <- factor(df$UpdatedTissueQuality)
-
-  #generate clinical variable partitions for heatmap legend
-  var.ID <- data.frame(group)
-
-  var.ID$sex <- sex
-  var.ID$age <- age
-  var.ID$qual <- qual
-  return(var.ID)
-}
-
-#var.ID <- organize_vars(df)
-#var.ID
-
-```
-
-
-## Filter genes by low expression
-
-
-```{r filtering, warning=FALSE}
-
-filter_by_low_expressed_genes <- function(master.table) {
-  #Filter lowly expressed genes
-  sum.table <- master.table %>% 
-    group_by(TXID)%>%
-    mutate(sum = sum(TPM))#
-           #rowSums(.[grep("TPM", names(.))]))
-  #keep<-sum.table[!(sum.table$sum<1),]
-  #row.names(keep) <- keep$TXID
-  #counts <- keep %>% dplyr:: select(contains("Count"))
-  #names(counts) <- sapply(strsplit(names(counts), ".C"), '[', 1)
-  counts<-subset(sum.table,sum>1)%>%
-    dplyr::select(c(TXID,NumReads,synid))%>%
-    pivot_wider(values_from = 'NumReads',names_from='synid')%>%
-    tibble::column_to_rownames('TXID')
-  
-  return(counts)
-}
-#counts <- filter_by_low_expressed_genes(master.table)
-
-```
-
-## Do DE analysis on sex variable groups
-
-
+First, compute the differential expresison
 ```{r analysingSex, warning=FALSE}
 sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=subset(var.ID,Sex=='Male')$Sample,
                                     ids2=subset(var.ID,Sex=='Female')$Sample,name='sex')
                                    
+```
 
-#plotTopGenesHeatmap(sex_res, counts(dds,normalized=TRUE), identifiers,'sex',var.ID, adjpval=0.05, upload=TRUE, parentID='syn25323411')
+Then we can plot the top genes in a heatmap
 
-#genes.with.values<-sex_res%>%
-#  dplyr::select(Gene='featureID',value='logFC')
+```{r plotgenes, warning=FALSE}
+mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, upload=TRUE, parentID='syn25323411')
+```
+
+```{r get sig,warning=FALSE}
+res<-pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']%>%doRegularGo()
+print(res)
+```
+
+```{r getGSEA,warning=FALSE}
+genes.with.values<-cbind(sex_res,pmap[rownames(sex_res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-#plotOldGSEA(genes.with.values,NULL,'sexDifferences',useEns=TRUE)
+res=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='sexDifferences',useEns=FALSE)
 
 ```
 
-## Do DE analysis on life status variable groups
+Now that we show we can do it for one variable, we can execute this same series of commands on other variables.
 
+### Do DE analysis on clinical outcome
+
+First we compare patients who have survived vs. those that have not.
 
 ```{r analysingExist, warning=FALSE}
-exist_res <- limmaTwoFactorDEAnalysis(counts, 
-                                      row.names(subset(var.ID,Clinical.Status%in%c('Alive','NED','Alive with metastatic disease'))),
-                                      row.names(subset(var.ID,Clinical.Status=='Deceased')))
+exist_res <- mpnstXenoModeling::ds2FactorDE(dds, 
+                                      subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease'))$Sample,
+                                      subset(var.ID,`Clinical Status`=='Deceased')$Sample,'Clinical')
 
-#plotTopGenesHeatmap(exist_res, counts, identifiers,'exist',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=TRUE, parentID='syn25323411')
 
 
-#genes.with.values<-exist_res%>%
-#  dplyr::select(Gene='featureID',value='logFC')
-#plotOldGSEA(genes.with.values,NULL,'prognosisDiff',useEns=TRUE)
+res<-pmap[rownames(subset(exist_res,padj<0.05)),'GENENAME']%>%doRegularGo()
+print(res)
+
+genes.with.values<-cbind(exist_res,pmap[rownames(exist_res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+res=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
+
 ```
 
-## Do DE analysis on age variable groups
+### Do DE analysis on age variable groups
 
+Then we can examine if there are pathway level changes in older vs. younger patients.
 
 ```{r analysingAge, warning=FALSE}
-#age_res <- limmaTwoFactorDEAnalysis(counts,  
-#                                    row.names(subset(var.ID,Age>18)),
-#                                    row.names(subset(var.ID,Age<19)))
+age_res <- mpnstXenoModeling::ds2FactorDE(dds,
+                                    subset(var.ID,Age>18)$Sample,
+                                    subset(var.ID,Age<19)$Sample,'Age')
 
-#plotTopGenesHeatmap(age_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=TRUE, parentID='syn25323411')
 
 
-#genes.with.values<-age_res%>%
-#  dplyr::select(Gene='featureID',value='logFC')
-#plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=TRUE)
+res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo()
+print(res)
+
+genes.with.values<-cbind(age_res,pmap[rownames(age_res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+
+plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
 ```
 
-## Do DE analysis on sample quality variable groups
+### Do DE analysis on sample quality variable groups
 
+Is there a noticeable difference in mt quality? There were a lot of genes so we used only those that fell below 0.01 in significance to plot
 
 ```{r analysingQual, warning=FALSE}
-qual_res <- limmaTwoFactorDEAnalysis(counts, 
-                                     row.names(subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))), 
-                                     row.names(subset(var.ID,MicroTissueQuality=='Unusable')))
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
+                                     subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
+                                     subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
 
-#plotTopGenesHeatmap(qual_res, counts, identifiers,'age',var.ID, adjpval=0.1, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.01, upload=TRUE, parentID='syn25323411')
 
 
-#genes.with.values<-qual_res%>%
-#  dplyr::select(Gene='featureID',value='logFC')
-#plotOldGSEA(genes.with.values,NULL,'qualDifferences',useEns=TRUE)
+res<-pmap[rownames(subset(qual_res,padj<0.01)),'GENENAME']%>%doRegularGo()
+print(res)
+
+genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+
+plotOldGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
+
 ```
+
+
+Now that we've done these basic analyses we can integrate other data-derived variables such as drug response into our differential expression pipeline.
