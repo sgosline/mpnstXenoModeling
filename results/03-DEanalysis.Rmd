@@ -41,7 +41,7 @@ syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
   mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
-  separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+  tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
 
 
 
