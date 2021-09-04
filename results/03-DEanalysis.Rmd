@@ -35,7 +35,7 @@ if(!require('EnsDb.Hsapiens.v86')){
 The RNASEq data processing was updated on 9/3/2021 so these functions have also been udpated. This pulls the data in from the `tximport` command of the DESeq2 package and then uses the gene length and sample normalization to account for sample differences. The only clinical variable considered is Sex.
 
 
-```{r loadData,warning=FALSE}
+```{r loadData,warning=FALSE,echo=FALSE}
 #These three commands load RNAseq data
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
