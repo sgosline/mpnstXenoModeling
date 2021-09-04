@@ -111,7 +111,7 @@ print(res)
 genes.with.values<-cbind(sex_res,pmap[rownames(sex_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-res=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='sexDifferences',useEns=FALSE)
+res2=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='sexDifferences',useEns=FALSE)
 
 ```
 
@@ -135,7 +135,7 @@ print(res)
 genes.with.values<-cbind(exist_res,pmap[rownames(exist_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-res=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
+res2=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
 
 ```
 
@@ -158,7 +158,7 @@ genes.with.values<-cbind(age_res,pmap[rownames(age_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
 
-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
+res2<-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
 ```
 
 ### Do DE analysis on sample quality variable groups
@@ -180,7 +180,7 @@ genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
 
-plotOldGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
+res2<-plotOldGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
 
 ```
 
