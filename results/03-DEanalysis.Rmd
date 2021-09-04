@@ -165,6 +165,7 @@ res2<-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
 
 Is there a noticeable difference in mt quality? There were a lot of genes so we used only those that fell below 0.01 in significance to plot
 
+
 ```{r analysingQual, warning=FALSE}
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
                                      subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
