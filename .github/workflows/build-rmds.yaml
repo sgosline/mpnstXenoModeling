@@ -34,7 +34,7 @@ jobs:
      - name: Install remotes and gridextra and biocmanager
        run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra"); install.packages("BiocManager"); install.packages("ggfortify")'
      - name: bioc install
-       run: Rscript -e 'BiocManager::install("EnsDb.Hsapiens.v86");BiocManager::install("org.Hs.eg.db"); BiocManager::install("DESeq2")''
+       run: Rscript -e 'BiocManager::install("EnsDb.Hsapiens.v86");BiocManager::install("org.Hs.eg.db"); BiocManager::install("DESeq2")'
      - name: Install packages from github
        run: Rscript -e 'remotes::install_github("rstudio/reticulate");remotes::install_github("sgosline/mpnstXenoModeling");remotes::install_github("biodataganache/leapR")'
      - name: Render my document to all types

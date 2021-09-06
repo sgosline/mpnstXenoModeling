@@ -180,7 +180,6 @@ print(res)
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-
 res2<-plotOldGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
 
 ```
