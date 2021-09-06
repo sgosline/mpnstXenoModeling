@@ -171,10 +171,10 @@ qual_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                      subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
                                      subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.01, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.005, upload=TRUE, parentID='syn25323411')
 
 
-res<-pmap[rownames(subset(qual_res,padj<0.01)),'GENENAME']%>%doRegularGo()
+res<-pmap[rownames(subset(qual_res,padj<0.005)),'GENENAME']%>%doRegularGo()
 print(res)
 
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%

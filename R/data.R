@@ -26,8 +26,17 @@ do_deseq_import <- function(file) {
     BiocManager::install("DESeq2")
     library(DESeq2)
   }
+  
+  if(!require('tximportData')){
+    BiocManager::install("tximportData")
+    library(tximportData)
+  }
 
-  library(tximportData)
+  if(!require('tximport')){
+    BiocManager::install("tximport")
+    library(tximport)
+  }
+
   dir <- system.file("extdata", package="tximportData")
   tx2gene <- read.csv(file.path(dir, "tx2gene.gencode.v27.csv"))
 
