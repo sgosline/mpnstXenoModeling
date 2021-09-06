@@ -102,7 +102,8 @@ pheatmap(count.mat[symbs,],cellwidth = 10,cellheight=10,annotation_col = pat.ann
 
 ## Correlate all genes across Samples
 
-What pathways are enriched in correlation across these? 
+What pathways are enriched in correlation across these? Need to actually do this!!!
+
 ```{r leapr cor}
 
 ##now let's look at the pathways that are correlated across all
