@@ -2,7 +2,10 @@
 title: "Expression correlation analysis"
 author: "Sara gosline"
 date: "8/20/2021"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
 ---
 
 ```{r setup, include=FALSE}
