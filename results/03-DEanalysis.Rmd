@@ -99,7 +99,7 @@ sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=subset(var.ID,Sex=='Male')$S
 Then we can plot the top genes in a heatmap
 
 ```{r plotgenes, warning=FALSE}
-mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, upload=FALSE, parentID='syn25323411')
 ```
 
 ```{r get sig,warning=FALSE}
@@ -126,7 +126,7 @@ exist_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                       subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease'))$Sample,
                                       subset(var.ID,`Clinical Status`=='Deceased')$Sample,'Clinical')
 
-mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
 
 res<-pmap[rownames(subset(exist_res,padj<0.05)),'GENENAME']%>%doRegularGo()
@@ -148,7 +148,7 @@ age_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                     subset(var.ID,Age>18)$Sample,
                                     subset(var.ID,Age<19)$Sample,'Age')
 
-mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
 
 res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo()
@@ -171,10 +171,10 @@ qual_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                      subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
                                      subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.005, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.001, upload=FALSE, parentID='syn25323411')
 
 
-res<-pmap[rownames(subset(qual_res,padj<0.005)),'GENENAME']%>%doRegularGo()
+res<-pmap[rownames(subset(qual_res,padj<0.001)),'GENENAME']%>%doRegularGo()
 print(res)
 
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
