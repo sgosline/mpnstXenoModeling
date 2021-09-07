@@ -206,5 +206,4 @@ res  = syn$tableQuery('select * from syn26136282')
 pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
 syn$store(pd)
 
-
 ```
