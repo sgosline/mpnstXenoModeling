@@ -78,10 +78,10 @@ var.ID<-rnaSeq%>%
 ##  Differential expression
 
 The  differential expression analysis requires three basic steps:
-1- Group the samples into two groups, then compute the log2fold change and significance via the linear model
-2- Plot the significant gene in a heatmap
-3- Evaluate the functional enrichment of the significant genes only
-4- Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
+1. Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2. Plot the significant gene in a heatmap
+3. Evaluate the functional enrichment of the significant genes only
+4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
 The following four steps are depicted here, using biological sex as the first variable.
 
@@ -104,13 +104,13 @@ mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, up
 
 We can then look for over-represented GO terms and plot those.
 
-```{r get sig,warning=FALSE}
+```{r get sig,warning=FALSE,results="asis"}
 res<-pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='sex')
 ```
 
 Lastly we can rank the genes and do Gene Set Enrichment.
 
-```{r getGSEA,warning=FALSE}
+```{r getGSEA,warning=FALSE,results="asis"}
 genes.with.values<-cbind(sex_res,pmap[rownames(sex_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
@@ -123,7 +123,7 @@ Now that we show we can do it for one variable, we can execute this same series 
 
 First we compare patients who have survived vs. those that have not.
 
-```{r analysingExist, echo=FALSE,warning=FALSE}
+```{r analysingExist, echo=FALSE,warning=FALSE,results="asis"}
 exist_res <- mpnstXenoModeling::ds2FactorDE(dds, 
                                       subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease'))$Sample,
                                       subset(var.ID,`Clinical Status`=='Deceased')$Sample,'Clinical')
@@ -144,7 +144,7 @@ res2=doGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE
 
 Then we can examine if there are pathway level changes in older vs. younger patients.
 
-```{r analysingAge, echo=FALSE,warning=FALSE}
+```{r analysingAge, echo=FALSE,warning=FALSE,results="asis"}
 age_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                     subset(var.ID,Age>18)$Sample,
                                     subset(var.ID,Age<19)$Sample,'Age')
@@ -154,7 +154,7 @@ mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, u
 
 res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='age')
 ```
-```{r analysis age gsea, echp=FALSE, warning=FALSE}
+```{r analysis age gsea, echp=FALSE, results="asis",warning=FALSE}
 genes.with.values<-cbind(age_res,pmap[rownames(age_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
@@ -167,7 +167,7 @@ res2<-doGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
 Is there a noticeable difference in mt quality? There were a lot of genes so we used only those that fell below 0.01 in significance to plot
 
 
-```{r analysingQual, echp=FALSE, warning=FALSE}
+```{r analysingQual, echp=FALSE, results="asis",warning=FALSE}
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
                                      subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
                                      subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
@@ -178,7 +178,7 @@ mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.00
 res<-pmap[rownames(subset(qual_res,padj<0.001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
 ```
 
-```{r analysis qual gsea}
+```{r analysis qual gsea,results="asis"}
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    

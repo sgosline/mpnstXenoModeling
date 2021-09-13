@@ -8,10 +8,11 @@ output:
     toc_depth: 2
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE,message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 require(remotes)
+
 if(!require(mpnstXenoModeling)){
   remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
@@ -21,28 +22,25 @@ if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
   library(leapr)
 }
-
 library(dplyr)
-
 ```
 
 
 ## Mutation data
-```{r mutation data}
+
+Load the data from the R package.
+
+```{r mutation data,echo=FALSE,warning=FALSE,include=FALSE,message=FALSE}
 mpnstXenoModeling::loadPDXData()
 
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Mutation heatmaps
 
 We now can select specific mutations of interest and put them in a heatmap
 
-```{r mut data,echo=FALSE}
+```{r mut data, results='asis',warning=FALSE}
  mutMat<-varData%>%
   mutate(AD=as.numeric(AD))%>%
   subset(Symbol!="")%>%
@@ -67,14 +65,13 @@ library(pheatmap)
   
    
  pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
- 
- pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
 
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
 ```
 
 Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
 
-```{r selected muts}
+```{r selected muts, warning=FALSE,results='asis'}
 genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
            'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
 missed.genes<-setdiff(genelist,rownames(mutMat))
@@ -86,13 +83,12 @@ print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
  pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)),filename='selectedMutations.pdf')
  
  pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)))
-
 ```
 
 
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
 
-```{r recurrent mutations}
+```{r recurrent mutations,results='asis',fig.keep='first'}
 topMuts=dplyr::filter(varData,AD>0)%>%
   subset(!is.na(Symbol))%>%
     group_by(Symbol)%>%
@@ -113,9 +109,12 @@ topMuts=dplyr::filter(varData,AD>0)%>%
 
 For each mutation in the `rmutMat` matrix shown above, we  can separate out patients that have the mutation and do not. Then we can compare differential expression using the tools described previously (the third markdown):
 
-1- Group the samples into two groups, then compute the log2fold change and significance via the linear model
-2- Plot the significant gene in a heatmap
-3- Evaluate the functional enrichment of the significant genes only
-4- Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
+1. Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2. Plot the significant gene in a heatmap
+3. Evaluate the functional enrichment of the significant genes only
+4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
+```{r diffex by gene,warning=FALSE}
+
+```
 
