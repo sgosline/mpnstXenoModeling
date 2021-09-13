@@ -1,0 +1,82 @@
+---
+title: "Fig1_SomaticVariantExpression"
+author: "Sara Gosline"
+date: "9/12/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+library(dplyr)
+
+```
+
+
+## Mutation data
+```{r mutation data}
+mpnstXenoModeling::loadPDXData()
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Mutation heatmap
+
+We now can select specific mutations of interest and put them in a heatmap
+
+```{r mut data,echo=FALSE}
+ mutMat<-varData%>%
+  mutate(AD=as.numeric(AD))%>%
+  subset(Symbol!="")%>%
+  dplyr::select(-c(individualID,specimenID,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+  distinct()%>%
+  tidyr::pivot_wider(names_from=synid,values_from=AD,values_fn=list(AD=mean),
+                     values_fill=list(AD=0.0))%>%
+    tibble::column_to_rownames('Symbol')
+
+library(pheatmap)
+  annotes<-varData%>%
+    dplyr::select(c(synid,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(`Clinical Status`=unlist(Clinical.Status))%>%
+    dplyr::select(-Clinical.Status)%>%
+    #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
+    distinct()%>%
+    tibble::column_to_rownames('synid')#%>%
+#    dplyr::filter(sample!='normal')
+  
+  mutMat<-mutMat[,rownames(annotes)]
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+ 
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.pdf')
+```
+
+
+
+## RNA signatures of mutations
+For each mutation, we can 
+
+
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+

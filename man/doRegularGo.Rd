@@ -4,7 +4,15 @@
 \alias{doRegularGo}
 \title{Runs regular bag of genes enrichment}
 \usage{
-doRegularGo(genes, bg = NULL)
+doRegularGo(
+  genes,
+  bg = NULL,
+  prefix = "",
+  gsea_FDR = 0.05,
+  pathway.plot.size = 3,
+  width = 11,
+  height = 8.5
+)
 }
 \description{
 Performs GO enrichment
