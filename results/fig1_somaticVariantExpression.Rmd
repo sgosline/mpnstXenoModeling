@@ -33,39 +33,52 @@ Load the data from the R package.
 ```{r mutation data,echo=FALSE,warning=FALSE,include=FALSE,message=FALSE}
 mpnstXenoModeling::loadPDXData()
 
+varData%>%subset(AD>0)%>%group_by(specimenID)%>%summarize(nMuts=n_distinct(Symbol))
+
 ```
 
+These data comprise tumor, normal, and xenograft so we need to remove and keep only xenograft.
 
 ## Mutation heatmaps
 
 We now can select specific mutations of interest and put them in a heatmap
 
 ```{r mut data, results='asis',warning=FALSE}
+##filter for only PDX samples
+
+samps <- unique(varData$specimenID)
+tums <- samps[grep('tumor',samps)]
+norms <-samps[grep('normal',samps)]
+
+pdx.samps<-setdiff(samps,union(tums,norms))
+
  mutMat<-varData%>%
+  dplyr::filter(specimenID%in%pdx.samps)%>%
   mutate(AD=as.numeric(AD))%>%
   subset(Symbol!="")%>%
-  dplyr::select(-c(individualID,specimenID,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+  dplyr::select(-c(individualID,specimenID,synid,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
   distinct()%>%
-  tidyr::pivot_wider(names_from=synid,values_from=AD,values_fn=list(AD=mean),
+  tidyr::pivot_wider(names_from=Sample,values_from=AD,values_fn=list(AD=mean),
                      values_fill=list(AD=0.0))%>%
     tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
   annotes<-varData%>%
-    dplyr::select(c(synid,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+      dplyr::filter(specimenID%in%pdx.samps)%>%
+    dplyr::select(c(Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
     mutate(`Clinical Status`=unlist(Clinical.Status))%>%
     dplyr::select(-Clinical.Status)%>%
     #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
     distinct()%>%
-    tibble::column_to_rownames('synid')#%>%
+    tibble::column_to_rownames('Sample')#%>%
 #    dplyr::filter(sample!='normal')
   
   mutMat<-mutMat[,rownames(annotes)]
   
-pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
    
- pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.png')
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
 
 ```
 
@@ -81,9 +94,9 @@ print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
   smutMat<-mutMat[intersect(genelist,rownames(mutMat)),rownames(annotes)]
   
  
- pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)))
+ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
  
- pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)),filename='selectedMutations.png')
+ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedMutations.png')
 ```
 
 
@@ -101,10 +114,10 @@ topMuts=dplyr::filter(varData,AD>0)%>%
  
   rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
   
- pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(rmutMat)))
+ pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
  
  
- pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(rmutMat)),filename='selectedAndRecMutations.png')
+ pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedAndRecMutations.png')
 
 ```
 
