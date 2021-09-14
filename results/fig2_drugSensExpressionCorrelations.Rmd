@@ -88,7 +88,8 @@ Which MT drugs do we focus on?
 syn = synapseLogin()
 mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()
 
-minDrugs <- mtStats%>%group_by(Drug)%>%summarise(samps=n_distinct(CellLine))
+minDrugs <- mtStats%>%group_by(Drug)%>%summarise(samps=n_distinct(CellLine))%>%
+  subset(samps>3)
 
 minDrugs
 
@@ -123,7 +124,7 @@ cowplot::plot_grid(plotlist=drug.plots,nrow=4)
 
 Add in overlap here
 
-##R RNA Expression
+## RNA Expression
 
 ### Genes correlated with PDX hits
 
