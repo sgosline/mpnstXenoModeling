@@ -41,11 +41,18 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Drug Plots
 
 We can now evaluate drugs that behave differently across samples.
+
 ### PDX Plots
+
+Which PDX drugs do we focus on?
 
 ### Microtissue plots
 
+Which MT drugs do we focus on?
+
 ### Combination plots
+
+Add in overlap here
 
 ##R RNA Expression
 
