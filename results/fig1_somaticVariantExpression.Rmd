@@ -1,0 +1,125 @@
+---
+title: "Fig1_SomaticVariantExpression"
+author: "Sara Gosline"
+date: "9/13/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+library(dplyr)
+```
+
+
+## Mutation data
+
+Load the data from the R package.
+
+```{r mutation data,echo=FALSE,warning=FALSE,include=FALSE,message=FALSE}
+mpnstXenoModeling::loadPDXData()
+
+```
+
+
+## Mutation heatmaps
+
+We now can select specific mutations of interest and put them in a heatmap
+
+```{r mut data, results='asis',warning=FALSE}
+ mutMat<-varData%>%
+  mutate(AD=as.numeric(AD))%>%
+  subset(Symbol!="")%>%
+  dplyr::select(-c(individualID,specimenID,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+  distinct()%>%
+  tidyr::pivot_wider(names_from=synid,values_from=AD,values_fn=list(AD=mean),
+                     values_fill=list(AD=0.0))%>%
+    tibble::column_to_rownames('Symbol')
+
+library(pheatmap)
+  annotes<-varData%>%
+    dplyr::select(c(synid,Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(`Clinical Status`=unlist(Clinical.Status))%>%
+    dplyr::select(-Clinical.Status)%>%
+    #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
+    distinct()%>%
+    tibble::column_to_rownames('synid')#%>%
+#    dplyr::filter(sample!='normal')
+  
+  mutMat<-mutMat[,rownames(annotes)]
+  
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)))
+   
+ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),labels_col=rep("",ncol(mutMat)),filename='allMutations.png')
+
+```
+
+Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
+
+```{r selected muts, warning=FALSE,results='asis'}
+genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
+           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
+missed.genes<-setdiff(genelist,rownames(mutMat))
+print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
+
+ 
+  smutMat<-mutMat[intersect(genelist,rownames(mutMat)),rownames(annotes)]
+  
+ 
+ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)))
+ 
+ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(smutMat)),filename='selectedMutations.png')
+```
+
+
+Lastly we want to add any recurrent mutations that could be of interest to our analysis.
+
+```{r recurrent mutations,results='asis'}
+
+topMuts=dplyr::filter(varData,AD>0)%>%
+  subset(!is.na(Symbol))%>%
+    group_by(Symbol)%>%
+    summarize(nSamps=n_distinct(individualID))%>%
+    dplyr::filter(nSamps>2)%>%
+    dplyr::select(Symbol)
+
+ 
+  rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
+  
+ pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(rmutMat)))
+ 
+ 
+ pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,labels_col=rep("",ncol(rmutMat)),filename='selectedAndRecMutations.png')
+
+```
+
+These results show the mutations of interest that we want to compare below.
+
+## RNA signatures of mutations
+
+For each mutation in the `rmutMat` matrix shown above, we  can separate out patients that have the mutation and do not. Then we can compare differential expression using the tools described previously (the third markdown):
+
+1. Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2. Plot the significant gene in a heatmap
+3. Evaluate the functional enrichment of the significant genes only
+4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
+
+```{r diffex by gene,warning=FALSE}
+
+```
+

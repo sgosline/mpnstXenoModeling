@@ -1,0 +1,56 @@
+---
+title: "Fig2 Drug Sensitivity Expression Correlation"
+author: "Sara Gosline"
+date: "9/13/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+library(dplyr)
+
+```
+
+
+## Load drug data
+```{r mutation data}
+mpnstXenoModeling::loadPDXData()
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Drug Plots
+
+We can now evaluate drugs that behave differently across samples.
+### PDX Plots
+
+### Microtissue plots
+
+### Combination plots
+
+##R RNA Expression
+
+### Genes correlated with PDX hits
+
+### Genes correlated with MT hits
+
+### Check for overlap

@@ -35,7 +35,7 @@ if(!require('EnsDb.Hsapiens.v86')){
 The RNASEq data processing was updated on 9/3/2021 so these functions have also been udpated. This pulls the data in from the `tximport` command of the DESeq2 package and then uses the gene length and sample normalization to account for sample differences. The only clinical variable considered is Sex.
 
 
-```{r loadData,warning=FALSE,echo=FALSE}
+```{r loadData,warning=FALSE,echo=FALSE,message=FALSE}
 #These three commands load RNAseq data
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
@@ -78,10 +78,10 @@ var.ID<-rnaSeq%>%
 ##  Differential expression
 
 The  differential expression analysis requires three basic steps:
-1- Group the samples into two groups, then compute the log2fold change and significance via the linear model
-2- Plot the significant gene in a heatmap
-3- Evaluate the functional enrichment of the significant genes only
-4- Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
+1. Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2. Plot the significant gene in a heatmap
+3. Evaluate the functional enrichment of the significant genes only
+4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
 The following four steps are depicted here, using biological sex as the first variable.
 
@@ -90,29 +90,31 @@ The following four steps are depicted here, using biological sex as the first va
 Here we do the four steps described above.
 
 First, compute the differential expresison
-```{r analysingSex, warning=FALSE}
+```{r analysingSex, warning=FALSE,message=FALSE}
 sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=subset(var.ID,Sex=='Male')$Sample,
                                     ids2=subset(var.ID,Sex=='Female')$Sample,name='sex')
                                    
 ```
 
-Then we can plot the top genes in a heatmap
+Then we can plot the top genes in a heatmap. Ideally this will cluster by clinical variable of interest.
 
-```{r plotgenes, warning=FALSE}
-mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, upload=TRUE, parentID='syn25323411')
+```{r plotgenes, warning=FALSE,message=FALSE,results='asis'}
+mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, upload=FALSE, parentID='syn25323411')
 ```
 
-```{r get sig,warning=FALSE}
-res<-pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']%>%doRegularGo()
-print(res)
+We can then look for over-represented GO terms and plot those.
+
+```{r get sig,warning=FALSE,results="asis",message=FALSE}
+pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='sex')
 ```
 
-```{r getGSEA,warning=FALSE}
+Lastly we can rank the genes and do Gene Set Enrichment.
+
+```{r getGSEA,warning=FALSE,results="asis",message=FALSE}
 genes.with.values<-cbind(sex_res,pmap[rownames(sex_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-res2=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='sexDifferences',useEns=FALSE)
-
+res2=doGSEA(genes.with.values,prot.univ=NULL,prefix='sexDifferences',useEns=FALSE)
 ```
 
 Now that we show we can do it for one variable, we can execute this same series of commands on other variables.
@@ -121,66 +123,67 @@ Now that we show we can do it for one variable, we can execute this same series 
 
 First we compare patients who have survived vs. those that have not.
 
-```{r analysingExist, warning=FALSE}
+```{r analysingExist, message=FALSE,warning=FALSE,results="asis"}
 exist_res <- mpnstXenoModeling::ds2FactorDE(dds, 
                                       subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease'))$Sample,
                                       subset(var.ID,`Clinical Status`=='Deceased')$Sample,'Clinical')
 
-mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
+pmap[rownames(subset(exist_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='prognosisDiff')
+```
 
-res<-pmap[rownames(subset(exist_res,padj<0.05)),'GENENAME']%>%doRegularGo()
-print(res)
-
+```{r analysis exist gsea,message=FALSE, warning=FALSE}
 genes.with.values<-cbind(exist_res,pmap[rownames(exist_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-res2=plotOldGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
-
+doGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
 ```
 
 ### Do DE analysis on age variable groups
 
 Then we can examine if there are pathway level changes in older vs. younger patients.
 
-```{r analysingAge, warning=FALSE}
+```{r analysingAge, message=FALSE,warning=FALSE,results="asis"}
 age_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                     subset(var.ID,Age>18)$Sample,
                                     subset(var.ID,Age<19)$Sample,'Age')
 
-mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
 
-res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo()
-print(res)
-
+res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='age')
+```
+```{r analysis age gsea, message=FALSE, results="asis",warning=FALSE}
 genes.with.values<-cbind(age_res,pmap[rownames(age_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
 
-res2<-plotOldGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
+res2<-doGSEA(genes.with.values,NULL,'ageDifferences',useEns=FALSE)
 ```
 
 ### Do DE analysis on sample quality variable groups
 
 Is there a noticeable difference in mt quality? There were a lot of genes so we used only those that fell below 0.01 in significance to plot
 
-```{r analysingQual, warning=FALSE}
+
+```{r analysingQual, message=FALSE, results="asis",warning=FALSE}
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
                                      subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
                                      subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.01, upload=TRUE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.001, upload=FALSE, parentID='syn25323411')
 
 
-res<-pmap[rownames(subset(qual_res,padj<0.01)),'GENENAME']%>%doRegularGo()
-print(res)
+pmap[rownames(subset(qual_res,padj<0.001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
+```
 
+```{r analysis qual gsea,message=FALSE,results="asis"}
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-
-res2<-plotOldGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
+res2<-doGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
+#plot(res2)
 
 ```
 

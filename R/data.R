@@ -26,8 +26,17 @@ do_deseq_import <- function(file) {
     BiocManager::install("DESeq2")
     library(DESeq2)
   }
+  
+  if(!require('tximportData')){
+    BiocManager::install("tximportData")
+    library(tximportData)
+  }
 
-  library(tximportData)
+  if(!require('tximport')){
+    BiocManager::install("tximport")
+    library(tximport)
+  }
+
   dir <- system.file("extdata", package="tximportData")
   tx2gene <- read.csv(file.path(dir, "tx2gene.gencode.v27.csv"))
 
@@ -452,14 +461,16 @@ getMicroTissueDrugData <- function(syn, mtd) {
 
   res=do.call(rbind,lapply(names(indiv),function(x)
   {
-    print(x)
+   # print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
-    print(head(tab))
+   # print(head(tab))
     tab%>%
     dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                   Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
     tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
     dplyr::rename(Viabilities='percent viability')
   }))
+  #res$`total cell count`=unlist(res$`total cell count`)
+  #res$`live cell count`=unlist(res$`live cell count`)
   return(res)
 }

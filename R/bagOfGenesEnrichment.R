@@ -10,15 +10,77 @@ reverselog_trans <- function(base = exp(1)) {
 }
 
 
+#'ploGenesetResults
+#'Internal function to plot results of cluster profile
+#'@param res
+#'@param prefix
+#'@param pathway.plot.size
+#'@param order.by
+#'@param clean.names
+#'@param width
+#'@param height
+plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
+                             order.by='NES',clean.names=F,width=11,height=8.5){
+  
+  all.gsea<-res %>% 
+    dplyr::rename(pathway = 'Description') %>% 
+    dplyr::rename(tosort = order.by) %>% 
+    dplyr::mutate(status = case_when(tosort > 0 ~ "Up", tosort < 0 ~ "Down"),
+                  status = factor(status, levels = c("Up", "Down"))) %>% 
+    group_by(status) %>% 
+    top_n(20, wt = abs(tosort) )%>% 
+    ungroup()
+  
+  p.NES <- ggplot(all.gsea, aes(x = tosort, y = reorder(pathway, tosort))) +
+    geom_bar(stat='identity', aes(fill=status)) +
+    scale_fill_manual(values = c(Up = "firebrick2", Down = "dodgerblue3")) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_blank(), 
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 11),
+          axis.line.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none") + 
+    labs(x = order.by) +
+    ggtitle("Normalized Enrichment Score")
+  
+  p.Pval <- ggplot(all.gsea, aes(x = p.adjust, y = reorder(pathway, tosort))) +
+    scale_x_continuous(trans = reverselog_trans(10)) +  
+    theme_minimal() +
+    geom_bar(stat = "identity") +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
+          axis.title.x = element_text(size = 16), 
+          axis.text.x = element_text(size = 12), 
+          axis.title.y = element_blank(), 
+          axis.text.y = element_blank(), 
+          axis.line.y = element_line(color = "black"),
+          axis.ticks.y = element_blank(), 
+          legend.position = "none") + 
+    labs(x = "Adjusted p-value") + 
+    ggtitle("Significance")
+  
+  arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
+  p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
+  
+  try(ggsave(paste0("sig-included", prefix,"-gsea-plot.png"), p.both, 
+             height = height, width = width, units = "in"))
+  
+  #df<-as.data.frame(res)%>%mutate(Condition=prefix)
+  
+  return(p.both)
+}
+
 #' Old plot using clusterProfiler
-#' @name plotOldGSEA
+#' @name doGSEA
 #' @param genes.with.values data frame of gene names and values
 #' @param prot.univ total proteins
 #' @param prefix used to create file
 #' @export
 #' @import BiocManager
 #'
-plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.size=3,
+doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.size=3,
                       order.by='NES',clean.names=F,width=11,height=8.5,  gsea_FDR=0.05){
 
   if(!require('org.Hs.eg.db')){
@@ -43,7 +105,7 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.pl
   genelist=genes.with.values$value
   names(genelist)=as.character(genes.with.values$gene_id)
 
-  print(head(genelist))
+ # print(head(genelist))
   # symbs<-names(genelist)[!is.na(genelist)]
   # xx <- as.list(org.Hs.egALIAS2EG)
   # ents<-unlist(sapply(intersect(names(xx),symbs), function(x) xx[[x]]))
@@ -56,57 +118,14 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.pl
   try(gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="ENTREZID",
                                OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH'))
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
+  
   if(nrow(res)==0){
     return(gr)
+  }else{
+    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+                                        order.by='NES',clean.names=F,width=width,height=height))
   }
   
-  all.gsea<-res %>% 
-    dplyr::rename(pathway = 'Description') %>% 
-    arrange(NES) %>% 
-    dplyr::mutate(status = case_when(NES > 0 ~ "Up", NES < 0 ~ "Down"),
-                  status = factor(status, levels = c("Up", "Down"))) %>% 
-    group_by(status) %>% 
-    top_n(20, wt = abs(NES)) %>% 
-    ungroup()
-  
-  p.NES <- ggplot(all.gsea, aes(x = NES, y = reorder(pathway, get(order.by)))) +
-    geom_bar(stat='identity', aes(fill=status)) +
-    scale_fill_manual(values = c(Up = "firebrick2", Down = "dodgerblue3")) +
-    theme_minimal() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
-          axis.title.x = element_text(size=16),
-          axis.title.y = element_blank(), 
-          axis.text.x = element_text(size = 14),
-          axis.text.y = element_text(size = 11),
-          axis.line.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          legend.position = "none") + 
-    labs(x = "NES") +
-    ggtitle("Normalized Enrichment Score")
-  
-  p.Pval <- ggplot(all.gsea, aes(x = p.adjust, y = reorder(pathway, get(order.by)))) +
-    scale_x_continuous(trans = reverselog_trans(10)) +  
-    theme_minimal() +
-    geom_bar(stat = "identity") +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 18), 
-          axis.title.x = element_text(size = 16), 
-          axis.text.x = element_text(size = 12), 
-          axis.title.y = element_blank(), 
-          axis.text.y = element_blank(), 
-          axis.line.y = element_line(color = "black"),
-          axis.ticks.y = element_blank(), 
-          legend.position = "none") + 
-    labs(x = "Adjusted p-value") + 
-    ggtitle("Significance")
-  
-  arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
-  p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
-  
-  ggsave(paste0("sig-included", prefix,"-gsea-plot.png"), p.both, 
-         height = height, width = width, units = "in")
-  
-  df<-as.data.frame(gr)%>%mutate(Condition=prefix)
-  return(df)
   
 }
 
@@ -116,7 +135,7 @@ plotOldGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.pl
 #' @export
 #' @import BiocManager
 #'
-doRegularGo<-function(genes,bg=NULL){
+doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,width=11,height=8.5){
   if(!require(org.Hs.eg.db)){
     BiocManager::install('Biobase')
     require(org.Hs.eg.db)
@@ -130,12 +149,21 @@ doRegularGo<-function(genes,bg=NULL){
     BiocManager::install('clusterProfiler')
     require(clusterProfiler)
   }
-  print(head(eg))
-  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP')
+#  print(head(eg))
+  res<-clusterProfiler::enrichGO(eg$gene_id,'org.Hs.eg.db',keyType='ENTREZID',ont='BP',qvalueCutoff =0.2)
     #sprint(res)
   ret=as.data.frame(res)%>%
-    dplyr::select(ID,Description,pvalue,p.adjust)
-  return(ret)
+    dplyr::select(ID,Description,pvalue,p.adjust,Count)
+  
+  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
+  
+  if(nrow(res)==0){
+    return(res)
+  }else{
+    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+                              order.by='Count',clean.names=F,width=width,height=height))
+  }
+  return(res)
 
 
 }
@@ -173,7 +201,7 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
   #design(dds)<-~newvar
   new.dds <- DESeq(new.dds) ##rerun
   res <- results(new.dds)
-  print(summary(res))  
+#  print(summary(res))  
   as.data.frame(results(new.dds))%>%arrange(pvalue)
 
 }
@@ -212,10 +240,31 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   design <- model.matrix(~fac)
   fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
   fit <- eBayes(fit)
-  print(topTable(fit, coef=2))
+#  print(topTable(fit, coef=2))
   res <- topTable(fit, coef=2, number=Inf, sort.by="none")
   res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
   return(arrange(res,P.Value))
+}
+
+
+#' geneIdToSymbolMatrix
+#' This takes a symbol wtih gene ids and maps them to symbols
+#' @param gene.mat
+#' @param identifiers data table of identifiers
+#' @export
+geneIdToSymbolMatrix<-function(gene.mat,identifiers){
+  count.mat<-gene.mat%>%
+    as.data.frame()%>%
+    tibble::rownames_to_column("GENEID")%>%
+    tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
+    left_join(tibble::rownames_to_column(identifiers,'GENEID'))%>%
+    group_by(GENENAME)%>%
+    dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
+    subset(GENENAME!="")%>%
+    tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
+    tibble::column_to_rownames('GENENAME')%>%as.matrix()
+  
+  return(count.mat)
 }
 
 #'plotTopGenesHeatmap
@@ -280,16 +329,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, up
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))
 
-  
-  count.mat<-counts(dds,normalized=TRUE)[rownames(sigs),]%>%
-    as.data.frame()%>%
-    tibble::rownames_to_column("GENEID")%>%
-    tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
-    left_join(tibble::rownames_to_column(identifiers,'GENEID'))%>%
-    group_by(GENENAME)%>%
-    dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
-    tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
-    tibble::column_to_rownames('GENENAME')%>%as.matrix()
+  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
+ 
 
   library(pheatmap)
     heatmap <- pheatmap(log10(0.01+count.mat),
@@ -347,8 +388,21 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
                                             corr.enrichment.filtered$Pathway)
   }
   
+  #sprint(res)
+ # ret=as.data.frame(res)%>%
+#    dplyr::select(ID,Description,pvalue,p.adjust,Count)
+  
+#  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
+  
+#  if(nrow(res)==0){
+#    return(res)
+#  }else{
+#    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+#                              order.by='Count',clean.names=F,width=width,height=height))
+#  }
+  
   p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
-                                                 y = reorder(Pathway, get(order.by)))) +
+                                                 y = reorder(Pathway, `Ingroup mean`))) +
     geom_bar(stat='identity', aes(fill = Status)) +
     scale_fill_manual(values = c("Positively Correlated" = "mediumturquoise", 
                                  "Negatively Correlated" = "firebrick2")) +
@@ -365,7 +419,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
     ggtitle("Correlation Enrichment")
   
   p.pval <- ggplot(corr.enrichment.filtered, aes(x = BH_pvalue, 
-                                                 y = reorder(Pathway, get(order.by)))) +
+                                                 y = reorder(Pathway, `Ingroup mean`))) +
     geom_bar(stat='identity') +
     scale_x_continuous(trans = reverselog_trans(10)) + 
     theme_minimal() +
@@ -383,7 +437,8 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
   p.both <- grid.arrange(p.corr,p.pval,layout_matrix = arrange_matrix)
   
-  ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
-         height = height, width = width, units = "in")
-  return(corr.enrichment)
+  try(ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
+         height = height, width = width, units = "in"))
+  
+  return(p.both)
 }

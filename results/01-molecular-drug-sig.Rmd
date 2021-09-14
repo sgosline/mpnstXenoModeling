@@ -110,13 +110,13 @@ topMuts<-union("TP53",topMuts$Symbol)
 We can also plot the gene expression across highly variable genes.
 ```{r mutated gene expression,echo=FALSE,warning=FALSE}
  rnamat<-rnaSeq%>%
-  subset(!is.na(Symbol))%>%
-  subset(!is.na(NumReads))%>%
-  dplyr::select(-c(Sample,Sex,TXID,TPM,Clinical.Status,Size,Location,Age,MicroTissueQuality))%>%
+  subset(!is.na(GENEID))%>%
+  subset(!is.na(counts))%>%
+  dplyr::select(-c(Sample,Sex,Clinical.Status,Size,Location,Age,MicroTissueQuality))%>%
   distinct()%>%#View()
-  tidyr::pivot_wider(names_from=synid,values_from=NumReads,
-                     values_fn=list(NumReads=mean),values_fill=list(NumReads=0.0))%>%
-    tibble::column_to_rownames('Symbol')
+  tidyr::pivot_wider(names_from=synid,values_from=counts,
+                     values_fn=list(counts=mean),values_fill=list(counts=0.0))%>%
+    tibble::column_to_rownames('GENEID')
 
 #rownames(rnaSeq)<-c()
  annotes<-rnaSeq%>%
@@ -126,19 +126,20 @@ We can also plot the gene expression across highly variable genes.
   mutate(Age=as.numeric(Age),Size=as.numeric(Size),MicroTissueQuality=unlist(MicroTissueQuality))
 
  #topMuts<-setdiff(topMuts,'TTN')
-pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
+ mv<-apply(rnamat,1,var)%>%sort(.,decreasing = TRUE)
+pheatmap(log10(0.01+rnamat[names(mv)[1:50],]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
        #  annotation_col = annotes,
          cellheight=10,
          labels_col=rep("",ncol(mutMat)))
 
- pheatmap(log10(0.01+rnamat[intersect(topMuts,rownames(rnamat)),]),
+ pheatmap(log10(0.01+rnamat[names(mv)[1:50],]),
           clustering_distance_cols = 'correlation',
           cellwidth = 10,
         # annotation_col = annotes,
          cellheight=10,
-         labels_col=rep("",ncol(mutMat)),filename='countsOfMutatedGenes.pdf')
+         labels_col=rep("",ncol(mutMat)),filename='RAWmostVariableTranscripts.pdf')
  
  
 ```
