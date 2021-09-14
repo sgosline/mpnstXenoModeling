@@ -8,6 +8,8 @@ output:
     toc_depth: 2
 ---
 
+This markdown assesses gene expression changes the correlate with drug sensitivity.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -28,27 +30,94 @@ library(dplyr)
 
 
 ## Load drug data
-```{r mutation data}
+```{r mutation data,message=FALSE,warning=FALSE}
 mpnstXenoModeling::loadPDXData()
 
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Drug Plots
 
 We can now evaluate drugs that behave differently across samples.
 
+
+
+
 ### PDX Plots
 
-Which PDX drugs do we focus on?
+For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
+
+```{r drug data,message=FALSE,warning=FALSE}
+syn = synapseLogin()
+drugStats <- syn$tableQuery("select * from syn25955439")$asDataFrame()
+
+minDrugs <- drugStats%>%group_by(drug)%>%summarise(samps=n_distinct(individualID))%>%
+  subset(samps>3)
+
+
+##let's plot the stats for each drug
+library(ggplot2)
+drug.plots <- lapply(unique(minDrugs$drug),function(dname){
+  drugStats%>%subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
+})
+
+library(cowplot)
+cowplot::plot_grid(plotlist=drug.plots,nrow=2)
+```
+
+
+It appears there is an outlier, so we can remove it. 
+
+```{r outlier removed}
+drug.plots <- lapply(unique(minDrugs$drug),function(dname){
+  drugStats%>%subset(individualID!='WU-545')%>%
+    subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
+})
+
+cowplot::plot_grid(plotlist=drug.plots,nrow=2)
+```
+
+Can we get more PDXs for the TNO combo? this is not really a lot.
+
 
 ### Microtissue plots
 
 Which MT drugs do we focus on?
+
+```{r MT drug plots, message=FALSE,warning=FALSE}
+syn = synapseLogin()
+mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()
+
+minDrugs <- mtStats%>%group_by(Drug)%>%summarise(samps=n_distinct(CellLine))
+
+minDrugs
+
+```
+
+We have many more data points to correlate with the MT data.
+
+```{r mt stat plots}
+
+combos<-unique(minDrugs$Drug[grep(';',minDrugs$Drug)])
+singles<-setdiff(minDrugs$Drug,combos)
+
+drug.plots <- lapply(singles,function(dname){
+  mtStats%>%
+    subset(Drug==dname)%>%ggplot(aes(x=ic50,y=auc))+geom_point()+ggtitle(dname)
+})
+
+
+cowplot::plot_grid(plotlist=drug.plots,nrow=7)
+
+drug.plots <- lapply(combos,function(dname){
+  mtStats%>%
+    subset(Drug==dname)%>%ggplot(aes(x=ic50,y=auc))+geom_point()+ggtitle(dname)
+})
+
+
+cowplot::plot_grid(plotlist=drug.plots,nrow=4)
+
+```
 
 ### Combination plots
 
