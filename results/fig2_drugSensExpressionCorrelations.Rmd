@@ -125,7 +125,7 @@ ggplot(subset(mtStats,Drug%in%combos),aes(x=Drug,y=auc,fill=CellLine))+
 
 
 ```
-We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.5) compared to those that are not (AUC>0.5) to evaluate differential expression.
+We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.6) compared to those that are not (AUC>0.6) to evaluate differential expression.
 
 ```{r MT stats}
 
