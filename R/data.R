@@ -207,7 +207,10 @@ loadPDXData<-function(){
 
   #now get RNA-Seq
   #update to use `RNAseq` column
-  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
+    mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+    tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+  
    
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()

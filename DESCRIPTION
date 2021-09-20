@@ -4,7 +4,7 @@ Version: 0.1
 Authors@R: person("Sara","Gosline",email="sara.gosline@pnnl.gov",role=c('aut','cre'))
 Depends: R (>= 3.1.0)
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 NeedsCompilation: no
 Packaged: 2020-06-09 00:14:26 UTC; gosl241
 Author: Sara Gosline [aut, cre]

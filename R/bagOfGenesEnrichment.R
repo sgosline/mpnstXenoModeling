@@ -186,11 +186,19 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
     library(DESeq2)
   }
   ##create an additional column
+
   tcd<-colData(dds)
+
+  ##chek namess
+  t.ids1<-intersect(ids1,rownames(tcd))
+  t.ids2<-intersect(ids2,rownames(tcd))
+  
+  message(paste("Found",length(t.ids1),'samples that overlap with expression out of',length(ids1)))
+  message(paste("Found",length(t.ids2),'samples that overlap with expression out of',length(ids2)))
   
   tcd$newvar<-rep(NA,nrow(tcd))
-  tcd[ids1,]$newvar<-TRUE
-  tcd[ids2,]$newvar<-FALSE
+  tcd[t.ids1,]$newvar<-TRUE
+  tcd[t.ids2,]$newvar<-FALSE
   tcd<-subset(tcd,!is.na(newvar))#%>%
     #dplyr::rename(newvar=name)
 
