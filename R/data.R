@@ -198,7 +198,8 @@ loadPDXData<-function(){
   data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 
   clin.tab <<- data.tab%>%
-    select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%distinct()
+    dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
+    distinct()
 
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
 

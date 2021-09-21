@@ -204,11 +204,12 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
 
   new.counts<-counts(dds)[,rownames(tcd)]
  
-  new.dds<-DESeq2::DESeqDataSetFromMatrix(new.counts,design=~newvar,colData=tcd)
+  new.dds<-DESeq2::DESeqDataSetFromMatrix(new.counts,design=~newvar,
+                                          colData=tcd)
   ###re run dds  
   #design(dds)<-~newvar
   new.dds <- DESeq(new.dds) ##rerun
-  res <- results(new.dds)
+  res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
   as.data.frame(results(new.dds))%>%arrange(pvalue)
 
@@ -287,7 +288,8 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #'@param dds, DESEq object
 #'@param identifiers mapping to gene name
 #'@param myvar is name of variable
-plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
+plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
+                                upload=FALSE, path='.', parentID=NULL,newVar="") {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -341,7 +343,13 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-  var.ID<-colData(dds)[,c('Sex','MicroTissueQuality','Clinical Status','Age')]%>%
+  
+  if(newVar!="")
+    all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
+  else
+    all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
+  
+  var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))
 

@@ -22,6 +22,11 @@ if(!require('leapr')){
   library(leapr)
 }
 
+if(!require('DT')){
+  install.packages("DT")
+  library(DT)
+}
+
 library(dplyr)
 
 ```
@@ -31,11 +36,12 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 
 ## Load data from synapse query
 
-We have all the data in count.sf files so can read them in using the `tximport` package.
+We have all the data in count.sf files so can read them in using the `tximport` package. Here is the data for which we have gene expression. 
 
 
 ```{r loadData,warning=FALSE,echo=FALSE,message=FALSE}
 #this function simply loads all the data into memory
+
 
 syn<-reticulate::import('synapseclient')$login()
 data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
@@ -43,13 +49,7 @@ rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
   mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
   tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
 
-
-##select clinical variables
-var.ID<-rnaSeq%>%
-  dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,`Clinical Status`)%>%
-  distinct()%>%
-  tibble::column_to_rownames('synid')
-
+##this is the mapping data - it is neeeded to filter out protein coding genes
  if(!require('EnsDb.Hsapiens.v86')){
     BiocManager::install('EnsDb.Hsapiens.v86')
     library(EnsDb.Hsapiens.v86)
@@ -57,24 +57,46 @@ var.ID<-rnaSeq%>%
     library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
-  
-  database <- EnsDb.Hsapiens.v86
-  pmap <- ensembldb::select(database, keys=rnaSeq$GENE,keytype = "GENEID", columns = c("GENENAME"))%>%
-    dplyr::rename(GENE='GENEID')%>%
-    right_join(rnaSeq)%>%
-    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
-    tibble::column_to_rownames('GENEID')
-  
-  dds <-mpnstXenoModeling::deseq2NormFilter(rnaSeq)
 
+#select clinical variables
+var.ID<-rnaSeq%>%
+  dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,`Clinical Status`)%>%
+  distinct()%>%
+  tibble::column_to_rownames('Sample')
+
+DT::datatable(var.ID)
 
 ```
  
+We want to filter for only those patients that we have MT data for.
 
+```{r filter data}
+
+var.ID<-subset(var.ID,unlist(MicroTissueQuality)%in%c('Unusable','Usable','Robust','Good'))
+
+DT::datatable(var.ID)
+
+  
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+      columns = c("GENENAME"))%>%
+    dplyr::rename(GENE='GENEID')%>%
+    right_join(rnaSeq)%>%
+    subset(TXBIOTYPE=='protein_coding')%>%
+    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+    tibble::column_to_rownames('GENEID')
+  
+  dds<-rnaSeq%>%
+    subset(Sample%in%rownames(var.ID))%>%
+    subset(GENE%in%pmap$GENE)%>% ## this is important as we filter for protein coding genes
+    mpnstXenoModeling::deseq2NormFilter()
+
+
+```
 
 ## RNASeq Data
 
-We have now implemented DESeq2 column normalization to enable the visualization of RNASeq Data. Let's plot them, after normalization, via PCA to see how they cluster and group independently. Then we can interrogate the genes themselves.
+We have now implemented DESeq2 column normalization to enable the visualization of RNASeq Data for the 10 samples. Let's plot them, after normalization, via PCA to see how they cluster and group independently. Then we can interrogate the genes themselves.
 
 
 ```{r filtering, warning=FALSE,message=FALSE}
@@ -197,13 +219,14 @@ There seem to be many genes differentially expressed between MT samples
 
 ```{r analysingQual, echp=FALSE, warning=FALSE}
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                     subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
-                                     subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
+                                     rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))), 
+                                     rownames(subset(var.ID,MicroTissueQuality=='Unusable')),'MTQuality')
 
 mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.0001, upload=FALSE, parentID='syn25323411')
 
 
 res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
+plot(res)
 ```
 
 ```{r analysis qual gsea}

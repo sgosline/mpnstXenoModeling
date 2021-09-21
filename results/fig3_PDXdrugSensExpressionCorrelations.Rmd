@@ -45,70 +45,47 @@ mpnstXenoModeling::loadPDXData()
 
 We can now evaluate drugs that behave differently across samples. We are primarily focused on four samples and four drugs. However, we anticipate pooling the results for each drug to carry out differential expression.
 
+### PDX Plots
 
-### Microtissue plots
+For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
 
-Which MT drugs do we focus on?
-
-```{r MT drug plots, message=FALSE,warning=FALSE}
+```{r drug data,message=FALSE,warning=FALSE}
 syn = synapseLogin()
-mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
-  mutate(maxKilling = 1-(MinViability/MaxViability))
+drugStats <- syn$tableQuery("select * from syn25955439")$asDataFrame()
 
-good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
-
-print(paste('Looking at ',nrow(good.mt),'micro tisues'))
-
-mtStats <- mtStats%>%
-  subset(CellLine%in%good.mt$Sample)
-
-minDrugs <- mtStats%>%
-   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
-  group_by(Drug)%>%
-  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
-  subset(samps>3)
+minDrugs <- drugStats%>%
+  mutate(hasRNASeq=(individualID%in%rnaSeq$Sample))%>%
+           group_by(drug)%>%summarise(samples=n_distinct(individualID),
+                                      samplesWithRNA=count(hasRNASeq==TRUE))%>%
+  subset(samples>3)
 
 DT::datatable(minDrugs)
 
-```
-
-We have many more data points to correlate with the MT data.
-
-```{r mt stat plots}
-
-combos<-unique(minDrugs$Drug[grep(';',minDrugs$Drug)])
-singles<-setdiff(minDrugs$Drug,combos)
-
-drug.plots <- lapply(singles,function(dname){
-  mtStats%>%
-    subset(Drug==dname)%>%
-    ggplot(aes(x=maxKilling,y=auc))+geom_point()+ggtitle(dname)
+##let's plot the stats for each drug
+library(ggplot2)
+drug.plots <- lapply(unique(minDrugs$drug),function(dname){
+  drugStats%>%subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
 })
 
-ggplot(subset(mtStats,Drug%in%singles),aes(x=Drug,y=auc,fill=CellLine))+
-    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
-ggplot(subset(mtStats,Drug%in%singles),aes(x=Drug,y=maxKilling,fill=CellLine))+
-    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+library(cowplot)
+cowplot::plot_grid(plotlist=drug.plots,nrow=2)
+```
 
-cowplot::plot_grid(plotlist=drug.plots,nrow=7)
 
-drug.plots <- lapply(combos,function(dname){
-  mtStats%>%
-    subset(Drug==dname)%>%
-    ggplot(aes(x=maxKilling,y=auc))+geom_point()+ggtitle(dname)
+It appears there is an outlier, so we can remove it. 
+
+```{r outlier removed}
+drug.plots <- lapply(unique(minDrugs$drug),function(dname){
+  drugStats%>%subset(individualID!='WU-545')%>%
+    subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_text(aes(label=individualID))+ggtitle(dname)
 })
 
-
-cowplot::plot_grid(plotlist=drug.plots,nrow=3)
-
-ggplot(subset(mtStats,Drug%in%combos),aes(x=Drug,y=auc,fill=CellLine))+
-    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
-
-ggplot(subset(mtStats,Drug%in%combos),aes(x=Drug,y=maxKilling,fill=CellLine))+
-    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
-
-
+cowplot::plot_grid(plotlist=drug.plots,nrow=2)
 ```
+
+Can we get more PDXs for the TNO combo? this is not really a lot.
+
+
 We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.6) compared to those that are not (AUC>0.6) to evaluate differential expression.
 
 ```{r MT stats}
@@ -125,6 +102,7 @@ diff.drugs=sens.class%>%
   subset(res>1)
 
 diff.drugs
+
 
 p<-ggplot(subset(mtStats,Drug%in%diff.drugs$Drug),aes(x=Drug,y=auc,fill=CellLine))+
     geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
@@ -158,9 +136,6 @@ p
 
 ### Genes correlated with PDX hits
 
-### Genes correlated with MT hits
-
-The goal for this is to subset the patients by whether or not they are sensitive to different drugs then compare the expression for each. There are `$nrow(diff.drugs)`drugs that exhibit variable behavior with an AUC less than `$auc.thresh`. 
 
 ```{r diffex tests}
 

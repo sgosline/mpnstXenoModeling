@@ -13,7 +13,8 @@ plotTopGenesHeatmap(
   adjpval = 0.5,
   upload = FALSE,
   path = ".",
-  parentID = NULL
+  parentID = NULL,
+  newVar = ""
 )
 }
 \arguments{

@@ -63,14 +63,17 @@ var.ID<-rnaSeq%>%
     library(ensembldb)
   
   database <- EnsDb.Hsapiens.v86
-  pmap <- ensembldb::select(database, keys=rnaSeq$GENE,keytype = "GENEID", columns = c("GENENAME"))%>%
+  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+      columns = c("GENENAME"))%>%
     dplyr::rename(GENE='GENEID')%>%
     right_join(rnaSeq)%>%
+    subset(TXBIOTYPE=='protein_coding')%>%
     dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
     tibble::column_to_rownames('GENEID')
   
-  dds <-mpnstXenoModeling::deseq2NormFilter(rnaSeq)
-
+  dds<-rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+  
   
 
 ```
