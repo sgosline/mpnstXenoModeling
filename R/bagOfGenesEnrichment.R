@@ -137,7 +137,7 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
 #'
 doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,width=11,height=8.5){
   if(!require(org.Hs.eg.db)){
-    BiocManager::install('Biobase')
+    BiocManager::install('org.Hs.eg.db')
     require(org.Hs.eg.db)
   }
   #genes<-unique(as.character(genes.df$Gene))
@@ -287,7 +287,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #'@param dds, DESEq object
 #'@param identifiers mapping to gene name
 #'@param myvar is name of variable
-plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
+plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -316,6 +316,14 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, up
     subset(!is.na('GENENAME'))%>%
     subset(GENENAME!="")
   
+  if(is.null(patients))
+    patients <- rownames(colData(dds))
+  else
+    patients <- intersect(patients,rownames(colData(dds)))
+  
+  print(paste0('plotting expression across ',length(patients),' samples'))
+  if(length(patients)==0)
+    return(NULL)
   #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
   
   #combined differentially expressed txids, genenames, and normalized counts
@@ -339,7 +347,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, up
 
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
  
-
+  count.mat<-count.mat[,patients]
+  var.ID <- var.ID[patients,]
   library(pheatmap)
     heatmap <- pheatmap(log10(0.01+count.mat),
                      cellheight=10,

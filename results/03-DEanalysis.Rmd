@@ -51,7 +51,7 @@ master.table<-rnaSeq
 var.ID<-rnaSeq%>%
   dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,`Clinical Status`)%>%
   distinct()%>%
-  tibble::column_to_rownames('synid')
+  tibble::column_to_rownames('Sample')
 
 ##select gene mapping
   if(!require('EnsDb.Hsapiens.v86')){
@@ -91,8 +91,8 @@ Here we do the four steps described above.
 
 First, compute the differential expresison
 ```{r analysingSex, warning=FALSE,message=FALSE}
-sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=subset(var.ID,Sex=='Male')$Sample,
-                                    ids2=subset(var.ID,Sex=='Female')$Sample,name='sex')
+sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=rownames(subset(var.ID,Sex=='Male')),
+                                    ids2=rownames(subset(var.ID,Sex=='Female')),name='sex')
                                    
 ```
 
@@ -105,7 +105,8 @@ mpnstXenoModeling::plotTopGenesHeatmap(sex_res, dds, pmap,'sex',adjpval=0.05, up
 We can then look for over-represented GO terms and plot those.
 
 ```{r get sig,warning=FALSE,results="asis",message=FALSE}
-pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='sex')
+genes=pmap[rownames(subset(sex_res,padj<0.05)),'GENENAME']
+res<-doRegularGo(genes,prefix='sex')
 ```
 
 Lastly we can rank the genes and do Gene Set Enrichment.
@@ -124,11 +125,13 @@ Now that we show we can do it for one variable, we can execute this same series 
 First we compare patients who have survived vs. those that have not.
 
 ```{r analysingExist, message=FALSE,warning=FALSE,results="asis"}
-exist_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                      subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease'))$Sample,
-                                      subset(var.ID,`Clinical Status`=='Deceased')$Sample,'Clinical')
 
-mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',adjpval=0.05, upload=FALSE, parentID='syn25323411')
+alive<-rownames(subset(var.ID,`Clinical Status`%in%c('Alive','NED','Alive with metastatic disease')))
+dead<-rownames(subset(var.ID,`Clinical Status`=='Deceased'))
+
+exist_res <- mpnstXenoModeling::ds2FactorDE(dds, alive,dead,'Clinical')
+
+mpnstXenoModeling::plotTopGenesHeatmap(exist_res, dds, pmap,'clin',patients=c(alive,dead),adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
 pmap[rownames(subset(exist_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='prognosisDiff')
 ```
@@ -145,11 +148,11 @@ doGSEA(genes.with.values,prot.univ=NULL,prefix='prognosisDiff',useEns=FALSE)
 Then we can examine if there are pathway level changes in older vs. younger patients.
 
 ```{r analysingAge, message=FALSE,warning=FALSE,results="asis"}
-age_res <- mpnstXenoModeling::ds2FactorDE(dds,
-                                    subset(var.ID,Age>18)$Sample,
-                                    subset(var.ID,Age<19)$Sample,'Age')
+old<-rownames(subset(var.ID,Age>18))
+young<-rownames(subset(var.ID,Age<19))
+age_res <- mpnstXenoModeling::ds2FactorDE(dds,old,young,'Age')
 
-mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', adjpval=0.05, upload=FALSE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(age_res, dds, pmap,'age', patients=c(old,young), adjpval=0.05, upload=FALSE, parentID='syn25323411')
 
 
 res<-pmap[rownames(subset(age_res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix='age')
@@ -168,14 +171,16 @@ Is there a noticeable difference in mt quality? There were a lot of genes so we 
 
 
 ```{r analysingQual, message=FALSE, results="asis",warning=FALSE}
-qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                     subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))$Sample, 
-                                     subset(var.ID,MicroTissueQuality=='Unusable')$Sample,'MTQuality')
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.001, upload=FALSE, parentID='syn25323411')
+good <- rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust')))
+bad <- rownames(subset(var.ID,MicroTissueQuality=='Unusable'))
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds, good,bad,'MTQuality')
+
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',patients=c(good,bad),adjpval=0.000001, upload=FALSE, parentID='syn25323411')
 
 
-pmap[rownames(subset(qual_res,padj<0.001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
+res=pmap[rownames(subset(qual_res,padj<0.000001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
+plot(res)
 ```
 
 ```{r analysis qual gsea,message=FALSE,results="asis"}

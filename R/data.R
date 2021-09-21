@@ -195,8 +195,10 @@ loadPDXData<-function(){
   syn<-reticulate::import('synapseclient')$login()
 
   ##updated to use harmonized data table
-  data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 
+  clin.tab <<- data.tab%>%
+    select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%distinct()
 
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
 

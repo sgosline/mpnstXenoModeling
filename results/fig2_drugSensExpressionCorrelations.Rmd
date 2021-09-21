@@ -24,6 +24,11 @@ if(!require('leapr')){
   library(leapr)
 }
 
+if(!require('DT')){
+  install.packages("DT")
+  library(leapr)
+}
+
 library(dplyr)
 
 ```
@@ -38,10 +43,7 @@ mpnstXenoModeling::loadPDXData()
 
 ## Drug Plots
 
-We can now evaluate drugs that behave differently across samples.
-
-
-
+We can now evaluate drugs that behave differently across samples. We are primarily focused on four samples and four drugs. However, we anticipate pooling the results for each drug to carry out differential expression.
 
 ### PDX Plots
 
@@ -51,9 +53,13 @@ For the PDXs, have 10 drugs to choose from at this point, 8 of which have at lea
 syn = synapseLogin()
 drugStats <- syn$tableQuery("select * from syn25955439")$asDataFrame()
 
-minDrugs <- drugStats%>%group_by(drug)%>%summarise(samps=n_distinct(individualID))%>%
-  subset(samps>3)
+minDrugs <- drugStats%>%
+  mutate(hasRNASeq=(individualID%in%rnaSeq$Sample))%>%
+           group_by(drug)%>%summarise(samples=n_distinct(individualID),
+                                      samplesWithRNA=count(hasRNASeq==TRUE))%>%
+  subset(samples>3)
 
+DT::datatable(minDrugs)
 
 ##let's plot the stats for each drug
 library(ggplot2)
@@ -71,7 +77,7 @@ It appears there is an outlier, so we can remove it.
 ```{r outlier removed}
 drug.plots <- lapply(unique(minDrugs$drug),function(dname){
   drugStats%>%subset(individualID!='WU-545')%>%
-    subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
+    subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_text(aes(label=Sample))+ggtitle(dname)
 })
 
 cowplot::plot_grid(plotlist=drug.plots,nrow=2)
@@ -86,12 +92,23 @@ Which MT drugs do we focus on?
 
 ```{r MT drug plots, message=FALSE,warning=FALSE}
 syn = synapseLogin()
-mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()
+mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
+  mutate(maxKilling = 1-(MinViability/MaxViability))
 
-minDrugs <- mtStats%>%group_by(Drug)%>%summarise(samps=n_distinct(CellLine))%>%
+good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
+
+print(paste('Looking at ',nrow(good.mt),'micro tisues'))
+
+mtStats <- mtStats%>%
+  subset(CellLine%in%good.mt$Sample)
+
+minDrugs <- mtStats%>%
+   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
+  group_by(Drug)%>%
+  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
   subset(samps>3)
 
-minDrugs
+DT::datatable(minDrugs)
 
 ```
 
@@ -104,23 +121,28 @@ singles<-setdiff(minDrugs$Drug,combos)
 
 drug.plots <- lapply(singles,function(dname){
   mtStats%>%
-    subset(Drug==dname)%>%ggplot(aes(x=ec50,y=auc))+geom_point()+ggtitle(dname)
+    subset(Drug==dname)%>%ggplot(aes(x=maxKilling,y=auc))+geom_point()+ggtitle(dname)
 })
 
 ggplot(subset(mtStats,Drug%in%singles),aes(x=Drug,y=auc,fill=CellLine))+
+    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+ggplot(subset(mtStats,Drug%in%singles),aes(x=Drug,y=maxKilling,fill=CellLine))+
     geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
 
 cowplot::plot_grid(plotlist=drug.plots,nrow=7)
 
 drug.plots <- lapply(combos,function(dname){
   mtStats%>%
-    subset(Drug==dname)%>%ggplot(aes(x=ec50,y=auc))+geom_point()+ggtitle(dname)
+    subset(Drug==dname)%>%ggplot(aes(x=maxKilling,y=auc))+geom_point()+ggtitle(dname)
 })
 
 
 cowplot::plot_grid(plotlist=drug.plots,nrow=3)
 
 ggplot(subset(mtStats,Drug%in%combos),aes(x=Drug,y=auc,fill=CellLine))+
+    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+
+ggplot(subset(mtStats,Drug%in%combos),aes(x=Drug,y=maxKilling,fill=CellLine))+
     geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
 
 
@@ -183,17 +205,20 @@ The goal for this is to subset the patients by whether or not they are sensitive
 all.res<-lapply(diff.drugs$Drug,function(x){
   sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
   res.pats <- subset(sens.class,Drug==x)%>%subset(sens==FALSE)
-  
+
+  ##add col data to dds
+    
   drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$CellLine,
                                     ids2=res.pats$CellLine,name=x)
   
-  mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds, pmap,x,adjpval=0.05, upload=FALSE, parentID='syn25323411')
-#  pmap[rownames(subset(drug.res,padj<0.05)),'GENENAME']%>%doRegularGo(prefix=x)
-#genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
-#  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+  mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds, pmap,x,patients=c(sens.pats$CellLine,res.pats$CellLine),adjpval=0.01, upload=FALSE, parentID='syn25323411')
+  
+  pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
- # res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=x,useEns=FALSE)
-#  drug.res
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=x,useEns=FALSE)
+  drug.res
   })
                                    
 ```

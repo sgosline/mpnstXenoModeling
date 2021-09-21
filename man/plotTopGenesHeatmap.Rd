@@ -9,6 +9,7 @@ plotTopGenesHeatmap(
   dds,
   identifiers,
   myvar,
+  patients = NULL,
   adjpval = 0.5,
   upload = FALSE,
   path = ".",

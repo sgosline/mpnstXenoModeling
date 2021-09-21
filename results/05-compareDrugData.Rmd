@@ -99,8 +99,11 @@ drcmod <- function(dose_resp, fctval, curve_type){
 
 generate_DR_plots <- function(res, drugID) {
   require(data.table)
-  dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine) #%>% setDT()
-  dr.df <- tidyr::unnest(dr.df, Viabilities)
+  dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine)%>%
+    rowwise()%>%
+    mutate(meanViability=mean(Viabilities,na.rm=T))%>%
+    unnest(Viabilities)#%>% setDT()
+  #dr.df <- tidyr::unnest(dr.df, Viabilities)
   dr.df$Viabilities<- na_if(dr.df$Viabilities, "NA")
   dr.df <- dr.df[complete.cases(dr.df), ]
   dr.dt <- data.table(dr.df)
@@ -118,8 +121,10 @@ generate_DR_plots <- function(res, drugID) {
     # TryFit of subsetted data.table
     #dft <- dt[,.(Viabilities = unlist(Viabilities)), by = setdiff(names(dt), 'Viabilities')]
     df <- as.data.frame(dt)
-    min_value <- min(df$Viabilities)
-    max_value <- max(df$Viabilities)
+#    min_value <- min(df$Viabilities)
+#    max_value <- max(df$Viabilities)
+    min_value <- min(df$meanViability)
+    max_value <-max(df$meanViability)
     fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
     # hill from fit.LL4
     # ic50 code from https://rstudio-pubs-static.s3.amazonaws.com/378543_5b5bda32bf0541a485ccc49efbea680a.html
@@ -127,13 +132,14 @@ generate_DR_plots <- function(res, drugID) {
       c(fit.LL4$coefficients, min_value, max_value),
       c("hill", "ec_50", "min_value","max_value"
       ))
+    
+## updated to de-log ec50
+    #https://rstudio-pubs-static.s3.amazonaws.com/378543_5b5bda32bf0541a485ccc49efbea680a.html
     ic_50 <- with(as.list(coefs),
-      exp(
-        log(ec_50) + (1 / hill) * log(max_value / (max_value - 2 * min_value)) #log(ec_50)
-      )
-    )
-    #cbind(auc,ED(fit.LL4,50))
+      exp(ec_50 + (1 / hill) * log(max_value / (max_value - 2* min_value)))) #log(ec_50)
+          #cbind(auc,ED(fit.LL4,50))
     #rbindlist(dt.dat,auc)
+    
     dt[, Pred := predict(object=fit.LL4)]
     sd.lst = dt[, list(SD=sd(Viabilities)/4),by=Conc]
     df <- as.data.frame(dt)
@@ -141,9 +147,15 @@ generate_DR_plots <- function(res, drugID) {
     # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
     print(head(df$Conc))
     print(head(df$Viabilities))
-    auc <- auc(df$Viabilities,df$Conc)
-    meta2 <- data.table(Drug=drugID,CellLine=cells,Hill=coefs['hill'],ec50=coefs['ec_50'],
-                       MinViability=min_value, MaxViability=max_value,ic50=ic_50,auc=as.numeric(auc))
+    auc <- pROC::auc(df$Viabilities,df$Conc)
+    
+    meta2 <- data.table(Drug=drugID,CellLine=cells,
+                        Hill=coefs['hill'],
+                        ec50=coefs['ec_50'],
+                       MinViability=min_value,
+                       MaxViability=max_value,
+                       ic50=ic_50,auc=as.numeric(auc))
+    
     dat.dt <- rbind(dat.dt,meta2)
     dt = merge(dt,sd.lst)
     dt2 <- rbind(dt2, dt)
@@ -159,10 +171,15 @@ generate_DR_plots <- function(res, drugID) {
 }
 
 
-process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.', parentID=NULL){
+process_MicroTissueDrugData <- function(syn, master.table, 
+                                        upload=FALSE, path='.', parentID=NULL){
+  
   drugIDs <- unique(master.table$experimentalCondition)
+  
   meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+  
   plt.list <- list()
+  
   for (drug in drugIDs) {
     res <- filter_byDrug(syn, master.table, drug)
     plt = generate_DR_plots(res,drug)
@@ -171,7 +188,8 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
     meta.dt <- rbind(meta.dt, plt$table)
     plt.list[[drug]] = plt$plot
   }
-  meta.dt<-meta.dt%>%tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
+  meta.dt<-meta.dt%>%
+    tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
 
   fwrite(meta.dt,file="doseResponse_table.csv")
   pdf("doseResponsePlots.pdf", onefile = TRUE)
@@ -189,7 +207,7 @@ process_MicroTissueDrugData <- function(syn, master.table, upload=FALSE, path='.
 ```
 
 ## Reprocess MT data
-```{r reprocess data, warning=FALSE,echo=FALSE}
+```{r reprocess data, warning=FALSE,message=FALSE}
 
 library(reticulate)
 library(dplyr)
