@@ -215,6 +215,11 @@ all.res<-lapply(diff.drugs$drug,function(x){
   })
 
 full.res<-do.call(rbind,all.res)
+
+write.table(full.res,file='AUCPDXGenesAt0.csv')
+full.res%>%group_by(Drug)%>%
+  summarize(sigGenes=count(padj<0.05,na.rm=T))%>%
+  DT::datatable()
                                    
 ```
 
