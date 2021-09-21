@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 The goal of this analysis is to collect growth curves from the PDX models. 
 
 ## Recalculate Growth metrics
-`Xeva` is coming across as being clunky to use. While it is useful for plotting dose response curves with error bars, I'm not convinced it will be helpful for more quantitative analysis since everything is stored in the object and hard to acces.
+`Xeva` is coming across as being clunky to use. While it is useful for plotting dose response curves with error bars, I'm not convinced it will be helpful for more quantitative analysis since everything is stored in the object and hard to access.
 
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
@@ -45,7 +45,7 @@ library(ggplot2)
 pat.drug<-drugData%>%dplyr::rename(individualID='Sample')%>%
     getAllDrugStats(.)%>%
   subset(drug!='n/a')%>%
-  tidyr::replace_na(list(SPI=0.0))
+  tidyr::replace_na(list(SPI=0.0,TGI=0.0,AUC=0.0))
 
 DT::datatable(pat.drug) ##why do i have missing values??
 

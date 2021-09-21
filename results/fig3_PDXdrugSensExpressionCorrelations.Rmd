@@ -102,6 +102,8 @@ auc.mat<-drugStats%>%
   as.matrix()
 
   pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across PDX data')
+    pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across PDX data',filename='AUC_pdx.png')
+
 
 tgi.mat<-drugStats%>%
   dplyr::select(drug,individualID,TGI)%>%
@@ -110,14 +112,16 @@ tgi.mat<-drugStats%>%
    as.matrix()
 
   pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='TGI across PDX data')
+  pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='TGI across PDX data',filename='TGI_pdx.png')
 
 spi.mat<-drugStats%>%
   dplyr::select(drug,individualID,SPI)%>%
   tidyr::pivot_wider(values_from=SPI,names_from=individualID,values_fill=list(SPI=0))%>%
   tibble::column_to_rownames('drug')%>%
    as.matrix()
-
   pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='SPI across PDX data')
+
+  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='SPI across PDX data',filename='SPI_pdx.png')
 ```
 
 We are still missing a lot of data here!!!
@@ -195,12 +199,14 @@ all.res<-lapply(diff.drugs$drug,function(x){
   drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$individualID,
                                     ids2=res.pats$individualID,name=x)
   
-  mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
+  sigs <- subset(drug.res,padj<0.01)
+  if(nrow(sigs>2)){
+    mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                          pmap,x,patients=c(sens.pats$individualID,res.pats$individualID),
                                          adjpval=0.01, upload=FALSE, parentID='syn25323411')
   
-  #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
-  
+    pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0('GO_',x))
+  }
   genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    

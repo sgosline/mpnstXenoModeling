@@ -175,7 +175,7 @@ pheatmap(geneIdToSymbolMatrix(count.mat[symbs,],pmap),cellwidth = 10,cellheight=
 
 What pathways are enriched in correlation across these? Need to actually do this!!!
 
-```{r leapr cor}
+```{r leapr cor, message=FALSE}
 
 ##now let's look at the pathways that are correlated across all
 library(leapr)
@@ -217,19 +217,24 @@ res=mpnstXenoModeling::plotCorrelationEnrichment(as.matrix(data.mat), keggpaths,
 
 There seem to be many genes differentially expressed between MT samples
 
-```{r analysingQual, echp=FALSE, warning=FALSE}
+
+```{r analysingQual, echp=FALSE, warning=FALSE, message=FALSE}
+good <-rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust','Usable')))
+bad <-rownames(subset(var.ID,MicroTissueQuality=='Unusable'))
+
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                     rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust'))), 
-                                     rownames(subset(var.ID,MicroTissueQuality=='Unusable')),'MTQuality')
+                                     good, 
+                                     bad,'MTQuality')
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',adjpval=0.0001, upload=FALSE, parentID='syn25323411')
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
 
 
-res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%doRegularGo(prefix='MTqual')
+res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
+  doRegularGo(prefix='MTqualGO')
 plot(res)
 ```
 
-```{r analysis qual gsea}
+```{r analysis qual gsea,message=FALSE,warning=FALSE}
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
