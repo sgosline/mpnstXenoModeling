@@ -137,7 +137,7 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
 #'
 doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,width=11,height=8.5){
   if(!require(org.Hs.eg.db)){
-    BiocManager::install('Biobase')
+    BiocManager::install('org.Hs.eg.db')
     require(org.Hs.eg.db)
   }
   #genes<-unique(as.character(genes.df$Gene))
@@ -186,21 +186,30 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
     library(DESeq2)
   }
   ##create an additional column
+
   tcd<-colData(dds)
+
+  ##chek namess
+  t.ids1<-intersect(ids1,rownames(tcd))
+  t.ids2<-intersect(ids2,rownames(tcd))
+  
+  message(paste("Found",length(t.ids1),'samples that overlap with expression out of',length(ids1)))
+  message(paste("Found",length(t.ids2),'samples that overlap with expression out of',length(ids2)))
   
   tcd$newvar<-rep(NA,nrow(tcd))
-  tcd[ids1,]$newvar<-TRUE
-  tcd[ids2,]$newvar<-FALSE
+  tcd[t.ids1,]$newvar<-TRUE
+  tcd[t.ids2,]$newvar<-FALSE
   tcd<-subset(tcd,!is.na(newvar))#%>%
     #dplyr::rename(newvar=name)
 
   new.counts<-counts(dds)[,rownames(tcd)]
  
-  new.dds<-DESeq2::DESeqDataSetFromMatrix(new.counts,design=~newvar,colData=tcd)
+  new.dds<-DESeq2::DESeqDataSetFromMatrix(new.counts,design=~newvar,
+                                          colData=tcd)
   ###re run dds  
   #design(dds)<-~newvar
   new.dds <- DESeq(new.dds) ##rerun
-  res <- results(new.dds)
+  res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
   as.data.frame(results(new.dds))%>%arrange(pvalue)
 
@@ -279,7 +288,8 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #'@param dds, DESEq object
 #'@param identifiers mapping to gene name
 #'@param myvar is name of variable
-plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, upload=FALSE, path='.', parentID=NULL) {
+plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
+                                upload=FALSE, path='.', parentID=NULL,newVar="") {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -308,6 +318,14 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, up
     subset(!is.na('GENENAME'))%>%
     subset(GENENAME!="")
   
+  if(is.null(patients))
+    patients <- rownames(colData(dds))
+  else
+    patients <- intersect(patients,rownames(colData(dds)))
+  
+  print(paste0('plotting expression across ',length(patients),' samples'))
+  if(length(patients)==0)
+    return(NULL)
   #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
   
   #combined differentially expressed txids, genenames, and normalized counts
@@ -325,13 +343,20 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, adjpval=0.5, up
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-  var.ID<-colData(dds)[,c('Sex','MicroTissueQuality','Clinical Status','Age')]%>%
+  
+  if(newVar!="")
+    all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
+  else
+    all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
+  
+  var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))
 
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
  
-
+  count.mat<-count.mat[,patients]
+  var.ID <- var.ID[patients,]
   library(pheatmap)
     heatmap <- pheatmap(log10(0.01+count.mat),
                      cellheight=10,

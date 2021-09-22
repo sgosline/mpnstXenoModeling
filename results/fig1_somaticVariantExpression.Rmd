@@ -133,6 +133,19 @@ For each mutation in the `rmutMat` matrix shown above, we  can separate out pati
 4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
 ```{r diffex by gene,warning=FALSE}
+    library(ensembldb)
 
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+      columns = c("GENENAME"))%>%
+    dplyr::rename(GENE='GENEID')%>%
+    right_join(rnaSeq)%>%
+    subset(TXBIOTYPE=='protein_coding')%>%
+    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+    tibble::column_to_rownames('GENEID')
+  
+  dds<-rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+  
 ```
 

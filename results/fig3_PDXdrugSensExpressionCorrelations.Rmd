@@ -1,0 +1,228 @@
+---
+title: "Fig3 PDX Drug Sensitivity Expression Correlation"
+author: "Sara Gosline"
+date: "9/13/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+This markdown assesses gene expression changes the correlate with drug sensitivity.
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+if(!require('DT')){
+  install.packages("DT")
+  library(leapr)
+}
+
+library(dplyr)
+
+```
+
+
+## Load drug data
+```{r mutation data,message=FALSE,warning=FALSE}
+mpnstXenoModeling::loadPDXData()
+
+```
+
+
+## Drug Plots
+
+We can now evaluate drugs that behave differently across samples. We are primarily focused on four samples and four drugs. However, we anticipate pooling the results for each drug to carry out differential expression.
+
+### PDX Plots
+
+For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
+
+```{r drug data,message=FALSE,warning=FALSE}
+syn = synapseLogin()
+drugStats <- syn$tableQuery("select * from syn25955439")$asDataFrame()
+
+minDrugs <- drugStats%>%
+  mutate(hasRNASeq=(individualID%in%rnaSeq$Sample))%>%
+           group_by(drug)%>%summarise(samples=n_distinct(individualID),
+                                      samplesWithRNA=count(hasRNASeq==TRUE))%>%
+  subset(samples>2)
+
+DT::datatable(minDrugs)
+
+##let's plot the stats for each drug
+library(pheatmap)
+
+auc.mat<-drugStats%>%
+  dplyr::select(drug,individualID,AUC)%>%
+  tidyr::pivot_wider(values_from=AUC,names_from=individualID,values_fill=list(AUC=0))%>%
+  tibble::column_to_rownames('drug')%>%
+  as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+
+tgi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,TGI)%>%
+  tidyr::pivot_wider(values_from=TGI,names_from=individualID,values_fill=list(TGI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+
+spi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,SPI)%>%
+  tidyr::pivot_wider(values_from=SPI,names_from=individualID,values_fill=list(SPI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+```
+
+
+It appears there is an outlier, so we can remove it. 
+
+```{r outlier removed}
+drugStats<-drugStats%>%
+      subset(individualID!='WU-545')
+
+DT::datatable(drugStats)
+
+auc.mat<-drugStats%>%
+  dplyr::select(drug,individualID,AUC)%>%
+  tidyr::pivot_wider(values_from=AUC,names_from=individualID,values_fill=list(AUC=0))%>%
+  tibble::column_to_rownames('drug')%>%
+  as.matrix()
+
+  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across PDX data')
+    pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across PDX data',filename='AUC_pdx.png')
+
+
+tgi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,TGI)%>%
+  tidyr::pivot_wider(values_from=TGI,names_from=individualID,values_fill=list(TGI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()
+
+  pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='TGI across PDX data')
+  pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='TGI across PDX data',filename='TGI_pdx.png')
+
+spi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,SPI)%>%
+  tidyr::pivot_wider(values_from=SPI,names_from=individualID,values_fill=list(SPI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()
+  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='SPI across PDX data')
+
+  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='SPI across PDX data',filename='SPI_pdx.png')
+```
+
+We are still missing a lot of data here!!!
+
+
+We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.6) compared to those that are not (AUC>0.6) to evaluate differential expression.
+
+```{r MT stats}
+
+auc.thresh=0
+
+sampCounts <- drugStats%>%group_by(drug)%>%
+  summarize(n_samps=n_distinct(individualID))
+
+sens.class <- drugStats%>%
+  mutate(sens=(AUC<auc.thresh))
+
+diff.drugs=sens.class%>%
+  group_by(drug)%>%
+  summarize(res=count(!sens),sens=count(sens))%>%
+  subset(sens>1)%>%
+  subset(res>1)
+
+diff.drugs
+
+
+p<-ggplot(subset(drugStats,drug%in%diff.drugs$drug),aes(x=drug,y=AUC,fill=individualID))+
+    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+#ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
+p
+
+p<-ggplot(subset(drugStats,drug%in%diff.drugs$drug),aes(x=drug,y=TGI,fill=individualID))+
+    geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+#ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
+p
+```
+
+
+## RNA Expression
+
+
+```{r rnaseq}
+
+
+    library(ensembldb)
+  
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+      columns = c("GENENAME"))%>%
+    dplyr::rename(GENE='GENEID')%>%
+    right_join(rnaSeq)%>%
+    subset(TXBIOTYPE=='protein_coding')%>%
+    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+    tibble::column_to_rownames('GENEID')
+  
+  dds<-rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+
+
+```
+
+### Genes correlated with PDX hits
+
+
+```{r diffex tests}
+
+##let's rename the samples a bit? 
+
+all.res<-lapply(diff.drugs$drug,function(x){
+  sens.pats <- subset(sens.class,drug==x)%>%subset(sens==TRUE)
+  res.pats <- subset(sens.class,drug==x)%>%subset(sens==FALSE)
+
+  ##add col data to dds
+    
+  drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$individualID,
+                                    ids2=res.pats$individualID,name=x)
+  
+  sigs <- subset(drug.res,padj<0.01)
+  if(nrow(sigs>2)){
+    mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
+                                         pmap,x,patients=c(sens.pats$individualID,res.pats$individualID),
+                                         adjpval=0.01, upload=FALSE, parentID='syn25323411')
+  
+    pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0('GO_',x))
+  }
+  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=x,useEns=FALSE)
+  drug.res%>%mutate(Drug=x)
+  })
+
+full.res<-do.call(rbind,all.res)
+
+write.table(full.res,file='AUCPDXGenesAt0.csv')
+full.res%>%group_by(Drug)%>%
+  summarize(sigGenes=count(padj<0.05,na.rm=T))%>%
+  DT::datatable()
+                                   
+```
+
+
+Now we have the enrichment for each of the drugs. 
+```

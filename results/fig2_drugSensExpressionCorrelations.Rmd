@@ -1,5 +1,5 @@
 ---
-title: "Fig2 Drug Sensitivity Expression Correlation"
+title: "Fig2 MT Drug Sensitivity Expression Correlation"
 author: "Sara Gosline"
 date: "9/13/2021"
 output:  
@@ -10,7 +10,7 @@ output:
 
 This markdown assesses gene expression changes the correlate with drug sensitivity.
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 require(remotes)
@@ -21,6 +21,11 @@ if(!require(mpnstXenoModeling)){
 
 if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+if(!require('DT')){
+  install.packages("DT")
   library(leapr)
 }
 
@@ -38,96 +43,235 @@ mpnstXenoModeling::loadPDXData()
 
 ## Drug Plots
 
-We can now evaluate drugs that behave differently across samples.
+We can now evaluate drugs that behave differently across samples. We are primarily focused on four samples and four drugs. However, we anticipate pooling the results for each drug to carry out differential expression. 
 
 
+### Microtissue Metrics
 
+The first thing we need to do is establish good metrics for evaluating drug sensitivity.  We experiment with a few here. 
 
-### PDX Plots
-
-For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
-
-```{r drug data,message=FALSE,warning=FALSE}
-syn = synapseLogin()
-drugStats <- syn$tableQuery("select * from syn25955439")$asDataFrame()
-
-minDrugs <- drugStats%>%group_by(drug)%>%summarise(samps=n_distinct(individualID))%>%
-  subset(samps>3)
-
-
-##let's plot the stats for each drug
-library(ggplot2)
-drug.plots <- lapply(unique(minDrugs$drug),function(dname){
-  drugStats%>%subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
-})
-
-library(cowplot)
-cowplot::plot_grid(plotlist=drug.plots,nrow=2)
-```
-
-
-It appears there is an outlier, so we can remove it. 
-
-```{r outlier removed}
-drug.plots <- lapply(unique(minDrugs$drug),function(dname){
-  drugStats%>%subset(individualID!='WU-545')%>%
-    subset(drug==dname)%>%ggplot(aes(x=AUC,y=TGI))+geom_point()+ggtitle(dname)
-})
-
-cowplot::plot_grid(plotlist=drug.plots,nrow=2)
-```
-
-Can we get more PDXs for the TNO combo? this is not really a lot.
-
-
-### Microtissue plots
-
-Which MT drugs do we focus on?
 
 ```{r MT drug plots, message=FALSE,warning=FALSE}
 syn = synapseLogin()
-mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()
+mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
+  mutate(maxKilling = 1-(MinViability/MaxViability))
 
-minDrugs <- mtStats%>%group_by(Drug)%>%summarise(samps=n_distinct(CellLine))%>%
+good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
+
+print(paste('Looking at ',nrow(good.mt),'micro tisues'))
+
+mtStats <- mtStats%>%
+  subset(CellLine%in%good.mt$Sample)
+
+minDrugs <- mtStats%>%
+   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
+  group_by(Drug)%>%
+  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
   subset(samps>3)
 
-minDrugs
+DT::datatable(minDrugs)
 
 ```
 
-We have many more data points to correlate with the MT data.
+Now we have three metrics: maxKilling, AUC, and IC50. How do these compare across tissues?
 
-```{r mt stat plots}
+```{r MT stat heatmaps, message=FALSE, warning=FALSE}
 
-combos<-unique(minDrugs$Drug[grep(';',minDrugs$Drug)])
-singles<-setdiff(minDrugs$Drug,combos)
+library(pheatmap)
+auc.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,auc)%>%
+  tidyr::pivot_wider(values_from=auc,names_from=CellLine,values_fill=list(auc=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
 
-drug.plots <- lapply(singles,function(dname){
-  mtStats%>%
-    subset(Drug==dname)%>%ggplot(aes(x=ic50,y=auc))+geom_point()+ggtitle(dname)
-})
+  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT.png')
+  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data')
 
+  mtStats$ic50[!is.finite(mtStats$ic50)]<-0.0
+  
+tgi.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,ic50)%>%
+  tidyr::pivot_wider(values_from=ic50,names_from=CellLine,values_fill=list(ic50=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+   as.matrix()
 
-cowplot::plot_grid(plotlist=drug.plots,nrow=7)
+skip <- which(rowMeans(tgi.mat)%in%c(1,0))
+if(length(skip)>0)
+  tgi.mat <-tgi.mat[-skip,]
 
-drug.plots <- lapply(combos,function(dname){
-  mtStats%>%
-    subset(Drug==dname)%>%ggplot(aes(x=ic50,y=auc))+geom_point()+ggtitle(dname)
-})
+  try(pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across MT data',filename='ic50_mt.png'))
 
+  try(pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across MT data'))
 
-cowplot::plot_grid(plotlist=drug.plots,nrow=4)
+spi.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,maxKilling)%>%
+  tidyr::pivot_wider(values_from=maxKilling,names_from=CellLine,values_fill=list(maxKilling=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+   as.matrix()
+
+  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across mT data')
+  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across mT data',filename='MK_mt.png')
 
 ```
 
-### Combination plots
+Which metrics are best for analyzing the data?
+  
+## Drug stats from AUC threshold vs maxKilling threshold
 
-Add in overlap here
+We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.6) compared to those that are not (AUC>0.6) to evaluate differential expression.
+
+```{r MT stats}
+
+auc.thresh=0.6
+library(ggplot2)
+sens.class <- mtStats%>%
+  mutate(sens=(auc<auc.thresh))
+
+diff.drugs=sens.class%>%
+  group_by(Drug)%>%
+  summarize(res=count(!sens),sens=count(sens))%>%
+  subset(sens>1)%>%
+  subset(res>1)
+
+diff.drugs
+
+p<-ggplot(subset(mtStats,Drug%in%diff.drugs$Drug),aes(x=Drug,y=auc,fill=CellLine))+
+    geom_bar(stat='identity',position='dodge')+
+  scale_x_discrete(guide = guide_axis(angle=90))+ggtitle("AUC of drugs with sufficient samples at 0.6")
+#ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
+p
+ggsave(paste0('drugsWith2SensAt',auc.thresh,'AUC.png'),p)
+
+mk.thresh=0.8
+mk.sens.class <- mtStats%>%
+  mutate(sens=(maxKilling>mk.thresh))
+
+mk.diff.drugs=mk.sens.class%>%
+  group_by(Drug)%>%
+  summarize(res=count(!sens),sens=count(sens))%>%
+  subset(sens>1)%>%
+  subset(res>1)
+
+mk.diff.drugs
+
+p<-ggplot(subset(mtStats,Drug%in%mk.diff.drugs$Drug),aes(x=Drug,y=maxKilling,fill=CellLine))+
+    geom_bar(stat='identity',position='dodge')+
+  scale_x_discrete(guide = guide_axis(angle=90))+ggtitle("Max Killing of drugs with sufficient samples at 0.8")
+ggsave(paste0('drugsWith2SensAt',mk.thresh,'MK.png'),p)
+
+p
+```
+
 
 ## RNA Expression
 
-### Genes correlated with PDX hits
 
-### Genes correlated with MT hits
+```{r rnaseq}
 
-### Check for overlap
+
+    library(ensembldb)
+  
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+      columns = c("GENENAME"))%>%
+    dplyr::rename(GENE='GENEID')%>%
+    right_join(rnaSeq)%>%
+    subset(TXBIOTYPE=='protein_coding')%>%
+    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+    tibble::column_to_rownames('GENEID')
+  
+  dds<-rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+
+
+```
+
+
+### Genes correlated with MT hits by AUC
+
+The goal for this is to subset the patients by whether or not they are sensitive to different drugs then compare the expression for each. There are `$nrow(diff.drugs)`drugs that exhibit variable behavior with an AUC less than `$auc.thresh`. 
+
+```{r diffex tests}
+
+##let's rename the samples a bit? 
+
+all.res<-lapply(diff.drugs$Drug,function(x){
+  sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
+  res.pats <- subset(sens.class,Drug==x)%>%subset(sens==FALSE)
+
+  ##add col data to dds
+    
+  drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$CellLine,
+                                    ids2=res.pats$CellLine,name=x)
+  
+  mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
+                                         pmap,                                        
+                                         paste0('MaxK',x),
+                                         patients=c(sens.pats$CellLine,res.pats$CellLine),
+                                         adjpval=0.01, upload=FALSE, parentID='syn25323411')
+  
+  #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+  
+  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxK',x),useEns=FALSE)
+  drug.res%>%mutate(Drug=x)
+  })
+
+full.res<-do.call(rbind,all.res)
+ 
+write.table(full.res,file='AUCMTGenesAt0.6.csv')
+  
+full.res%>%
+  group_by(Drug)%>%
+  summarize(sigGenes=count(padj<0.05,na.rm=T))%>%
+  DT::datatable()                                  
+```
+
+
+### Genes correlated with MT hits by max killing
+
+The goal for this is to subset the patients by whether or not they are sensitive to different drugs then compare the expression for each. There are `$nrow(diff.drugs)`drugs that exhibit variable behavior with an AUC less than `$auc.thresh`. 
+
+```{r diffex tests maxKilling,message=FALSE,warning=FALSE}
+
+##let's rename the samples a bit? 
+
+all.res<-lapply(mk.diff.drugs$Drug,function(x){
+  print(x)
+  sens.pats <- subset(mk.sens.class,Drug==x)%>%subset(sens==TRUE)
+  res.pats <- subset(mk.sens.class,Drug==x)%>%subset(sens==FALSE)
+
+  ##add col data to dds
+    
+  drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$CellLine,
+                                    ids2=res.pats$CellLine,name=x)
+  
+  sigs <- subset(drug.res,padj<0.01)
+  if(nrow(sigs>2)){
+    mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,                                   
+                                           pmap,paste0('MaxK',x),
+                                         patients=c(sens.pats$CellLine,res.pats$CellLine),
+                                         adjpval=0.01, upload=FALSE, parentID='syn25323411')
+  
+    pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0(x,'_GO'))
+  }
+
+  #  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+#  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+ # res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxK',x),useEns=FALSE)
+  
+  drug.res%>%mutate(Drug=x)
+  
+  })
+
+mk.full.res<-do.call(rbind,all.res)
+write.table(mk.full.res,file='maxKillingMTGenesAt0.9.csv')
+mk.full.res%>%group_by(Drug)%>%
+  summarize(sigGenes=count(padj<0.05,na.rm=T))%>%
+  DT::datatable()
+                                   
+```
+
