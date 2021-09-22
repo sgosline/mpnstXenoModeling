@@ -120,7 +120,7 @@ Which metrics are best for analyzing the data?
 
 We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive (AUC<0.6) compared to those that are not (AUC>0.6) to evaluate differential expression.
 
-```{r MT stats}
+```{r MT stats,message=FALSE,warning=FALSE}
 
 auc.thresh=0.6
 library(ggplot2)
@@ -166,7 +166,7 @@ p
 ## RNA Expression
 
 
-```{r rnaseq}
+```{r rnaseq,message=FALSE,warning=FALSE}
 
 
     library(ensembldb)
@@ -191,7 +191,7 @@ p
 
 The goal for this is to subset the patients by whether or not they are sensitive to different drugs then compare the expression for each. There are `$nrow(diff.drugs)`drugs that exhibit variable behavior with an AUC less than `$auc.thresh`. 
 
-```{r diffex tests}
+```{r diffex tests,warning=FALSE,message=FALSE}
 
 ##let's rename the samples a bit? 
 
