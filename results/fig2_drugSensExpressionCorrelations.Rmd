@@ -206,7 +206,7 @@ all.res<-lapply(diff.drugs$Drug,function(x){
   
   mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                          pmap,                                        
-                                         paste0('MaxK',x),
+                                         paste0('AUC',x),
                                          patients=c(sens.pats$CellLine,res.pats$CellLine),
                                          adjpval=0.01, upload=FALSE, parentID='syn25323411')
   
@@ -215,7 +215,7 @@ all.res<-lapply(diff.drugs$Drug,function(x){
   genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxK',x),useEns=FALSE)
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('AUC',x),useEns=FALSE)
   drug.res%>%mutate(Drug=x)
   })
 
@@ -258,10 +258,10 @@ all.res<-lapply(mk.diff.drugs$Drug,function(x){
     pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0(x,'_GO'))
   }
 
-  #  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
-#  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
- # res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxK',x),useEns=FALSE)
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxK',x),useEns=FALSE)
   
   drug.res%>%mutate(Drug=x)
   
