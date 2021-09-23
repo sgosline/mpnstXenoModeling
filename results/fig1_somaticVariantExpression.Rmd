@@ -8,13 +8,13 @@ output:
     toc_depth: 2
 ---
 
-```{r setup, include=FALSE,message=FALSE}
+```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
 if(!require(mpnstXenoModeling)){
-  remotes::install_github('sgosline/mpnstXenoModeling')
+  remotes::install_github('jessbade/mpnstXenoModeling', ref='sara')
   library(mpnstXenoModeling)
 }
 
@@ -30,11 +30,15 @@ library(dplyr)
 
 Load the data from the R package.
 
-```{r mutation data,echo=FALSE,warning=FALSE,include=FALSE,message=FALSE}
+```{r mutation data, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
 mpnstXenoModeling::loadPDXData()
 
 varData%>%subset(AD>0)%>%group_by(specimenID)%>%summarize(nMuts=n_distinct(Symbol))
 
+```
+
+```{r}
+clin.tab
 ```
 
 These data comprise tumor, normal, and xenograft so we need to remove and keep only xenograft.
@@ -43,7 +47,7 @@ These data comprise tumor, normal, and xenograft so we need to remove and keep o
 
 We now can select specific mutations of interest and put them in a heatmap
 
-```{r mut data, results='asis',warning=FALSE}
+```{r mut data, results="asis", warning=FALSE}
 ##filter for only PDX samples
 
 samps <- unique(varData$specimenID)
@@ -52,7 +56,7 @@ norms <-samps[grep('normal',samps)]
 
 pdx.samps<-setdiff(samps,union(tums,norms))
 
- mutMat<-varData%>%
+mutMat<-varData%>%
   dplyr::filter(specimenID%in%pdx.samps)%>%
   mutate(AD=as.numeric(AD))%>%
   subset(Symbol!="")%>%
@@ -63,8 +67,8 @@ pdx.samps<-setdiff(samps,union(tums,norms))
     tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
-  annotes<-varData%>%
-      dplyr::filter(specimenID%in%pdx.samps)%>%
+annotes<-varData%>%
+    dplyr::filter(specimenID%in%pdx.samps)%>%
     dplyr::select(c(Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
     mutate(`Clinical Status`=unlist(Clinical.Status))%>%
@@ -74,35 +78,42 @@ library(pheatmap)
     tibble::column_to_rownames('Sample')#%>%
 #    dplyr::filter(sample!='normal')
   
-  mutMat<-mutMat[,rownames(annotes)]
+mutMat<-mutMat[,rownames(annotes)]
   
 pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
    
- pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
 
+```
+
+```{r}
+emutMat <- mutMat
+emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
+emutMat <- emutMat[emutMat$count_na > 2,] %>%
+            dplyr::select(-matches('count_na'))
+genelist=rownames(emutMat)
 ```
 
 Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
 
-```{r selected muts, warning=FALSE,results='asis'}
-genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
-           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
-missed.genes<-setdiff(genelist,rownames(mutMat))
+```{r selected muts, warning=FALSE, results="asis"}
+#genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
+#           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
+missed.genes<-setdiff(rownames(mutMat),genelist)
 print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
 
- 
-  smutMat<-mutMat[intersect(genelist,rownames(mutMat)),rownames(annotes)]
+smutMat<-mutMat[intersect(genelist,rownames(mutMat)),rownames(annotes)]
   
  
- pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
+pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
  
- pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedMutations.png')
+pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedMutations.png')
 ```
 
 
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
 
-```{r recurrent mutations,results='asis'}
+```{r recurrent mutations, results="asis"}
 
 topMuts=dplyr::filter(varData,AD>0)%>%
   subset(!is.na(Symbol))%>%
@@ -112,12 +123,10 @@ topMuts=dplyr::filter(varData,AD>0)%>%
     dplyr::select(Symbol)
 
  
-  rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
-  
- pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
- 
- 
- pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedAndRecMutations.png')
+rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
+
+pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
+pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedAndRecMutations.png')
 
 ```
 
@@ -132,20 +141,24 @@ For each mutation in the `rmutMat` matrix shown above, we  can separate out pati
 3. Evaluate the functional enrichment of the significant genes only
 4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
-```{r diffex by gene,warning=FALSE}
-    library(ensembldb)
+```{r diffex by gene, warning=FALSE}
+library(ensembldb)
 
-  database <- EnsDb.Hsapiens.v86
-  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
-      columns = c("GENENAME"))%>%
-    dplyr::rename(GENE='GENEID')%>%
-    right_join(rnaSeq)%>%
-    subset(TXBIOTYPE=='protein_coding')%>%
-    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
-    tibble::column_to_rownames('GENEID')
+database <- EnsDb.Hsapiens.v86
+pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+        columns = c("GENENAME"))%>%
+        dplyr::rename(GENE='GENEID')%>%
+        right_join(rnaSeq)%>%
+        subset(TXBIOTYPE=='protein_coding')%>%
+        dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
+        tibble::column_to_rownames('GENEID')
   
-  dds<-rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
-    mpnstXenoModeling::deseq2NormFilter()
+dds <- rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
+       mpnstXenoModeling::deseq2NormFilter()
   
 ```
+```{r}
+smutMat
+```
+
 
