@@ -57,6 +57,7 @@ do_deseq_import <- function(file) {
 dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
   print(colname)
+  print(samps)
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
   #print(head(tab))
@@ -73,23 +74,24 @@ dataFromSynTable<-function(tab,syn,colname){
 
   res<-lapply(samps,function(y){
     other.vals<-subset(tab,Sample==y)%>%
-      dplyr::select(othercols)
+    dplyr::select(othercols)
     synds = synids[[y]]
     if(synds[1]=='NaN')
       return(NULL)
 
-    full.tab<-do.call(rbind,lapply(synds,function(x){
+  full.tab<-do.call(rbind,lapply(synds,function(x){
       #print(x)
-      x=unlist(x)
-      path <-syn$get(x)$path
-      fend<-unlist(strsplit(basename(path),split='.',fixed=T))
-      fend <- fend[length(fend)]
-      if(fend=='csv')
-        tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
-      else if(fend=='xlsx'){
+    x=unlist(x)
+    path <-syn$get(x)$path
+    fend<-unlist(strsplit(basename(path),split='.',fixed=T))
+    fend <- fend[length(fend)]
+    if(fend=='csv'){
+      tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
+      }
+    else if(fend=='xlsx'){
         tab<-readxl::read_xlsx(path)
         if(colname=='Somatic Mutations')
-          tab<- tab%>%
+        tab<- tab%>%
                dplyr::select(gene_name,ends_with("_var_count"))%>%
                tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
                tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
@@ -99,25 +101,28 @@ dataFromSynTable<-function(tab,syn,colname){
                ungroup()%>%
                subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
                dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
-
-      }else if(fend=='tsv'){
-        tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
-      else if(fend=='sf'){##add check from rnaseq data
-        tab<-do_deseq_import(path)#%>%
+    else if(fend=='tsv'){
+      tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
+      }
+    else if(fend=='sf'){##add check from rnaseq data
+      tab<-do_deseq_import(path)#%>%
         # dplyr::rename(counts=x)
        # print(head(tab))
-      }else
-        tab<-readxl::read_xls(path)
+      }
+    else {
+      tab<-readxl::read_xls(path)
+      }
      # print(head(tab))
-      tab<-tab[,schemas[[colname]]]%>%
-        mutate(synid=x)
+    tab<-tab[,schemas[[colname]]]%>%
+         mutate(synid=x)
       #print(head(tab))
-      data.frame(cbind(tab,other.vals))
+    data.frame(cbind(tab,other.vals))
     }))
     return(full.tab)
   })
   res <- do.call(rbind,res)
+  print(colnames(res))
   return(res)
 }
 
@@ -136,7 +141,7 @@ fixDrugData<-function(drugData){
    # rename(batch=synid)%>%#paste(Sample,drug,sep='_'))%>%ungroup()%>%
     mutate(volume=as.numeric(volume))%>%
     subset(!is.na(volume))
-
+  print(drugDat)
   ##these files are supposed to be in the same batch -each file is doxo, everlo, vehicle
   b1<-drugDat$batch%in%c("syn22024434", "syn22024435","syn22024436")
   b2<-drugDat$batch%in%c('syn22024430','syn22024431','syn22024432')
@@ -152,7 +157,7 @@ fixDrugData<-function(drugData){
   drugDat$batch[b5]<-'batch5'
   drugDat$batch[b6]<-'batch6'
   ##update the control drug name
-  # %in%c(NA,'N/A','control')
+  # #%in%c(NA,'N/A','control')
   # inds0 = grep('vehicle',drugDat$drug)
   # print(inds0)
   # drugDat$drug[inds0]<-'vehicle0'
@@ -170,7 +175,8 @@ fixDrugData<-function(drugData){
   # #  print(inds)
   # inds<-union(inds,ai)
   # drugDat$model.id[-inds]<-paste(drugDat$model.id[-inds],drugDat$drug[-inds],'1',sep='_')
-  ai<-drugDat$inds%in%c('vehicle','N/A','control',NA)
+  ai<-drugDat$inds %in% c('vehicle','N/A','control',NA)
+  print(ai)
   drugDat$drug[ai]<-rep('control',length(ai))
 
   drugDat$time[which(drugDat$time<0)]<-0
@@ -191,17 +197,17 @@ loadPDXData<-function(){
 
   ##updated to use harmonized data table
   data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-  print(data.tab)
+
   clin.tab <<- data.tab%>%
     dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
     distinct()
-  print(clin.tab)
+
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
-  print(varData)
+
 
   drugData<<-dataFromSynTable(data.tab,syn,'PDX Drug Data')%>%
-    rename(drug='compound_name',time='experimental_time_point',volume='assay_value')%>%
-    fixDrugData()
+             dplyr::rename(drug=compound_name, time=experimental_time_point, volume=assay_value) %>%
+             fixDrugData()
   print(drugData)
   #now get RNA-Seq
   #update to use `RNAseq` column
@@ -256,9 +262,7 @@ getAllNF1Expression<-function(syn){
   full.dat<-do.call(rbind,allDat)
   full.dat$tumorType<-sapply(full.dat$tumorType,function(x) gsub('Malignant peripheral nerve sheath tumor','Malignant Peripheral Nerve Sheath Tumor',x))
   return(full.dat)
-
 }
-
 
 # #germline CSV calls
 # #are we using thesee?
@@ -307,7 +311,6 @@ deseq2NormFilter<-function(data.table){
   dds<-DESeq2::DESeq(dds)
   
   return(dds)
-
 }
 
 #' normDiffEx
@@ -335,7 +338,6 @@ normDiffEx<-function(data.table){
     fit <- limma::lmFit(dge)
     #fit <- contrasts.fit(fit, contrasts=contr.matrix)
     fit <- limma::eBayes(fit,trend=TRUE)
-
 }
 
 #' ##out of date xls data
@@ -377,8 +379,7 @@ getNewSomaticCalls<-function(tab,specimen){
     library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
-
-#  print(fileid)
+    #  print(fileid)
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
     mutate(trans_id=stringr::str_replace(trans_id,'\\.[0-9]+',''))%>%
@@ -399,6 +400,8 @@ getNewSomaticCalls<-function(tab,specimen){
   return(res)
 }
 
+
+
 #' getOldVariantData
 #' @import dplyr
 #' @import purrr
@@ -415,7 +418,6 @@ getOldVariantData<-function(syn){
 
   return(som.tab)
   ##create one giant table of variant allele frequences
-
 }
 
 #' getLatestVariantdata
@@ -476,3 +478,5 @@ getMicroTissueDrugData <- function(syn, mtd) {
   #res$`live cell count`=unlist(res$`live cell count`)
   return(res)
 }
+
+
