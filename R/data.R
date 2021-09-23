@@ -208,27 +208,23 @@ loadPDXData<-function(){
   drugData<<-dataFromSynTable(data.tab,syn,'PDX Drug Data')%>%
              dplyr::rename(drug=compound_name, time=experimental_time_point, volume=assay_value) %>%
              fixDrugData()
-  print(drugData)
   #now get RNA-Seq
   #update to use `RNAseq` column
   rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
     mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
     tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
-  print(rnaSeq)
    
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
   mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
 }
 
-loadPDXData()
 
 
-
-#'getPdxRNAseqData gets all rna seq counts for xenografts
-#'#'@export
-#'DEPRACATED
-#'@param syn synapse item from
+#' getPdxRNAseqData gets all rna seq counts for xenografts
+#' #'@export
+#' DEPRACATED
+#' @param syn synapse item from
 getPdxRNAseqData<-function(syn){
 #  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
   jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
@@ -297,7 +293,7 @@ deseq2NormFilter<-function(data.table){
     round()
   
   coldata<-data.table%>%
-    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`)%>%
+    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,Clinical.Status)%>%
     distinct()%>%
   #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
     tibble::column_to_rownames('Sample')
