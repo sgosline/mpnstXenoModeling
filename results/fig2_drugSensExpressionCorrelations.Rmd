@@ -202,7 +202,7 @@ all.res<-lapply(diff.drugs$Drug,function(x){
   ##add col data to dds
     
   drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$CellLine,
-                                    ids2=res.pats$CellLine,name=x)
+                                    ids2=res.pats$CellLine,name=x,doShrinkage=TRUE)
   
   mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                          pmap,                                        
@@ -246,7 +246,7 @@ all.res<-lapply(mk.diff.drugs$Drug,function(x){
   ##add col data to dds
     
   drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$CellLine,
-                                    ids2=res.pats$CellLine,name=x)
+                                    ids2=res.pats$CellLine,name=x,doShrinkage = TRUE)
   
   sigs <- subset(drug.res,padj<0.01)
   if(nrow(sigs)>2){
