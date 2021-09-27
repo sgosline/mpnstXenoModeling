@@ -178,15 +178,17 @@ doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,
 #' @param ids1 Sample ids
 #' @param ids2 Other sample ids
 #' @param name for condition
+#' @param doShrinkage flag to true if lFC shrinkage should be used
 #' @export
 #' @import BiocManager
-ds2FactorDE<-function(dds,ids1,ids2,name){
+ds2FactorDE<-function(dds,ids1,ids2,name,doShrinkage=FALSE){
   if(!require('DESeq2')){
     BiocManager::install('DESeq2')
     library(DESeq2)
   }
   ##create an additional column
 
+  
   tcd<-colData(dds)
 
   ##chek namess
@@ -209,9 +211,12 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
   ###re run dds  
   #design(dds)<-~newvar
   new.dds <- DESeq(new.dds) ##rerun
-  res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
+  if(doShrinkage)
+    res<-lfcShrink(new.dds,coef='newvarTRUE')
+  else
+    res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
-  as.data.frame(results(new.dds))%>%arrange(pvalue)
+  as.data.frame(res)%>%arrange(pvalue)
 
 }
 #'

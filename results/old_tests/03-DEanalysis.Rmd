@@ -95,7 +95,7 @@ Here we do the four steps described above.
 First, compute the differential expresison
 ```{r analysingSex, warning=FALSE,message=FALSE}
 sex_res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=rownames(subset(var.ID,Sex=='Male')),
-                                    ids2=rownames(subset(var.ID,Sex=='Female')),name='sex')
+                                    ids2=rownames(subset(var.ID,Sex=='Female')),name='sex',doShrinkage=FALSE)
                                    
 ```
 
