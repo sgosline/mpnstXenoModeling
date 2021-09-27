@@ -13,10 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
-if(!require(mpnstXenoModeling)){
-  remotes::install_github('jessbade/mpnstXenoModeling', ref='sara')
-  library(mpnstXenoModeling)
-}
+#if(!require(mpnstXenoModeling)){
+remotes::install_github('jessbade/mpnstXenoModeling', ref='sara',force=TRUE)
+library(mpnstXenoModeling)
+#}
 
 if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
@@ -35,10 +35,6 @@ mpnstXenoModeling::loadPDXData()
 
 varData%>%subset(AD>0)%>%group_by(specimenID)%>%summarize(nMuts=n_distinct(Symbol))
 
-```
-
-```{r}
-clin.tab
 ```
 
 These data comprise tumor, normal, and xenograft so we need to remove and keep only xenograft.
@@ -86,19 +82,12 @@ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth =
 
 ```
 
-```{r}
-emutMat <- mutMat
-emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
-emutMat <- emutMat[emutMat$count_na > 2,] %>%
-            dplyr::select(-matches('count_na'))
-genelist=rownames(emutMat)
-```
-
 Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
 
 ```{r selected muts, warning=FALSE, results="asis"}
-#genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
-#           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
+#Curated, keep this gene list of interest
+genelist=c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
+           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
 missed.genes<-setdiff(rownames(mutMat),genelist)
 print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
 
@@ -112,6 +101,16 @@ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annot
 
 
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
+
+```{r}
+"""
+emutMat <- mutMat
+emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
+emutMat <- emutMat[emutMat$count_na > 2,] %>%
+            dplyr::select(-matches('count_na'))
+genelist=rownames(emutMat)
+"""
+```
 
 ```{r recurrent mutations, results="asis"}
 
@@ -141,24 +140,316 @@ For each mutation in the `rmutMat` matrix shown above, we  can separate out pati
 3. Evaluate the functional enrichment of the significant genes only
 4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
+
+#### trim GENEIDs to work in ensembl search, make boolean matrix for variables in plots downstream
+
+```{r}
+rnaSeq$GENEID2 <- gsub("\\..*","",rnaSeq$GENEID)
+trmutMat <- rmutMat%>%as.data.frame()%>%t()
+trmutMat[trmutMat != 0] <- TRUE
+trmutMat[trmutMat == 0] <- FALSE
+#var.ID <- merge(var.ID, trmutMat,by.x=0,by.y=0)
+```
+
+#### Do ensembl search for protein_coding genes, generate pmap objects
+
 ```{r diffex by gene, warning=FALSE}
 library(ensembldb)
 
 database <- EnsDb.Hsapiens.v86
-pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
+ls('package:EnsDb.Hsapiens.v86')
+pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENEID2), TxBiotypeFilter("protein_coding")),
         columns = c("GENENAME"))%>%
-        dplyr::rename(GENE='GENEID')%>%
+        dplyr::rename(GENEID2=GENEID)%>%
         right_join(rnaSeq)%>%
         subset(TXBIOTYPE=='protein_coding')%>%
-        dplyr::select(GENE,GENENAME,GENEID)%>%distinct()%>%
-        tibble::column_to_rownames('GENEID')
-  
-dds <- rnaSeq%>%subset(GENE%in%pmap$GENE)%>%
-       mpnstXenoModeling::deseq2NormFilter()
-  
+        dplyr::select(GENENAME,GENEID2,GENEID)%>%distinct()#%>%
+
+pmapalt <- pmap%>%
+           dplyr::select(GENENAME,GENEID)%>%
+           group_by(GENENAME)
+rownames(pmapalt) <- make.names(pmapalt$GENENAME,unique=TRUE)
+
+pmap <- pmap%>%tibble::column_to_rownames('GENEID2')
+
 ```
+#### Mege trmutMat with rnaSeq, subset by GENEIDs meeting criteria mutation in >2 samples
+
 ```{r}
-smutMat
+rnaSeqm<-merge(trmutMat%>%as.data.frame()%>%tibble::rownames_to_column('Sample'),rnaSeq,by='Sample')
+ddata <- rnaSeqm%>%subset(GENEID%in%pmap$GENEID)
+counts <- ddata%>%
+          dplyr::select(GENEID,counts,Sample)%>%
+          tidyr::pivot_wider(values_from='counts',names_from='Sample')%>%
+          tibble::column_to_rownames('GENEID')%>%
+          round()
+
+coldata<-ddata%>%
+         dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,Clinical.Status)%>%#,colnames(trmutMat)
+         distinct()%>%
+         tibble::column_to_rownames('Sample')
 ```
 
+#### modified deseq2NormFilter
 
+```{r}
+mod_deseq2NormFilter <- function(counts, coldata, expVar) {
+    library(DESeq2)
+    dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
+                                          colData = coldata,
+                                          design = as.formula(expVar))# + Clinical.Status)
+    dds <- dds[rowSums(counts(dds)) >= 10,]
+    dds<-DESeq2::DESeq(dds)
+    return(dds)
+}
+```
+
+#### Optional function to visualize hypothesis testing
+
+```{r}
+hypothesisTestPlotsDE <- function(dds) {
+    par(mfrow=c(2,2),mar=c(2,2,1,1),bg='white')
+    ylim <- c(-5,5)
+    resGA <- results(dds, lfcThreshold=.5, altHypothesis="greaterAbs")
+    resLA <- results(dds, lfcThreshold=.5, altHypothesis="lessAbs")
+    resG <- results(dds, lfcThreshold=.5, altHypothesis="greater")
+    resL <- results(dds, lfcThreshold=.5, altHypothesis="less")
+    drawLines <- function() abline(h=c(-.5,.5),col="dodgerblue",lwd=2)
+    plotMA(resGA, ylim=ylim); drawLines()
+    plotMA(resLA, ylim=ylim); drawLines()
+    plotMA(resG, ylim=ylim); drawLines()
+    plotMA(resL, ylim=ylim); drawLines()
+}
+```
+
+#### Modified geneIdToSymbolMatrix function
+
+```{r}
+mod_geneIdToSymbolMatrix<-function(gene.mat,identifiers){
+    count.mat<-gene.mat%>%
+        as.data.frame()%>%
+        tibble::rownames_to_column("GENEID")%>%
+        tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
+        left_join(identifiers)%>%
+        group_by(GENENAME)%>%
+        dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
+        subset(GENENAME!="")%>%
+        tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
+        tibble::column_to_rownames('GENENAME')%>%data.matrix()
+return(count.mat)
+}
+```
+
+```{r}
+filterDDS <- function(dds, pmap, adjPVal=0.1, shrink=FALSE, alg="apeglm"){
+  initres <- as.data.frame(results(dds))
+  if (shrink==TRUE){
+    initres<-lfcShrink(dds, coef=resultsNames(dds)[2], type=alg)%>%as.data.frame()
+  }
+  filtered.res<- initres[which(initres$padj < adjPVal),] %>%#initres%>%#
+                 tibble::rownames_to_column('GENEID') %>%
+                 right_join(pmap) %>%
+                 tidyr::drop_na(log2FoldChange)
+ return(filtered.res)
+}
+```
+
+### DE Sex Variable of Genes w/ Mutations in >2 Samples
+
+```{r}
+dds <- mod_deseq2NormFilter(counts, coldata, "~Sex")
+filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
+```
+
+```{r}
+
+#filtered.res <- filtered.res[filtered.res$GENENAME %in% rownames(rmutMat),]
+#filtered.res
+```
+
+```{r}
+patients=NULL
+myvar='Sex'
+adjpval=0.5
+
+de.out<-cbind(rmutMat,pmapalt[rownames(rmutMat),])%>%
+    subset(!is.na('GENENAME'))%>%
+    subset(GENENAME!="")
+
+patients <- rownames(colData(dds))
+
+print(paste0('plotting expression across ',length(patients),' samples'))
+
+sigs <-filtered.res%>%dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
+
+all.vars <-c('Sex','MicroTissueQuality','Clinical.Status','Age',colnames(trmutMat))
+colData(dds)
+var.ID<-colData(dds)[,all.vars]%>%
+  as.data.frame()%>%
+  mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+  mutate(Clinical.Status=unlist(Clinical.Status))
+var.ID[colnames(trmutMat)] <- lapply(var.ID[colnames(trmutMat)],as.character)
+
+count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],pmapalt)
+
+count.mat<-count.mat[,patients]
+var.ID <- var.ID[patients,]
+library(pheatmap)
+count.mat<-data.matrix(count.mat)
+colnames(count.mat)
+var.ID$Clinical.Status<-as.factor(var.ID$Clinical.Status)
+library(repr)
+options(repr.plot.width=6,repr.plot.height=20)
+heatmap <- pheatmap(log10(0.01+count.mat),
+           cellheight=10,
+           annotation_col=var.ID)
+           #filename=file.path('./sex_DE_heatmap_adjpval0.5.png'))
+
+
+```
+
+#### DE Clinica.Status Variable of Genes w/ Mutations in >2 Samples
+
+```{r}
+dds <- mod_deseq2NormFilter(counts, coldata, "~Clinical.Status")
+filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
+```
+
+```{r}
+patients=NULL
+myvar='Clinical.Status'
+adjpval=0.5
+
+de.out<-cbind(rmutMat,pmapalt[rownames(rmutMat),])%>%
+    subset(!is.na('GENENAME'))%>%
+    subset(GENENAME!="")
+
+patients <- rownames(colData(dds))
+
+print(paste0('plotting expression across ',length(patients),' samples'))
+
+sigs <-filtered.res%>%dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
+
+all.vars <-c('Sex','MicroTissueQuality','Clinical.Status','Age',colnames(trmutMat))
+colData(dds)
+var.ID<-colData(dds)[,all.vars]%>%
+  as.data.frame()%>%
+  mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+  mutate(Clinical.Status=unlist(Clinical.Status))
+var.ID[colnames(trmutMat)] <- lapply(var.ID[colnames(trmutMat)],as.character)
+
+count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],pmapalt)
+
+count.mat<-count.mat[,patients]
+var.ID <- var.ID[patients,]
+library(pheatmap)
+count.mat<-data.matrix(count.mat)
+colnames(count.mat)
+var.ID$Clinical.Status<-as.factor(var.ID$Clinical.Status)
+library(repr)
+options(repr.plot.width=6,repr.plot.height=20)
+heatmap <- pheatmap(log10(0.01+count.mat),
+           cellheight=10,
+           annotation_col=var.ID)
+           #filename=file.path('./sex_DE_heatmap_adjpval0.5.png'))
+
+
+```
+
+#### DE Age Variable of Genes w/ Mutations in >2 Samples
+
+```{r}
+dds <- mod_deseq2NormFilter(counts, coldata, "~Age")
+filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
+```
+
+```{r}
+patients=NULL
+myvar='Age'
+adjpval=0.5
+
+de.out<-cbind(rmutMat,pmapalt[rownames(rmutMat),])%>%
+    subset(!is.na('GENENAME'))%>%
+    subset(GENENAME!="")
+
+patients <- rownames(colData(dds))
+
+print(paste0('plotting expression across ',length(patients),' samples'))
+
+sigs <-filtered.res%>%dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
+
+all.vars <-c('Sex','MicroTissueQuality','Clinical.Status','Age',colnames(trmutMat))
+colData(dds)
+var.ID<-colData(dds)[,all.vars]%>%
+  as.data.frame()%>%
+  mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+  mutate(Clinical.Status=unlist(Clinical.Status))
+var.ID[colnames(trmutMat)] <- lapply(var.ID[colnames(trmutMat)],as.character)
+
+count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],pmapalt)
+
+count.mat<-count.mat[,patients]
+var.ID <- var.ID[patients,]
+library(pheatmap)
+count.mat<-data.matrix(count.mat)
+colnames(count.mat)
+var.ID$Clinical.Status<-as.factor(var.ID$Clinical.Status)
+library(repr)
+options(repr.plot.width=6,repr.plot.height=20)
+heatmap <- pheatmap(log10(0.01+count.mat),
+           cellheight=10,
+           annotation_col=var.ID)
+           #filename=file.path('./sex_DE_heatmap_adjpval0.5.png'))
+
+
+
+```
+
+#### DE MicroTissueQuality Variable of Genes w/ Mutations in >2 Samples
+
+```{r}
+dds <- mod_deseq2NormFilter(counts, coldata, "~MicroTissueQuality")
+filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
+```
+
+```{r}
+patients=NULL
+myvar='MicroTissueQuality'
+adjpval=0.5
+
+de.out<-cbind(rmutMat,pmapalt[rownames(rmutMat),])%>%
+    subset(!is.na('GENENAME'))%>%
+    subset(GENENAME!="")
+
+patients <- rownames(colData(dds))
+
+print(paste0('plotting expression across ',length(patients),' samples'))
+
+sigs <-filtered.res%>%dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
+
+all.vars <-c('Sex','MicroTissueQuality','Clinical.Status','Age',colnames(trmutMat))
+colData(dds)
+var.ID<-colData(dds)[,all.vars]%>%
+  as.data.frame()%>%
+  mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+  mutate(Clinical.Status=unlist(Clinical.Status))
+var.ID[colnames(trmutMat)] <- lapply(var.ID[colnames(trmutMat)],as.character)
+
+count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],pmapalt)
+
+count.mat<-count.mat[,patients]
+var.ID <- var.ID[patients,]
+library(pheatmap)
+count.mat<-data.matrix(count.mat)
+colnames(count.mat)
+var.ID$Clinical.Status<-as.factor(var.ID$Clinical.Status)
+library(repr)
+options(repr.plot.width=6,repr.plot.height=20)
+heatmap <- pheatmap(log10(0.01+count.mat),
+           cellheight=10,
+           annotation_col=var.ID)
+           #filename=file.path('./sex_DE_heatmap_adjpval0.5.png'))
+
+
+
+```
