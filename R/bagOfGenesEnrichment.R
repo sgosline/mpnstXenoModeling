@@ -351,7 +351,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
 
-  all.vars <- c('Sex','MicroTissueQuality','Clinical.Status','Age', newVar)
+  all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age', newVar)
   
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
