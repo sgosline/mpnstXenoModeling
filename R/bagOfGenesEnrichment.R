@@ -290,7 +290,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #' @param identifiers mapping to gene name
 #' @param myvar is name of variable
 plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
-                                upload=FALSE, path='.', parentID=NULL,newVar=NULL) {
+                                upload=FALSE, path='.', parentID=NULL, newVar=NULL, plotheight=20) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -312,6 +312,11 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     BiocManager::install('tibble')
     library(tibble)
   }
+  if(!require('repr')){
+    BiocManager::install('repr')
+    library(repr)
+  }
+
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
@@ -345,27 +350,32 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
 
-  all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age', newVar)
+  all.vars <- c('Sex','MicroTissueQuality','Clinical.Status','Age', newVar)
   
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(Clinical.Status=unlist(Clinical.Status))
+  var.ID[newVar] <- lapply(var.ID[newVar],as.character)
 
+  annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
+  names(annote.colors)<-newVar
+    
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
  
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
-  library(pheatmap)
-    heatmap <- pheatmap(log10(0.01+count.mat),
+  options(repr.plot.width=6,repr.plot.height=plotheight)
+  heatmap <- pheatmap(log10(0.01+count.mat),
                      cellheight=10,
                      annotation_col=var.ID,
+                     annotation_colors=annote.colors,
                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
 
   if (isTRUE(upload)) {
     synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
   }
   return(heatmap)
-
 }
 
 #' Plot using correlation enrichment from leapR package. 
