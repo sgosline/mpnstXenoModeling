@@ -278,7 +278,7 @@ getAllNF1Expression<-function(syn){
 #' @param data.table
 #' #' @import BiocManager
 #' @export 
-deseq2NormFilter<-function(data.table){
+deseq2NormFilter<-function(data.table,newVar=NULL){
   library(dplyr)
   
   if(!require('DESeq2')){
@@ -293,7 +293,7 @@ deseq2NormFilter<-function(data.table){
     round()
   
   coldata<-data.table%>%
-    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,Clinical.Status)%>%
+    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,Clinical.Status,newVar)%>%
     distinct()%>%
   #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
     tibble::column_to_rownames('Sample')
