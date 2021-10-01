@@ -10,15 +10,15 @@ reverselog_trans <- function(base = exp(1)) {
 }
 
 
-#'ploGenesetResults
-#'Internal function to plot results of cluster profile
-#'@param res
-#'@param prefix
-#'@param pathway.plot.size
-#'@param order.by
-#'@param clean.names
-#'@param width
-#'@param height
+#' ploGenesetResults
+#' Internal function to plot results of cluster profile
+#' @param res
+#' @param prefix
+#' @param pathway.plot.size
+#' @param order.by
+#' @param clean.names
+#' @param width
+#' @param height
 plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
                              order.by='NES',clean.names=F,width=11,height=8.5){
   
@@ -125,8 +125,8 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
     return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
                                         order.by='NES',clean.names=F,width=width,height=height))
   }
-  
-  
+
+
 }
 
 #' Runs regular bag of genes enrichment
@@ -212,18 +212,19 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
   res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
   as.data.frame(results(new.dds))%>%arrange(pvalue)
-
 }
+
+
 #'
-#'limmaTwoFactorDEAnalysis
-#'@name limmaTwoFactorDEAnalysis
-#'@description Runs limma on two groups
-#'@author Osama
-#'@import BiocManager
-#'@export
-#'@param data matrix
-#'@param group1 ids
-#'@param group2 ids
+#' limmaTwoFactorDEAnalysis
+#' @name limmaTwoFactorDEAnalysis
+#' @description Runs limma on two groups
+#' @author Osama
+#' @import BiocManager
+#' @export
+#' @param data matrix
+#' @param group1 ids
+#' @param group2 ids
 limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   # Conduct DE expression analysis using limma from the expression matrix dat (group2 vs group1, group1 is reference)
   #
@@ -276,20 +277,20 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
   return(count.mat)
 }
 
-#'plotTopGenesHeatmap
-#'@name plotTopGenesHeatmap
-#'@description Filters and plots expression matrix
-#'@author Jess
-#'@import BiocManager
-#'@import reticulate
-#'@import pheatmap
-#'@export
-#'@param de.out diffex results
-#'@param dds, DESEq object
-#'@param identifiers mapping to gene name
-#'@param myvar is name of variable
+#' plotTopGenesHeatmap
+#' @name plotTopGenesHeatmap
+#' @description Filters and plots expression matrix
+#' @author Jess
+#' @import BiocManager
+#' @import reticulate
+#' @import pheatmap
+#' @export
+#' @param de.out diffex results
+#' @param dds, DESEq object
+#' @param identifiers mapping to gene name
+#' @param myvar is name of variable
 plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
-                                upload=FALSE, path='.', parentID=NULL,newVar="") {
+                                upload=FALSE, path='.', parentID=NULL,newVar=NULL) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -343,11 +344,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-  
-  if(newVar!="")
-    all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
-  else
-    all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
+
+  all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age', newVar)
   
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
@@ -416,9 +414,9 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   #sprint(res)
  # ret=as.data.frame(res)%>%
 #    dplyr::select(ID,Description,pvalue,p.adjust,Count)
-  
+
 #  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
-  
+
 #  if(nrow(res)==0){
 #    return(res)
 #  }else{
