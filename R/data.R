@@ -56,11 +56,10 @@ do_deseq_import <- function(file) {
 #' @export
 dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
-  print(colname)
-  print(samps)
+
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-  #print(head(tab))
+
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
@@ -80,7 +79,6 @@ dataFromSynTable<-function(tab,syn,colname){
       return(NULL)
 
   full.tab<-do.call(rbind,lapply(synds,function(x){
-      #print(x)
     x=unlist(x)
     path <-syn$get(x)$path
     fend<-unlist(strsplit(basename(path),split='.',fixed=T))
@@ -108,21 +106,18 @@ dataFromSynTable<-function(tab,syn,colname){
     else if(fend=='sf'){##add check from rnaseq data
       tab<-do_deseq_import(path)#%>%
         # dplyr::rename(counts=x)
-       # print(head(tab))
       }
     else {
       tab<-readxl::read_xls(path)
       }
-     # print(head(tab))
     tab<-tab[,schemas[[colname]]]%>%
          mutate(synid=x)
-      #print(head(tab))
     data.frame(cbind(tab,other.vals))
     }))
     return(full.tab)
   })
   res <- do.call(rbind,res)
-  print(colnames(res))
+
   return(res)
 }
 
@@ -141,7 +136,7 @@ fixDrugData<-function(drugData){
    # rename(batch=synid)%>%#paste(Sample,drug,sep='_'))%>%ungroup()%>%
     mutate(volume=as.numeric(volume))%>%
     subset(!is.na(volume))
-  print(drugDat)
+
   ##these files are supposed to be in the same batch -each file is doxo, everlo, vehicle
   b1<-drugDat$batch%in%c("syn22024434", "syn22024435","syn22024436")
   b2<-drugDat$batch%in%c('syn22024430','syn22024431','syn22024432')
@@ -159,7 +154,6 @@ fixDrugData<-function(drugData){
   ##update the control drug name
   # #%in%c(NA,'N/A','control')
   # inds0 = grep('vehicle',drugDat$drug)
-  # print(inds0)
   # drugDat$drug[inds0]<-'vehicle0'
   # inds1 = which(is.na(drugDat$drug))
   # drugDat$drug[inds1]='vehicle1'
@@ -172,11 +166,10 @@ fixDrugData<-function(drugData){
   # drugDat$model.id[c(ai)]<-paste(drugDat$model.id[ai],drugDat$drug[ai],sep='_')
   # ##first lets add a replicate to those without
   # inds = grep('_',drugDat$model.id)
-  # #  print(inds)
   # inds<-union(inds,ai)
   # drugDat$model.id[-inds]<-paste(drugDat$model.id[-inds],drugDat$drug[-inds],'1',sep='_')
   ai<-drugDat$inds %in% c('vehicle','N/A','control',NA)
-  print(ai)
+
   drugDat$drug[ai]<-rep('control',length(ai))
 
   drugDat$time[which(drugDat$time<0)]<-0
@@ -375,7 +368,7 @@ getNewSomaticCalls<-function(tab,specimen){
     library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
-    #  print(fileid)
+
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
     mutate(trans_id=stringr::str_replace(trans_id,'\\.[0-9]+',''))%>%
@@ -461,9 +454,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
 
   res=do.call(rbind,lapply(names(indiv),function(x)
   {
-   # print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
-   # print(head(tab))
     tab%>%
     dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                   Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
