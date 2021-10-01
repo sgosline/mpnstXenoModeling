@@ -293,7 +293,7 @@ deseq2NormFilter<-function(data.table,newVar=NULL){
     round()
   
   coldata<-data.table%>%
-    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,Clinical.Status,newVar)%>%
+    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`,newVar)%>%
     distinct()%>%
   #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
     tibble::column_to_rownames('Sample')
