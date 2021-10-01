@@ -290,7 +290,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #' @param identifiers mapping to gene name
 #' @param myvar is name of variable
 plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
-                                upload=FALSE, path='.', parentID=NULL, newVar=NULL, plotheight=20) {
+                                upload=FALSE, path='.', parentID=NULL, newVar=NULL, plotheight=20, genelist=identifiers$GENENAME) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -322,7 +322,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
     subset(!is.na('GENENAME'))%>%
-    subset(GENENAME!="")
+    subset(GENENAME!="")%>%
+    subset(GENENAME%in%genelist)
   
   if(is.null(patients))
     patients <- rownames(colData(dds))
