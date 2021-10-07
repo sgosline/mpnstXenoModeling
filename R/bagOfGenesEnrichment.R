@@ -356,12 +356,12 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
-    mutate(`Clinical Status`=unlist(Clinical.Status))
+    mutate(Clinical.Status=unlist(Clinical.Status))
   var.ID[newVar] <- lapply(var.ID[newVar],as.character)
-
+  
   annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
   names(annote.colors)<-newVar
-    
+
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
  
   count.mat<-count.mat[,patients]
