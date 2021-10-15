@@ -476,3 +476,21 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   
   return(p.both)
 }
+
+#' #### Optional function to visualize hypothesis testing
+
+hypothesisTestPlotsDE <- function(dds) {
+    par(mfrow=c(2,2),mar=c(2,2,1,1),bg='white')
+    ylim <- c(-5,5)
+    resGA <- results(dds, lfcThreshold=.5, altHypothesis="greaterAbs")
+    resLA <- results(dds, lfcThreshold=.5, altHypothesis="lessAbs")
+    resG <- results(dds, lfcThreshold=.5, altHypothesis="greater")
+    resL <- results(dds, lfcThreshold=.5, altHypothesis="less")
+    drawLines <- function() abline(h=c(-.5,.5),col="dodgerblue",lwd=2)
+    plotMA(resGA, ylim=ylim); drawLines()
+    plotMA(resLA, ylim=ylim); drawLines()
+    plotMA(resG, ylim=ylim); drawLines()
+    plotMA(resL, ylim=ylim); drawLines()
+}
+
+
