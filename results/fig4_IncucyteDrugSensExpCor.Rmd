@@ -1,0 +1,177 @@
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+require(remotes)
+
+#if(!require(mpnstXenoModeling)){
+  remotes::install_github('jessbade/mpnstXenoModeling', ref='sara')
+  library(mpnstXenoModeling)
+#}
+#remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+library(data.table)
+library(dplyr)
+library(repr)
+library(pheatmap)
+```
+
+```{r}
+ls("package:IncucyteDRC")
+```
+
+```{r}
+mpnstXenoModeling::loadPDXData()
+```
+
+```{r}
+icyteData
+```
+
+### Analysis of IncuCyte % confluence
+
+```{r}
+icStats <- icyteData%>%
+           mutate(maxKilling = (response/100))
+minDrugs <- icStats%>%
+            mutate(hasRNASeq=(model_system_name%in%rnaSeq$Sample))%>%
+            group_by(compound_name)%>%
+            summarise(samples=n_distinct(model_system_name),samplesWithRNA=count(hasRNASeq==TRUE))%>%
+            subset(samples>2)
+DT::datatable(minDrugs)
+```
+
+```{r}
+icStats
+```
+
+```{r}
+
+#' @param idrc_set IncucyteDRCSet object
+#' @param include_control Whether to include control sample as zero conc control
+
+#'
+#' @examples
+#' pm_file <- system.file(file='extdata/example.PlateMap', package='IncucyteDRC')
+#' test_pm <- importPlatemapXML(pm_file)
+#' data_file <- system.file(file='extdata/example_data.txt', package='IncucyteDRC')
+#' test_data <- importIncucyteData(data_file, metric='pc')
+
+fitDoseResponseCurve <- function(df, include_control=FALSE) {
+
+    #set up subroutine for fit
+    drc_fit <- function(x) {
+        m1 <- NULL
+        if (length(unique(x$dose)) > 2) {
+            try (m1 <- drc::drm(value~conc, fct=drc::LL.4(), data=x))
+        }
+        return(m1)
+    }
+
+    #fit models - derive a data frame
+    drc_models <- df %>%
+        dplyr::group_by(model_system_name) %>%
+        dplyr::do(drc_model=drc_fit(.))
+
+    return(drc_models)
+
+}
+fitDoseResponseCurve(icyteData)
+```
+
+```{r}
+#' calculateEC50
+#'
+#' Calculates the EC50s for the dose response curves in an IncucyteDRCSet object
+#'
+#' @param idrc_set IncucyteDRCSet object
+#'
+#' @return IncucyteDRCSet object
+#' @export
+#'
+#' @examples
+#' pm_file <- system.file(file='extdata/example.PlateMap', package='IncucyteDRC')
+#' test_pm <- importPlatemapXML(pm_file)
+#' data_file <- system.file(file='extdata/example_data.txt', package='IncucyteDRC')
+#' test_data <- importIncucyteData(data_file, metric='pc')
+#'
+#' test_list <- splitIncucyteDRCPlateData(test_pm, test_data, group_columns='growthcondition')
+#'
+#' print(test_list)
+#'
+#' test_idrc_set <- fitGrowthCurvesGrouped(test_list[[2]])
+#' test_idrc_set <- fitGrowthCurvesIndividual(test_idrc_set)
+#' test_idrc_set <- calculateDRCData(test_idrc_set, cut_time=100)
+#' test_idrc_set <- fitDoseResponseCurve(test_idrc_set)
+#' test_idrc_set <- calculateEC50(test_idrc_set)
+#' exportEC50Data(test_idrc_set)
+#'
+calculateEC50 <- function(idrc_set) {
+
+    #make sure that fitDoseResponseCurve has been run
+    if(is.null(idrc_set$drc_models)) {
+        stop("Need to run fitDoseResponseCurve first to fit dose response models")
+    }
+
+    #extract parameters from models filtering out NULLs
+    drc_ec50 <- idrc_set$drc_models %>%
+        dplyr::filter(!is.null(drc_model)) %>%
+        dplyr::mutate(EC50 = drc::ED(drc_model,50, display=F)[1],
+                      SE = drc::ED(drc_model,50, display=F)[2],
+                      #R2 <- dr.calc.r2(dr),
+                      b = coef(drc_model)[1],
+                      c = coef(drc_model)[2],
+                      d = coef(drc_model)[3],
+                      e = coef(drc_model)[4]) %>%
+        dplyr::select(-drc_model) %>%
+        dplyr::ungroup()
+
+    #deal with null models
+    drc_ec50_nulls <- idrc_set$drc_models %>%
+        dplyr::filter(is.null(drc_model)) %>%
+        dplyr::mutate(EC50=NA, SE=NA, b=NA, c=NA, d=NA, e=NA) %>%
+        dplyr::select(-drc_model) %>%
+        dplyr::ungroup()
+
+    #combine outputs
+    drc_ec50 <- drc_ec50 %>%
+        dplyr::bind_rows(drc_ec50_nulls) %>%
+        as.data.frame()
+
+    #sort out output
+    output <- idrc_set
+    output$drc_ec50 <- drc_ec50
+
+    return(output)
+
+}
+```
+
+```{r}
+##let's plot the stats for each drug
+library(pheatmap)
+
+auc.mat<-drugStats%>%
+  dplyr::select(drug,individualID,AUC)%>%
+  tidyr::pivot_wider(values_from=AUC,names_from=individualID,values_fill=list(AUC=0))%>%
+  tibble::column_to_rownames('drug')%>%
+  as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+
+tgi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,TGI)%>%
+  tidyr::pivot_wider(values_from=TGI,names_from=individualID,values_fill=list(TGI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+
+spi.mat<-drugStats%>%
+  dplyr::select(drug,individualID,SPI)%>%
+  tidyr::pivot_wider(values_from=SPI,names_from=individualID,values_fill=list(SPI=0))%>%
+  tibble::column_to_rownames('drug')%>%
+   as.matrix()%>%
+  pheatmap(cellwidth = 10,cellheight=10)
+```
