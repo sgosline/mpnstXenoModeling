@@ -66,8 +66,8 @@ dataFromSynTable<-function(tab,syn,colname){
               'assay_value','assay_units'),
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
               `RNASeq`=c('GENEID','counts'),
-              `Microtissue Drug Data`=c()
-              `Incucyte Drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
+              `Microtissue Drug Data`=c(),
+              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
   ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
@@ -213,16 +213,7 @@ loadPDXData<-function(){
   mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
   
   #get incucyte data
-  icyteQuery<- syn$tableQuery('select id, name from syn21993642 WHERE ( ( "parentId" = \'syn26288041\' ) )')$asDataFrame()
-  icyteDataTab<-icyteQuery%>%
-                separate(name,into=c('incucyte','Sample','drugComboftype'),sep='_')%>%
-                separate(drugComboftype,into=c('drug1','drug2',sep='\\.'))%>%
-                select('id','Sample','drug1','drug2')%>%
-                unite('drugCombo','drug1','drug2',sep='+')%>%
-                pivot_wider(names_from='drugCombo',values_from='id')
-  print(icyteQuery)
-  i.data.tab <- merge(data.tab,icyteDataTab,by='Sample')
-  icyteData<<-dataFromSynTable(i.data.tab, syn, 'Incucyte Drug Data')
+  icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
   
 }
 
