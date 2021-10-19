@@ -19,7 +19,7 @@ The goal of this analysis is to collect growth curves from the PDX models.
 
 Here we will calculate three basic response metrics from the PDX data and then correlate them with other data modalities. First we load all the PDX data from `Synapse`.
 
-```{r, echo=FALSE, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 require(remotes)
 if(!require(mpnstXenoModeling)){
   remotes::install_github('sgosline/mpnstXenoModeling')
@@ -40,7 +40,7 @@ Based on [this manuscript](https://link.springer.com/content/pdf/10.1208/s12248-
 
 We can now get all the values for all the combinations.
 
-```{r drugStats, warning=FALSE}
+```{r drugStats, warning=FALSE, message=FALSE}
 library(ggplot2)
 pat.drug<-drugData%>%dplyr::rename(individualID='Sample')%>%
     getAllDrugStats(.)%>%
@@ -70,7 +70,7 @@ syn$store(pd)
 
 It seems that 545 is a growth outlier (in addition to a mutational outlier) so we can remove it and re-plot.
 
-```{r plotting without 545,warning=FALSE}
+```{r plotting without 545,warning=FALSE, message=FALSE}
 pat.drug%>%
   subset(individualID!='WU-545')%>%
   tidyr::pivot_longer(c(3,4,5),values_to='Value',names_to='Metric')%>%
