@@ -51,6 +51,38 @@ plotPDXTreatmentBySample<-function(dt){
 }
 
 
+
+#'plotPDXTreatmentByDrug
+#'@param samps
+#'@param drugs
+#'@export
+plotPDXTreatmentByDrug<-function(samps,drugs){
+  
+  
+}
+
+#'plotMTTreatmentByDrug
+#'@param samps list of sample identifiers
+#'@param drugs list of drug names
+#'@export
+plotMTTreatmentByDrug<-function(samps,drugs){
+  
+  ##first filter
+  res<-subset(mt.meta,experimentalCondition%in%drugs)%>%
+    subset(individualID%in%samps)
+  #out = res[order(res$Conc),]
+  
+  #then get drug data
+  res2 = mpnstXenoModeling::getMicroTissueDrugData(syn,res)
+  
+  ##then plot for each drug
+  dplots<-lapply(drugs,function(drug){ 
+    print(drug);
+    generate_DR_plots(res2,drug)}
+    )
+
+}
+
 #' plotTumorGrowthCorrelations
 #' @param drugGeneCors the output of `drugMutationsCor`
 #' @param minCor absolutely correlation to plot

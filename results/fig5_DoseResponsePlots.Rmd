@@ -1,0 +1,77 @@
+---
+title: "Replot Drug Curves"
+author: "Sara Gosline"
+date: "10/19/2021"
+output: html_document
+---
+
+For each of the drugs and models of interest we would like to plot all of the dose response curves in the same cformat so that they can be combined.
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+if(!require('DT')){
+  install.packages("DT")
+  library(leapr)
+}
+
+library(dplyr)
+library(ggrepel)
+```
+
+
+## Load drug data and expression data
+```{r mutation data,message=FALSE,warning=FALSE}
+mpnstXenoModeling::loadPDXData()
+
+
+```
+
+## Plot drugs
+
+### Microtissue Metrics
+
+The first thing we need to do is establish good metrics for evaluating drug sensitivity.  We experiment with a few here. 
+
+
+```{r MT drug plots, message=FALSE, warning=FALSE}
+
+##these are the drugs we want to evaluate!!!
+eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin','Olaparib','Olaparib;Trabectedin','mirdametinib','mirdametinib+trabectedin','olaparib','trabectedin')
+
+eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031')
+
+
+
+```
+
+We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/MT/cell line combinations.
+
+
+### Microtissue Dose Response
+```{r plot MT dose response, warning=FALSE, message=FALSE}
+
+```
+
+
+### PDX Dose Response
+```{r plot PDX dose response, warning=FALSE, message=FALSE}
+
+#plotPDXTreatmentBySample
+
+```
+
+### Incucyte Dose Response
+
+### Cell Line Dose Response

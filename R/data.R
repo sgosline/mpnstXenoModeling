@@ -217,8 +217,23 @@ loadPDXData<-function(){
    
   #query microtissue drug data
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
-  mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
-
+  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
+  
+  ##fix CUDC annotations
+  cudc<-grep("CUDC",mt.meta$experimentalCondition)
+  mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
+  
+  ##fig drug combo errors
+  sv<-grep("Selumetinib;Vorinost",mt.meta$experimentalCondition)
+  mt.meta$experimentalCondition[sv]<-rep('Selumetinib;Vorinostat',length(sv))
+  
+  mt<-grep('Trabectedin;Mirdametinib',mt.meta$experimentalCondition)
+  mt.meta$experimentalCondition[mt]<-rep('Mirdametinib;Trabectedin',length(mt))
+  
+  ot<-c(grep('Trabectedin; Olaparib',mt.meta$experimentalCondition),
+        grep('Trabectedin;Olaparib',mt.meta$experimentalCondition))
+  mt.meta$experimentalCondition[ot]<-rep('Olaparib;Trabectedin',length(ot))
+  mt.meta<<-mt.meta 
 }
 
 
@@ -470,11 +485,12 @@ getMicroTissueDrugData <- function(syn, mtd) {
    # print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # print(head(tab))
+    ##TODO get this to work for combo data
     tab%>%
-    dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
-                  Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
-    tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-    dplyr::rename(Viabilities='percent viability')
+      dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                    Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+      tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+      dplyr::rename(Viabilities='percent viability')
   }))
   #res$`total cell count`=unlist(res$`total cell count`)
   #res$`live cell count`=unlist(res$`live cell count`)

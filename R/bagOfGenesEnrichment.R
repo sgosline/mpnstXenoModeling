@@ -354,7 +354,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-  if(length(sigs)<3)
+  if(nrow(sigs)<3)
     return(NULL)
   #print(sigs)
   
