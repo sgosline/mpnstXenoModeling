@@ -2,7 +2,8 @@
 % Please edit documentation in R/mtResponseMetrics.R
 \name{TryFit}
 \alias{TryFit}
-\title{MT plotting and fitting functions}
+\title{TryFit
+Takes the dose response data and fits it to various models}
 \usage{
 TryFit(
   dose_response,

@@ -38,48 +38,68 @@ plotDrugData<-function(drugData){
 #' @export
 plotPDXTreatmentBySample<-function(dt){
   #print(dt$Sample)
+  pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
+  
   sample=dt$Sample[1]
   batch=dt$batch[1]
   #print(sample)
   tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
-  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),minVol=median(volume)-sd(volume),maxVol=median(volume)+sd(volume))%>%distinct()
+  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),
+                                            minVol=median(volume)-sd(volume),
+                                            maxVol=median(volume)+sd(volume))%>%distinct()
   
-  p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)
+  p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+
+    geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)
   #ggsave(paste0(sample,'PDXmodeling.png'),p)
   print(p)
   return(p)
 }
 
 
-
-#'plotPDXTreatmentByDrug
-#'@param samps
-#'@param drugs
+#'plotMTTreatmentByDrug
+#'@param dt mt data table
 #'@export
-plotPDXTreatmentByDrug<-function(samps,drugs){
+plotMTTreatmentByDrug<-function(dt,sample){
   
+  pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
+  dt<-subset(dt,CellLine==sample)
+  #batch=dt$batch[1]
+  #print(sample)
+  tt<-dt%>%dplyr::select(Conc,Viabilities,DrugCol)%>%distinct()
+  tm <-tt%>%group_by(Conc,DrugCol)%>%summarize(mvol=median(Viabilities,na.rm=T),
+                                            minVol=median(Viabilities,na.rm=T)-sd(Viabilities,na.rm=T),
+                                            maxVol=median(Viabilities,na.rm=T)+sd(Viabilities,na.rm=T))%>%distinct()
+  #print(tm)  
+  p<-ggplot(tm,aes(x=Conc,y=mvol,ymin=minVol,ymax=maxVol,col=DrugCol,fill=DrugCol))+
+    geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)
+  #ggsave(paste0(sample,'PDXmodeling.png'),p)
+  print(p)
+  
+  return(p)
   
 }
 
-#'plotMTTreatmentByDrug
-#'@param samps list of sample identifiers
-#'@param drugs list of drug names
+#'plotMTTreatmentBySample
+#'@param dt mt data table
 #'@export
-plotMTTreatmentByDrug<-function(samps,drugs){
+plotMTTreatmentBySample<-function(dt,drug){
   
-  ##first filter
-  res<-subset(mt.meta,experimentalCondition%in%drugs)%>%
-    subset(individualID%in%samps)
-  #out = res[order(res$Conc),]
+  pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
+  dt<-subset(dt,DrugCol==drug)
+  #batch=dt$batch[1]
+  #print(sample)
+  tt<-dt%>%dplyr::select(Conc,Viabilities,CellLine)%>%distinct()
+  tm <-tt%>%group_by(Conc,CellLine)%>%summarize(mvol=median(Viabilities,na.rm=T),
+                                                minVol=median(Viabilities,na.rm=T)-sd(Viabilities,na.rm=T),
+                                                maxVol=median(Viabilities,na.rm=T)+sd(Viabilities,na.rm=T))%>%
+            distinct()
   
-  #then get drug data
-  res2 = mpnstXenoModeling::getMicroTissueDrugData(syn,res)
+  p<-ggplot(tm,aes(x=Conc,y=mvol,ymin=minVol,ymax=maxVol,col=CellLine,fill=CellLine))+
+    geom_line()+ggtitle(drug)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)
+  #ggsave(paste0(sample,'PDXmodeling.png'),p)
+  print(p)
   
-  ##then plot for each drug
-  dplots<-lapply(drugs,function(drug){ 
-    print(drug);
-    generate_DR_plots(res2,drug)}
-    )
+  return(p)
 
 }
 

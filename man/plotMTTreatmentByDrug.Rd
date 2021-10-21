@@ -4,12 +4,14 @@
 \alias{plotMTTreatmentByDrug}
 \title{plotMTTreatmentByDrug}
 \usage{
-plotMTTreatmentByDrug(samps, drugs)
+plotMTTreatmentByDrug(samps, drugs, syn)
 }
 \arguments{
 \item{samps}{list of sample identifiers}
 
 \item{drugs}{list of drug names}
+
+\item{syn}{synapse instance}
 }
 \description{
 plotMTTreatmentByDrug

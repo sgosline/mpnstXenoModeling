@@ -1,8 +1,10 @@
-^.*\.Rproj$
-^\.Rproj\.user$
-^\.github$
-^.Rprofile$
+.*\.Rproj
+\.Rproj\.user
+\.github
+\.Rprofile
 \.git
 \.Rhistory
 \.Rcheck
 \.tar\.gz$
+^.*\.Rproj$
+^\.Rproj\.user$

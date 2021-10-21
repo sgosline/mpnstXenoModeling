@@ -40,21 +40,21 @@ mpnstXenoModeling::loadPDXData()
 
 ## Plot drugs
 
-### Microtissue Metrics
+We now want to plot drug performance across samples of interest, so we can do a side by side of drugs and their combinations.
 
-The first thing we need to do is establish good metrics for evaluating drug sensitivity.  We experiment with a few here. 
-
-
-```{r MT drug plots, message=FALSE, warning=FALSE}
+```{r drug list}
 
 ##these are the drugs we want to evaluate!!!
 eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin','Olaparib','Olaparib;Trabectedin','mirdametinib','mirdametinib+trabectedin','olaparib','trabectedin')
 
 eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031')
 
-
-
 ```
+### Microtissue Metrics
+
+The first thing we need to do is establish good metrics for evaluating drug sensitivity.  We experiment with a few here. 
+
+
 
 We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/MT/cell line combinations.
 
@@ -62,13 +62,25 @@ We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/M
 ### Microtissue Dose Response
 ```{r plot MT dose response, warning=FALSE, message=FALSE}
 
+mt.subs<-subset(mtDrugData,CellLine%in%eval.samps)%>%subset(DrugCol%in%eval.drugs)
+
+samp.plots<-lapply(eval.samps,function(samp) plotMTTreatmentByDrug(mt.subs,samp))
+
+drug.plots<-lapply(intersect(eval.drugs,mtDrugData$DrugCol),function(drug) plotMTTreatmentBySample(mt.subs,drug))
+
+
 ```
 
 
 ### PDX Dose Response
 ```{r plot PDX dose response, warning=FALSE, message=FALSE}
 
-#plotPDXTreatmentBySample
+
+plots <-drugData%>%
+  subset(Sample%in%eval.samps)%>%
+  subset(drug%in%eval.drugs)%>%
+  group_by(Sample,batch,.drop=F)%>%
+  group_map(~plotPDXTreatmentBySample(.x),.keep=TRUE)
 
 ```
 

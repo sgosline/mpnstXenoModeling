@@ -1,7 +1,4 @@
-##'
-##'MT plotting and fitting functions
-##'
-##'
+
 
 #' TryFit
 #' Takes the dose response data and fits it to various models
@@ -66,21 +63,22 @@ drcmod <- function(dose_resp, fctval, curve_type){
 generate_DR_plots <- function(res, drugID) {
   
   res<-subset(res,DrugCol==drugID)
+  
   if(!require('pROC')){
     BiocManager::install('pROC')
     library(pROC)
   }
   if(!require('data.table')){
     install.packages('data.table')
-    library(data.table)
   }
+  library(data.table)
   dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine) #%>% setDT()
   dr.df <- tidyr::unnest(dr.df, Viabilities)
   dr.df$Viabilities<- na_if(dr.df$Viabilities, "NA")
   dr.df <- dr.df[complete.cases(dr.df), ]
-  dr.dt <- data.table(dr.df)
-  dt2 <- data.table()
-  dat.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),
+  dr.dt <- data.table::data.table(dr.df)
+  dt2 <- data.table::data.table()
+  dat.dt <- data.table::data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),
                        MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
   # factor by CellLine
   dr.dt[,CellLine:=as.factor(CellLine)]
