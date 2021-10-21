@@ -16,4 +16,4 @@ BiocManager::install("tximport")
 library(remotes)
 remotes::install_github("rstudio/reticulate")
 remotes::install_github("sgosline/mpnstXenoModeling")
-remotes::install_github("biodataganache/leapR")'
+remotes::install_github("biodataganache/leapR")
