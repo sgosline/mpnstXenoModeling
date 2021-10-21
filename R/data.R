@@ -216,7 +216,7 @@ loadPDXData<-function(){
   
    
   #query microtissue drug data
-  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
+  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\'')$asDataFrame()
   mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
   
   ##fix CUDC annotations
@@ -490,10 +490,10 @@ getMicroTissueDrugData <- function(syn, mtd) {
     indiv<-mt2$individualID
     #sets filenames to names of ids
     names(indiv)<-ids
-   # print(y)
+    print(y)
     res=do.call(rbind,lapply(names(indiv),function(x)
     {
-    #  print(indiv[x])
+      print(indiv[x])
       #print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
