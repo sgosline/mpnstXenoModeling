@@ -61,7 +61,7 @@ We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/M
 
 ### Microtissue Dose Response
 ```{r plot MT dose response, warning=FALSE, message=FALSE}
-librayr(cowplot)
+library(cowplot)
 
 mt.subs<-subset(mtDrugData,CellLine%in%eval.samps)%>%subset(DrugCol%in%eval.drugs)
 

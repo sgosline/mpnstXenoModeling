@@ -470,7 +470,7 @@ mk.all.res<-lapply(eval.drugs,function(x){
 
 full.mk.res<-do.call(rbind,mk.all.res)
  
-write.table(full.res,file='maxKillMTGenesAtMidMK.csv')
+write.table(full.mk.res,file='maxKillMTGenesAtMidMK.csv')
 
   
 full.mk.res%>%

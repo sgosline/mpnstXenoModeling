@@ -24,6 +24,7 @@ jobs:
           sudo apt-get install python3-virtualenv
           sudo apt-get install python3-venv
           sudo apt-get install libcurl4-openssl-dev
+          sudy apt-get install testresources
        shell: /bin/bash {0}
      - name: Install synapse client
        run: |
