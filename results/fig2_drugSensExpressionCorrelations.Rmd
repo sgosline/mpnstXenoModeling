@@ -57,19 +57,7 @@ syn = synapseLogin()
 mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
   mutate(maxKilling = 1-(MinViability/MaxViability))
 
-##fix CUDC annotations
-cudc<-grep("CUDC",mtStats$Drug)
-mtStats$Drug[cudc]<-rep("CUDC-907",length(cudc))
 
-##fig drug combo errors
-sv<-grep("Selumetinib;Vorinost",mtStats$Drug)
-mtStats$Drug[sv]<-rep('Selumetinib;Vorinostat',length(sv))
-
-mt<-grep('Trabectedin;Mirdametinib',mtStats$Drug)
-mtStats$Drug[mt]<-rep('Mirdametinib;Trabectedin',length(mt))
-
-ot<-c(grep('Trabectedin; Olaparib',mtStats$Drug),grep('Trabectedin;Olaparib',mtStats$Drug))
-mtStats$Drug[ot]<-rep('Olaparib;Trabectedin',length(ot))
 
 good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
 
@@ -210,7 +198,7 @@ DT::datatable(sens.class)
 
 ```{r rnaseq,message=FALSE,warning=FALSE}
     library(ensembldb)
-  
+  library(ggrepel)
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, 
                               keys=list(GeneIdFilter(rnaSeq$GENE),
@@ -541,7 +529,7 @@ mk.go.res<-lapply(mk.all.res,function(drug.res){
     genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
     dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('AUC',x),useEns=FALSE)
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxKilling',x),useEns=FALSE)
   #drug.res
   res2%>%mutate(Drug=x)
 })
