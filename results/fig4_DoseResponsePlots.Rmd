@@ -47,12 +47,12 @@ We now want to plot drug performance across samples of interest, so we can do a 
 ##these are the drugs we want to evaluate!!!
 drug.list<-list(MirdaTrab=c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin'),
                 OlaTrab=c('Olaparib','Olaparib;Trabectedin','Trabectedin'),
-                ShpRibo=c('SHP 99.0','SHP099;Ribociclib','Ribociclib'),
-                ShpTram=c('SHP 99.0','Trametenib','SHP099;Trametinib'))
+                ShpRibo=c('SHP099','Ribociclib;SHP099','Ribociclib'),
+                ShpTram=c('SHP099','Trametinib','SHP099;Trametinib'))
 
 eval.drugs.pdx<-c('mirdametinib','mirdametinib+trabectedin','olaparib','trabectedin','ribociclib','trametinib','trametinib+ribociclib')
 
-eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031','WU-386')
+eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031','MN1','WU-368')
 
 ```
 ### Microtissue Metrics
@@ -76,14 +76,14 @@ lapply(names(drug.list),function(drugGroup){
     plotMTTreatmentByDrug(mt.subs,samp))
 
   ggsave(paste0('SampleMT',drugGroup,'plots.png'),
-         cowplot::plot_grid(plotlist = samp.plots,ncol=2),height=12)
+         cowplot::plot_grid(plotlist = samp.plots,ncol=2),height=12,width=12)
 
 
-  drug.plots<-lapply(intersect(drug.list[[drugGroup]],mtDrugData$DrugCol),
-                     function(drug) plotMTTreatmentBySample(mt.subs,drug))
+#  drug.plots<-lapply(intersect(drug.list[[drugGroup]],mtDrugData$DrugCol),
+  #                   function(drug) plotMTTreatmentBySample(mt.subs,drug))
 
-  ggsave(paste0('DrugMT',drugGroup,'plots.png'),
-         cowplot::plot_grid(plotlist = drug.plots,ncol=2),height=12)
+ # ggsave(paste0('DrugMT',drugGroup,'plots.png'),
+  #       cowplot::plot_grid(plotlist = drug.plots,ncol=2),height=12,width=12)
 })
 
 

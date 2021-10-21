@@ -304,7 +304,7 @@ go.res<-lapply(all.res,function(drug.res){
     genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
     dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
-  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('AUC',x),useEns=FALSE)
+  res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('PDX_AUC',x),useEns=FALSE)
   #drug.res
   res2%>%mutate(Drug=x)
 })

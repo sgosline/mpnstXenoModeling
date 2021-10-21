@@ -66,6 +66,9 @@ print(paste('Looking at ',nrow(good.mt),'micro tisues'))
 mtStats <- mtStats%>%
   subset(CellLine%in%good.mt$Sample)
 
+sh<-grep("99.00",mtStats$Drug)
+mtStats$Drug[sh]<-rep("SHP099",length(sh))
+
 minDrugs <- mtStats%>%
    mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
   group_by(Drug)%>%
@@ -74,7 +77,12 @@ minDrugs <- mtStats%>%
 
 DT::datatable(minDrugs)
 
-eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin','Olaparib','Olaparib;Trabectedin')
+##these are the drugs we want to evaluate!!!
+
+eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
+                'Olaparib','Olaparib;Trabectedin',
+                'SHP099;Ribociclib','Ribociclib',
+                'SHP099','Trametinib','SHP099;Trametinib')
 
 ```
 
@@ -198,6 +206,7 @@ DT::datatable(sens.class)
 
 ```{r rnaseq,message=FALSE,warning=FALSE}
     library(ensembldb)
+ library("EnsDb.Hsapiens.v86")
   library(ggrepel)
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, 
@@ -247,7 +256,7 @@ p<-ex.df%>%
 
 p
 
-ggsave("UMAP_GeneExpression.png",p)
+ggsave("UMAP_mt_qual_GeneExpression.png",p)
   pmap<-pmap%>%
       tibble::column_to_rownames('GENEID')
 ```
@@ -275,7 +284,7 @@ all.res<-lapply(unique(eval.drugs),function(x){
     geom_text_repel(data = ddf, aes(label = Sample))+
     ggtitle(paste0('Expression by ',x,' AUC'))
   p
-  ggsave(paste0('umapBy',x,'AUC.png'),p)
+  ggsave(paste0('umapBy',x,'MT_AUC.png'),p)
   
   
   sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
@@ -289,7 +298,7 @@ all.res<-lapply(unique(eval.drugs),function(x){
   if(nrow(drug.res)>0)
     try(mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                            pmap,                                        
-                                           paste0('AUC',x),
+                                           paste0('AUC_MT',x),
                                         patients=c(sens.pats$CellLine,res.pats$CellLine),
                                            adjpval=0.01, 
                                            upload=FALSE, 
@@ -361,7 +370,7 @@ go.res<-lapply(all.res,function(drug.res){
     x=drug.res$Drug[1]
    
     genes=pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']
-    res2<-mpnstXenoModeling::doRegularGo(genes,prefix=paste0('AUC',x)) 
+    res2<-mpnstXenoModeling::doRegularGo(genes,prefix=paste0('MT_AUC',x)) 
     #genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
     #dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
@@ -442,7 +451,7 @@ mk.all.res<-lapply(eval.drugs,function(x){
     geom_text_repel(data = ddf, aes(label = Sample))+
     ggtitle(paste0('Expression by ',x,' MaxKilling'))
   p
-  ggsave(paste0('umapBy',x,'MK.png'),p)
+  ggsave(paste0('umapBy',x,'MT_MK.png'),p)
   
   
   sens.pats <- subset(sens.class,Drug==x)%>%subset(mksens==TRUE)
@@ -457,7 +466,7 @@ mk.all.res<-lapply(eval.drugs,function(x){
   if(nrow(drug.res)>0)
     try(mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                            pmap,                                        
-                                           paste0('MK',x),
+                                           paste0('MT_MK',x),
                                            patients=c(sens.pats$CellLine,res.pats$CellLine),
                                            adjpval=0.01, 
                                            upload=FALSE, 
@@ -513,7 +522,7 @@ p<-df%>%
 
 p
 
-ggsave('PCAbyDiffExMK.png',p)
+ggsave('PCAbyDiffEx_MT_MK.png',p)
 
 ```
 
@@ -571,5 +580,5 @@ p<-df%>%
   geom_text_repel(data = subset(df, abs(PC1)>5|abs(PC2)>5), aes(label = Drug))+ggtitle("Samples by GO terms")
 
 p
-ggsave('PCAplotbyGoMK.png',p)
+ggsave('PCAplotbyGo_MT_MK.png',p)
 ```
