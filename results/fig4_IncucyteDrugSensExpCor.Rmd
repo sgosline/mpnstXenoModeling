@@ -17,10 +17,9 @@ library(data.table)
 library(dplyr)
 library(repr)
 library(pheatmap)
-```
-
-```{r}
-ls("package:IncucyteDRC")
+library(ggplot2)
+library(drc)
+library(pROC)
 ```
 
 ```{r}
@@ -28,150 +27,232 @@ mpnstXenoModeling::loadPDXData()
 ```
 
 ```{r}
-icyteData
+ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
+geom_point()
+```
+
+```{r}
+filter_byDrug <- function(icd, drugID) {
+  icd <- subset(icd, compound_name == drugID)
+  icd <- icd[order(icd$experimental_time_point),]
+  #icd$dosage <- log((icd$dosage)/1000000000)
+  # Assumes log(M) concentration
+  return(icd)
+}
+
+TryFit <- function(time_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
+    if (var(time_response$response) == 0) {
+        time_response$response[nrow(time_response)] <- time_response$response[nrow(time_response)] + 10^-10
+    }
+    #dose_response[dose_response == 0] <- 10^-10
+    nan.handle <- match.arg(nan.handle)
+    #, logDose = exp(10)
+    drug.model <- tryCatch({
+        drcmod(time_response, LL.4(fixed = fixed, names = names), curve_type)
+    }, warning = function(w) {
+        if(nan.handle == "L4"){
+            drcmod(time_response, L.4(fixed = fixed, names = names), curve_type)
+    } else {
+        drcmod(time_response, LL.4(fixed = fixed, names = names), curve_type)
+    }
+    }, error = function(e) {
+        drcmod(time_response, L.4(fixed = fixed, names = names), curve_type)
+    })
+    return(drug.model = drug.model)
+}
+drcmod <- function(time_resp, fctval, curve_type){
+  temp <- drm(formula   = response ~ experimental_time_point
+      , curveid   = model_system_name
+      , data      = time_resp
+      , fct       = fctval
+      , na.action = na.omit
+      , control   = drmc(errorm = FALSE)
+  )
+  summary(temp)
+  return(temp)
+}
+generate_TR_plots <- function(res, drugID) {
+  require(data.table)
+  tr.df <- res %>% dplyr::select(experimental_time_point, response, model_system_name, dosage) #%>% setDT()
+  tr.df <- tidyr::unnest(tr.df, response)
+  tr.df$response<- na_if(tr.df$response, "NA")
+  tr.df <- tr.df[complete.cases(tr.df), ]
+  tr.dt <- data.table(tr.df)
+  dt2 <- data.table()
+  dat.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),
+                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+  # factor by CellLine
+  tr.dt[,model_system_name:=as.factor(model_system_name)]
+  scale.num <- nlevels(tr.dt$model_system_name)
+  # iterate over CellLine: Conc, Viabilities
+  for (i in 1:nlevels(tr.dt$model_system_name)) {
+    # subset data.table by CellLine level
+    dt <- tr.dt[model_system_name %in% levels(model_system_name)[i]]
+    dt[, model_system_name := as.character(model_system_name)]
+    # TryFit of subsetted data.table
+    #dft <- dt[,.(Viabilities = unlist(Viabilities)), by = setdiff(names(dt), 'Viabilities')]
+    df <- as.data.frame(dt)
+    min_value <- min(df$response)
+    max_value <- max(df$response)
+    fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "model_system_name")
+    # hill from fit.LL4
+    # ic50 code from https://rstudio-pubs-static.s3.amazonaws.com/378543_5b5bda32bf0541a485ccc49efbea680a.html
+    coefs <- setNames(
+      c(fit.LL4$coefficients, min_value, max_value),
+      c("hill", "ec_50", "min_value","max_value"
+      ))
+    ic_50 <- with(as.list(coefs),
+      exp(
+        log(ec_50) + (1 / hill) * log(max_value / (max_value - 2 * min_value)) #log(ec_50)
+      )
+    )
+    #cbind(auc,ED(fit.LL4,50))
+    #rbindlist(dt.dat,auc)
+    dt[, Pred := predict(object=fit.LL4)]
+    sd.lst = dt[, list(SD=sd(response)/4),by=experimental_time_point]
+    df <- as.data.frame(dt)
+    cells <- unique(df$model_system_name)
+    dose <- unique(df$dosage)
+    # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
+    auc <- auc(df$response,df$experimental_time_point)
+    meta2 <- data.table(compound_name=drugID,model_system_name=cells,dosage=dose,Hill=coefs['hill'],ec50=coefs['ec_50'],
+                       MinViability=min_value, MaxViability=max_value,ic50=ic_50,auc=as.numeric(auc))
+    dat.dt <- rbind(dat.dt,meta2)
+    dt = merge(dt,sd.lst)
+    dt2 <- rbind(dt2, dt)
+  }
+  return(list('plot'=dt2,'table'=dat.dt))
+}
+
+tr_plot<-function(dt2) {
+    drug=unique(dt2$drug)
+    dose=unique(dt2$dosage)
+    plot=ggplot(dt2, aes(x=experimental_time_point, y=response, group=model_system_name, color=model_system_name)) + #, shape=model_system_name
+            geom_ribbon(aes(y=Pred, ymin=Pred-SD, ymax=Pred+SD, fill=model_system_name), alpha=0.2, color=NA) +
+            geom_line(aes(y = Pred)) +
+            scale_shape_manual(values=seq(0, nlevels(dt2$model_system_name))) +
+            labs(x = "Time", y = "Confluency %", shape="Temp", color="Temp") +
+            theme_bw() +
+            ggtitle(paste("Time-response curves for", drug, "at dose", dose, "nM"))
+    return(plot)
+    }
+```
+
+```{r}
+process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', parentID=NULL){
+  test=master.table%>%dplyr::select(compound_name,dosage)%>%distinct()
+  print(test)
+  master.table$compound_name <- as.factor(master.table$compound_name)
+  #master.table$dosage <- as.factor(master.table$dosage)
+  drugIDs <- levels(master.table$compound_name)
+  drugIDs <- drugIDs[!drugIDs == 'DMSO']
+  meta.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+  plt.list <- list()
+  pi=1
+  for (drug in drugIDs) {
+    dres <- filter_byDrug(master.table, drug)
+    dres <- split(dres,dres$dosage)
+    for (res in dres){
+      dose <- unique(res$dosage)
+      plt = generate_TR_plots(res,drug)
+      meta.dt <- rbind(meta.dt, plt$table)
+      plt.list[[pi]] <- cbind(plt$plot,drug)
+      pi = pi+1
+      
+    }
+  }
+  meta.dt<-meta.dt%>%tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
+  #fwrite(meta.dt,file="doseResponse_table.csv")
+  pdf("doseResponsePlots.pdf")#, onefile = TRUE
+  master.plot<-lapply(plt.list, tr_plot)
+  print(master.plot)
+  #invisible(lapply(master.plot, print))
+  dev.off()
+  #if (isTRUE(upload)) {
+  #  synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
+  #  synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
+     #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
+  #}
+  return(meta.dt)
+}
+
+
+
+#res  = syn$tableQuery('select * from syn26136282')
+#syn$delete(res)
+#res  = syn$tableQuery('select * from syn26136282')
+#synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
+#pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
+#syn$store(pd)
+```
+
+```{r}
+meta.dt<-process_IncucyteDrugData(icyteData, upload=FALSE)
+```
+
+```{r}
+meta.dt
 ```
 
 ### Analysis of IncuCyte % confluence
 
 ```{r}
-icStats <- icyteData%>%
-           mutate(maxKilling = (response/100))
-minDrugs <- icStats%>%
+icStats0 <- icyteData%>%
+            mutate(maxKilling = (response/100))
+minDrugs <- icStats0%>%
             mutate(hasRNASeq=(model_system_name%in%rnaSeq$Sample))%>%
             group_by(compound_name)%>%
             summarise(samples=n_distinct(model_system_name),samplesWithRNA=count(hasRNASeq==TRUE))%>%
             subset(samples>2)
-DT::datatable(minDrugs)
+#DT::datatable(minDrugs)
+icStats0<-tidyr::unite(icStats0,'Drug',c(compound_name,dosage))
 ```
 
 ```{r}
-icStats
-```
+spi.mat<-icStats0%>%
+  dplyr::select(Drug,model_system_name,maxKilling)%>%
+  group_by(Drug,model_system_name)%>%
+  summarise(maxKilling=max(maxKilling))%>%
+  tidyr::pivot_wider(values_from=maxKilling,names_from=model_system_name,values_fill=list(maxKilling=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+spi.mat
+pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
+#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
 
-```{r}
 
-#' @param idrc_set IncucyteDRCSet object
-#' @param include_control Whether to include control sample as zero conc control
 
-#'
-#' @examples
-#' pm_file <- system.file(file='extdata/example.PlateMap', package='IncucyteDRC')
-#' test_pm <- importPlatemapXML(pm_file)
-#' data_file <- system.file(file='extdata/example_data.txt', package='IncucyteDRC')
-#' test_data <- importIncucyteData(data_file, metric='pc')
-
-fitDoseResponseCurve <- function(df, include_control=FALSE) {
-
-    #set up subroutine for fit
-    drc_fit <- function(x) {
-        m1 <- NULL
-        if (length(unique(x$dose)) > 2) {
-            try (m1 <- drc::drm(value~conc, fct=drc::LL.4(), data=x))
-        }
-        return(m1)
-    }
-
-    #fit models - derive a data frame
-    drc_models <- df %>%
-        dplyr::group_by(model_system_name) %>%
-        dplyr::do(drc_model=drc_fit(.))
-
-    return(drc_models)
-
-}
-fitDoseResponseCurve(icyteData)
-```
-
-```{r}
-#' calculateEC50
-#'
-#' Calculates the EC50s for the dose response curves in an IncucyteDRCSet object
-#'
-#' @param idrc_set IncucyteDRCSet object
-#'
-#' @return IncucyteDRCSet object
-#' @export
-#'
-#' @examples
-#' pm_file <- system.file(file='extdata/example.PlateMap', package='IncucyteDRC')
-#' test_pm <- importPlatemapXML(pm_file)
-#' data_file <- system.file(file='extdata/example_data.txt', package='IncucyteDRC')
-#' test_data <- importIncucyteData(data_file, metric='pc')
-#'
-#' test_list <- splitIncucyteDRCPlateData(test_pm, test_data, group_columns='growthcondition')
-#'
-#' print(test_list)
-#'
-#' test_idrc_set <- fitGrowthCurvesGrouped(test_list[[2]])
-#' test_idrc_set <- fitGrowthCurvesIndividual(test_idrc_set)
-#' test_idrc_set <- calculateDRCData(test_idrc_set, cut_time=100)
-#' test_idrc_set <- fitDoseResponseCurve(test_idrc_set)
-#' test_idrc_set <- calculateEC50(test_idrc_set)
-#' exportEC50Data(test_idrc_set)
-#'
-calculateEC50 <- function(idrc_set) {
-
-    #make sure that fitDoseResponseCurve has been run
-    if(is.null(idrc_set$drc_models)) {
-        stop("Need to run fitDoseResponseCurve first to fit dose response models")
-    }
-
-    #extract parameters from models filtering out NULLs
-    drc_ec50 <- idrc_set$drc_models %>%
-        dplyr::filter(!is.null(drc_model)) %>%
-        dplyr::mutate(EC50 = drc::ED(drc_model,50, display=F)[1],
-                      SE = drc::ED(drc_model,50, display=F)[2],
-                      #R2 <- dr.calc.r2(dr),
-                      b = coef(drc_model)[1],
-                      c = coef(drc_model)[2],
-                      d = coef(drc_model)[3],
-                      e = coef(drc_model)[4]) %>%
-        dplyr::select(-drc_model) %>%
-        dplyr::ungroup()
-
-    #deal with null models
-    drc_ec50_nulls <- idrc_set$drc_models %>%
-        dplyr::filter(is.null(drc_model)) %>%
-        dplyr::mutate(EC50=NA, SE=NA, b=NA, c=NA, d=NA, e=NA) %>%
-        dplyr::select(-drc_model) %>%
-        dplyr::ungroup()
-
-    #combine outputs
-    drc_ec50 <- drc_ec50 %>%
-        dplyr::bind_rows(drc_ec50_nulls) %>%
-        as.data.frame()
-
-    #sort out output
-    output <- idrc_set
-    output$drc_ec50 <- drc_ec50
-
-    return(output)
-
-}
 ```
 
 ```{r}
 ##let's plot the stats for each drug
-library(pheatmap)
+icStats<-meta.dt
+icStats<-tidyr::unite(icStats,'Drug',c(compound_name,dosage))
 
-auc.mat<-drugStats%>%
-  dplyr::select(drug,individualID,AUC)%>%
-  tidyr::pivot_wider(values_from=AUC,names_from=individualID,values_fill=list(AUC=0))%>%
-  tibble::column_to_rownames('drug')%>%
-  as.matrix()%>%
-  pheatmap(cellwidth = 10,cellheight=10)
+auc.mat<-icStats%>%
+  dplyr::select(Drug,model_system_name,auc)%>%
+  tidyr::pivot_wider(values_from=auc,names_from=model_system_name,values_fill=list(auc=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+auc.mat
+pheatmap(auc.mat, cellwidth = 10,cellheight=10,main='AUC across Incucyte data')
 
-tgi.mat<-drugStats%>%
-  dplyr::select(drug,individualID,TGI)%>%
-  tidyr::pivot_wider(values_from=TGI,names_from=individualID,values_fill=list(TGI=0))%>%
-  tibble::column_to_rownames('drug')%>%
-   as.matrix()%>%
-  pheatmap(cellwidth = 10,cellheight=10)
+tgi.mat<-icStats%>%
+  dplyr::select(Drug,model_system_name,ic50)%>%
+  tidyr::pivot_wider(values_from=ic50,names_from=model_system_name,values_fill=list(ic50=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
 
-spi.mat<-drugStats%>%
-  dplyr::select(drug,individualID,SPI)%>%
-  tidyr::pivot_wider(values_from=SPI,names_from=individualID,values_fill=list(SPI=0))%>%
-  tibble::column_to_rownames('drug')%>%
-   as.matrix()%>%
-  pheatmap(cellwidth = 10,cellheight=10)
+skip <- which(rowMeans(tgi.mat)%in%c(1,0))
+if(length(skip)>0)
+  tgi.mat <-tgi.mat[-skip,]
+tgi.mat
+#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
+pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
+
+
+```
+
+```{r}
+
 ```
