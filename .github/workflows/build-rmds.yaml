@@ -30,14 +30,8 @@ jobs:
          pip install testresources
          pip install pandas
          pip install synapseclient
-     - name: Install rmarkdown
-       run: Rscript -e 'install.packages("rmarkdown")'
-     - name: Install remotes and gridextra and biocmanager
-       run: Rscript -e 'install.packages("remotes"); install.packages("gridExtra"); install.packages("BiocManager"); install.packages("ggfortify"); install.packages("ggrepel")'
-     - name: bioc install
-       run: Rscript -e 'BiocManager::install("EnsDb.Hsapiens.v86");BiocManager::install("org.Hs.eg.db"); BiocManager::install("DESeq2"); BiocManager::install("tximportData"); BiocManager::install("tximport")'
-     - name: Install packages from github
-       run: Rscript -e 'remotes::install_github("rstudio/reticulate");remotes::install_github("sgosline/mpnstXenoModeling");remotes::install_github("biodataganache/leapR")'
+     - name: Install R pacakges
+       run: Rscript -e 'source("loadPackages.R")'
      - name: Render my document to all types
        run: Rscript -e 'for(file in list.files("results/",pattern="*Rmd")) try(rmarkdown::render(paste0("results/",file)))'
      - name: Store on synapse
@@ -46,4 +40,4 @@ jobs:
                do 
                synapse store $file --parentId syn26093047
                done
-       #       with:
+           
