@@ -20,3 +20,4 @@ Collate:
     'synapseUtil.R'
     'xenoResponseMetrics.R'
     'xevaProcessing.R'
+    'mtResponseMetrics.R'
