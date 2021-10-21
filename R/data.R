@@ -490,10 +490,10 @@ getMicroTissueDrugData <- function(syn, mtd) {
     indiv<-mt2$individualID
     #sets filenames to names of ids
     names(indiv)<-ids
-    print(y)
+    #warning(y)
     res=do.call(rbind,lapply(names(indiv),function(x)
     {
-      print(indiv[x])
+      #warning(indiv[x])
       #print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
