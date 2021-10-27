@@ -4,8 +4,8 @@
 reverselog_trans <- function(base = exp(1)) {
   trans <- function(x) -log(x, base)
   inv <- function(x) base^(-x)
-  trans_new(paste0("reverselog-", format(base)), trans, inv, 
-            log_breaks(base = base), 
+  scales::trans_new(paste0("reverselog-", format(base)), trans, inv, 
+            scales::log_breaks(base = base), 
             domain = c(1e-100, Inf))
 }
 
@@ -31,6 +31,10 @@ plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
     top_n(20, wt = abs(tosort) )%>% 
     ungroup()
   
+  title='Normalized Enrichment Score'
+  if(order.by=='Count')
+    title='Genes in Term'
+  
   p.NES <- ggplot(all.gsea, aes(x = tosort, y = reorder(pathway, tosort))) +
     geom_bar(stat='identity', aes(fill=status)) +
     scale_fill_manual(values = c(Up = "firebrick2", Down = "dodgerblue3")) +
@@ -44,7 +48,7 @@ plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
           axis.ticks.y = element_blank(),
           legend.position = "none") + 
     labs(x = order.by) +
-    ggtitle("Normalized Enrichment Score")
+    ggtitle(title)
   
   p.Pval <- ggplot(all.gsea, aes(x = p.adjust, y = reorder(pathway, tosort))) +
     scale_x_continuous(trans = reverselog_trans(10)) +  
@@ -62,9 +66,9 @@ plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
     ggtitle("Significance")
   
   arrange_matrix <- t(as.matrix(c(rep(1,pathway.plot.size),2)))
-  p.both <- grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
+  p.both <- gridExtra::grid.arrange(p.NES,p.Pval, layout_matrix = arrange_matrix)
   
-  try(ggsave(paste0("sig-included", prefix,"-gsea-plot.png"), p.both, 
+  try(ggsave(paste0("sig-included", prefix,"-plot.png"), p.both, 
              height = height, width = width, units = "in"))
   
   #df<-as.data.frame(res)%>%mutate(Condition=prefix)
@@ -117,6 +121,11 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
   gr<-NULL
   try(gr<-clusterProfiler::gseGO(genelist[!is.na(genelist)],ont="BP",keyType="ENTREZID",
                                OrgDb=org.Hs.eg.db,pAdjustMethod = 'BH'))
+  if(is.null(gr))
+    return(data.frame(ID=NA,Description=NA,setSize=NA,enrichmentScore=NA,
+                    NES=NA,pvalue=NA,p.adjust=NA,qvalues=NA,rank=NA,leading_edge=NA,
+                        core_enrichment=NA))
+    
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
   
   if(nrow(res)==0){
@@ -127,7 +136,6 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
   }
 
 
-}
 
 #' Runs regular bag of genes enrichment
 #' @name doRegularGo
@@ -157,15 +165,10 @@ doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,
   
   res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
   
-  if(nrow(res)==0){
-    return(res)
-  }else{
-    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
-                              order.by='Count',clean.names=F,width=width,height=height))
-  }
+  plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+                     order.by='Count',clean.names=F,width=width,height=height)
   return(res)
-
-
+ 
 }
 
 
@@ -178,23 +181,29 @@ doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,
 #' @param ids1 Sample ids
 #' @param ids2 Other sample ids
 #' @param name for condition
+#' @param doShrinkage flag to true if lFC shrinkage should be used
 #' @export
 #' @import BiocManager
-ds2FactorDE<-function(dds,ids1,ids2,name){
+ds2FactorDE<-function(dds,ids1,ids2,name,doShrinkage=FALSE){
   if(!require('DESeq2')){
     BiocManager::install('DESeq2')
     library(DESeq2)
   }
   ##create an additional column
 
+  
   tcd<-colData(dds)
 
   ##chek namess
   t.ids1<-intersect(ids1,rownames(tcd))
   t.ids2<-intersect(ids2,rownames(tcd))
   
+  res<-data.frame(baseMean=NA,log2FoldChange=NA,lfcSE=NA,pvalue=NA,padj=NA)
+  
   message(paste("Found",length(t.ids1),'samples that overlap with expression out of',length(ids1)))
   message(paste("Found",length(t.ids2),'samples that overlap with expression out of',length(ids2)))
+  if(length(t.ids1)<2 && length(t.ids2)<2)
+    return(res)
   
   tcd$newvar<-rep(NA,nrow(tcd))
   tcd[t.ids1,]$newvar<-TRUE
@@ -209,9 +218,14 @@ ds2FactorDE<-function(dds,ids1,ids2,name){
   ###re run dds  
   #design(dds)<-~newvar
   new.dds <- DESeq(new.dds) ##rerun
-  res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
+  if(doShrinkage)
+    res<-lfcShrink(new.dds,coef='newvarTRUE')
+  else
+    res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
-  as.data.frame(results(new.dds))%>%arrange(pvalue)
+
+  as.data.frame(res)%>%arrange(pvalue)
+
 }
 
 
@@ -330,7 +344,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   else
     patients <- intersect(patients,rownames(colData(dds)))
   
-  print(paste0('plotting expression across ',length(patients),' samples'))
+  #print(paste0('plotting expression across ',length(patients),' samples'))
   if(length(patients)==0)
     return(NULL)
   #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
@@ -351,7 +365,14 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
 
-  all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age', newVar)
+  if(nrow(sigs)<3)
+    return(NULL)
+  #print(sigs)
+  
+  if(newVar!="")
+    all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
+  else
+    all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
   
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
@@ -363,7 +384,6 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   names(annote.colors)<-newVar
 
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
- 
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
   options(repr.plot.width=6,repr.plot.height=plotheight)

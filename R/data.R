@@ -209,11 +209,29 @@ loadPDXData<-function(){
     tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
    
   #query microtissue drug data
-  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\'')$asDataFrame()
-  mt.meta<<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
-  
+
   #get incucyte data
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
+  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\'')$asDataFrame()
+  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
+  
+  ##fix CUDC annotations
+  cudc<-grep("CUDC",mt.meta$experimentalCondition)
+  mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
+  
+  ##fig drug combo errors
+  #sv<-grep("Selumetinib;Vorinost",mt.meta$experimentalCondition)
+  #mt.meta$experimentalCondition[sv]<-rep('Selumetinib;Vorinostat',length(sv))
+  
+  #mt<-grep('Trabectedin;Mirdametinib',mt.meta$experimentalCondition)
+  #mt.meta$experimentalCondition[mt]<-rep('Mirdametinib;Trabectedin',length(mt))
+  
+  #ot<-c(grep('Trabectedin; Olaparib',mt.meta$experimentalCondition),
+  #      grep('Trabectedin;Olaparib',mt.meta$experimentalCondition))
+  #mt.meta$experimentalCondition[ot]<-rep('Olaparib;Trabectedin',length(ot))
+  mt.meta<<-mt.meta 
+  
+  mtDrugData<<-getMicroTissueDrugData(syn, mt.meta)
   
 }
 
@@ -445,30 +463,54 @@ mergeMutData<-function(mutData,newMutData){
 #' @import tidyr
 #' @export
 getMicroTissueDrugData <- function(syn, mtd) {
+  message('Loading MT data')
   library(dplyr)
   library(tidyr)
 
-  #ids is list of synapse ids
-  ids<-mtd$id
 
-  #indiv is list of patient IDs
-  indiv<-mtd$individualID
 
-  #sets filenames to names of ids
-  names(indiv)<-ids
 
-  res=do.call(rbind,lapply(names(indiv),function(x)
-  {
+
+  drugs<-unique(mtd$experimentalCondition)
+  
+  res2<-do.call(rbind,lapply(drugs,function(y){
+    mt2<-subset(mtd,experimentalCondition==y)
+    is_combo=length(grep(';',y))>0
+
+    #ids is list of synapse ids
+    ids<-mt2$id
+    #indiv is list of patient IDs
+    indiv<-mt2$individualID
+    #sets filenames to names of ids
+    names(indiv)<-ids
+    #warning(y)
+    res=do.call(rbind,lapply(names(indiv),function(x)
+    {
+      #warning(indiv[x])
+      #print(x)
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
-    tab%>%
-    dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
-                  Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
-    tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-    dplyr::rename(Viabilities='percent viability')
+   # p  rint(head(tab))
+    ##TO  DO get this to work for combo data
+      if(is_combo)
+        tab%>%
+        dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
+                    Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+        rowwise()%>%
+        mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
+        dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
+        tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+        dplyr::rename(Viabilities='percent viability')%>%unnest()
+      else
+        tab%>%
+          dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                      Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+          tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+          dplyr::rename(Viabilities='percent viability')%>%
+      unnest()
+    }))
+    return(res)
   }))
+  return(res2)
   #res$`total cell count`=unlist(res$`total cell count`)
   #res$`live cell count`=unlist(res$`live cell count`)
-  return(res)
-}
-
 

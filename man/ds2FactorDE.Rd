@@ -4,7 +4,7 @@
 \alias{ds2FactorDE}
 \title{ds2FactorDE}
 \usage{
-ds2FactorDE(dds, ids1, ids2, name)
+ds2FactorDE(dds, ids1, ids2, name, doShrinkage = FALSE)
 }
 \arguments{
 \item{dds}{DESeq object}
@@ -14,6 +14,8 @@ ds2FactorDE(dds, ids1, ids2, name)
 \item{ids2}{Other sample ids}
 
 \item{name}{for condition}
+
+\item{doShrinkage}{flag to true if lFC shrinkage should be used}
 }
 \description{
 ds2FactorDE

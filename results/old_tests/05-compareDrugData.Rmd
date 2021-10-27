@@ -45,7 +45,7 @@ Let's load all the data using the `mpnstXenoModeling` package function. This wil
 #this function simply loads all the data into memory
 loadPDXData()
 ##let's clean up drug Dat
-head(drugData)
+#head(drugData)
 
 ```
 

@@ -241,7 +241,23 @@ genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
 res2<-doGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
 #plot(res2)
 ```
+## Compare with shrinkage
+```{r shrinkage}
+
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
+                                     good, 
+                                     bad,'MTQuality',doShrinkage=TRUE)
+
+mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
 
 
 
+res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
+  doRegularGo(prefix='MTqualGOShrink')
+plot(res)
 
+genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+res2<-doGSEA(genes.with.values,NULL,'MTqualityShrink',useEns=FALSE)
+```
