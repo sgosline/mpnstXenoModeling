@@ -225,11 +225,11 @@ DT::datatable(sens.class)
   genemat<-counts(dds,normalize=TRUE)%>%
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
-    tidyr::pivot_longer(-GENEID,names_to='Sample',values_to='counts')%>%
+    tidyr::pivot_longer(-GENEID,names_to='Sample',values_to='gcounts')%>%
     left_join(pmap)%>%
     group_by(Sample,GENENAME)%>%
-    summarize(counts=mean(counts))%>%
-    tidyr::pivot_wider(values_from=counts,names_from='Sample')%>%
+    summarize(gcounts=sum(gcounts))%>%
+    tidyr::pivot_wider(values_from=gcounts,names_from='Sample')%>%
     tibble::column_to_rownames('GENENAME')%>%
     as.matrix()
 
@@ -244,7 +244,7 @@ DT::datatable(sens.class)
   #df<-#pc$x%>%
   
   ##CREATE dataframe of gene expression manifold mapping
-  ex.df<-umap::umap(t(genemat),method='naive',preserve.seed=TRUE)$layout%>%
+  ex.df<-umap::umap(t(genemat),method='naive',preserve.seed=FALSE)$layout%>%
     as.data.frame()%>%
     tibble::rownames_to_column('Sample')%>%
     left_join(clin.tab)
