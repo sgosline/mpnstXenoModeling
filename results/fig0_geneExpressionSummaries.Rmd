@@ -8,7 +8,7 @@ output:
     toc_depth: 2
 ---
 
-```{r setup, include=FALSE,message=FALSE}
+```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 require(remotes)
@@ -39,7 +39,7 @@ Here we bring in the RNASeq data and the `leapR` package to measure and identify
 We have all the data in count.sf files so can read them in using the `tximport` package. Here is the data for which we have gene expression. 
 
 
-```{r loadData,warning=FALSE,echo=FALSE,message=FALSE}
+```{r loadData, echo=FALSE, warning=FALSE, message=FALSE}
 #this function simply loads all the data into memory
 
 
@@ -67,7 +67,7 @@ var.ID<-rnaSeq%>%
 DT::datatable(var.ID)
 
 ```
- 
+
 We want to filter for only those patients that we have MT data for.
 
 ```{r filter data}
@@ -99,7 +99,7 @@ DT::datatable(var.ID)
 We have now implemented DESeq2 column normalization to enable the visualization of RNASeq Data for the 10 samples. Let's plot them, after normalization, via PCA to see how they cluster and group independently. Then we can interrogate the genes themselves.
 
 
-```{r filtering, warning=FALSE,message=FALSE}
+```{r filtering, warning=FALSE, message=FALSE}
 library(DESeq2)
 
 vsd <- DESeq2::vst(dds)
@@ -128,7 +128,7 @@ ggplot(pcaData, aes(PC1, PC2, shape=Sex, color=`Clinical.Status`)) +
 ### How do samples cluster by MT status?
 
 
-```{r Pca plot MT }
+```{r Pca plot MT}
 library(ggplot2)
 pcaData <- plotPCA(vsd, intgroup=c("Sex", "MicroTissueQuality"), returnData=TRUE)
 
@@ -147,7 +147,7 @@ ggplot(pcaData, aes(PC1, PC2, shape=Sex, color=as.character(MicroTissueQuality))
 
 Then we can get the annotations and counts using the variance stabilizing transformation and minimum raw counts value of at least 10.
 
-```{r most variable,results='asis'}
+```{r most variable, results="asis"}
 library(pheatmap)
 
 pat.annote <- rnaSeq %>%
@@ -234,7 +234,7 @@ res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
 plot(res)
 ```
 
-```{r analysis qual gsea,message=FALSE,warning=FALSE}
+```{r analysis qual gsea, message=FALSE, warning=FALSE}
 genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    

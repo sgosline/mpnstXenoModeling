@@ -10,15 +10,15 @@ reverselog_trans <- function(base = exp(1)) {
 }
 
 
-#'ploGenesetResults
-#'Internal function to plot results of cluster profile
-#'@param res
-#'@param prefix
-#'@param pathway.plot.size
-#'@param order.by
-#'@param clean.names
-#'@param width
-#'@param height
+#' ploGenesetResults
+#' Internal function to plot results of cluster profile
+#' @param res
+#' @param prefix
+#' @param pathway.plot.size
+#' @param order.by
+#' @param clean.names
+#' @param width
+#' @param height
 plotGenesetResults<-function(res,prefix,pathway.plot.size=3,
                              order.by='NES',clean.names=F,width=11,height=8.5){
   
@@ -127,14 +127,15 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
                         core_enrichment=NA))
     
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
-  p<-plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
-                     order.by='NES',clean.names=F,width=width,height=height)
-
-  return(res)
-
   
-  
-}
+  if(nrow(res)==0){
+    return(gr)
+  }else{
+    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+                                        order.by='NES',clean.names=F,width=width,height=height))
+  }
+
+
 
 #' Runs regular bag of genes enrichment
 #' @name doRegularGo
@@ -222,19 +223,22 @@ ds2FactorDE<-function(dds,ids1,ids2,name,doShrinkage=FALSE){
   else
     res <- results(new.dds)#,contrasts=c("newvar","TRUE","FALSE"))
 #  print(summary(res))  
+
   as.data.frame(res)%>%arrange(pvalue)
 
 }
+
+
 #'
-#'limmaTwoFactorDEAnalysis
-#'@name limmaTwoFactorDEAnalysis
-#'@description Runs limma on two groups
-#'@author Osama
-#'@import BiocManager
-#'@export
-#'@param data matrix
-#'@param group1 ids
-#'@param group2 ids
+#' limmaTwoFactorDEAnalysis
+#' @name limmaTwoFactorDEAnalysis
+#' @description Runs limma on two groups
+#' @author Osama
+#' @import BiocManager
+#' @export
+#' @param data matrix
+#' @param group1 ids
+#' @param group2 ids
 limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   # Conduct DE expression analysis using limma from the expression matrix dat (group2 vs group1, group1 is reference)
   #
@@ -287,20 +291,20 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
   return(count.mat)
 }
 
-#'plotTopGenesHeatmap
-#'@name plotTopGenesHeatmap
-#'@description Filters and plots expression matrix
-#'@author Jess
-#'@import BiocManager
-#'@import reticulate
-#'@import pheatmap
-#'@export
-#'@param de.out diffex results
-#'@param dds, DESEq object
-#'@param identifiers mapping to gene name
-#'@param myvar is name of variable
+#' plotTopGenesHeatmap
+#' @name plotTopGenesHeatmap
+#' @description Filters and plots expression matrix
+#' @author Jess
+#' @import BiocManager
+#' @import reticulate
+#' @import pheatmap
+#' @export
+#' @param de.out diffex results
+#' @param dds, DESEq object
+#' @param identifiers mapping to gene name
+#' @param myvar is name of variable
 plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
-                                upload=FALSE, path='.', parentID=NULL,newVar="") {
+                                upload=FALSE, path='.', parentID=NULL, newVar=NULL, plotheight=20, genelist=identifiers$GENENAME) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -322,12 +326,18 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     BiocManager::install('tibble')
     library(tibble)
   }
+  if(!require('repr')){
+    BiocManager::install('repr')
+    library(repr)
+  }
+
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
   de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
     subset(!is.na('GENENAME'))%>%
-    subset(GENENAME!="")
+    subset(GENENAME!="")%>%
+    subset(GENENAME%in%genelist)
   
   if(is.null(patients))
     patients <- rownames(colData(dds))
@@ -354,6 +364,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
+
   if(nrow(sigs)<3)
     return(NULL)
   #print(sigs)
@@ -365,22 +376,27 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))
+    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+    mutate(Clinical.Status=unlist(Clinical.Status))
+  var.ID[newVar] <- lapply(var.ID[newVar],as.character)
+  
+  annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
+  names(annote.colors)<-newVar
 
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
-  library(pheatmap)
-    heatmap <- pheatmap(log10(0.01+count.mat),
+  options(repr.plot.width=6,repr.plot.height=plotheight)
+  heatmap <- pheatmap(log10(0.01+count.mat),
                      cellheight=10,
                      annotation_col=var.ID,
+                     annotation_colors=annote.colors,
                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
 
   if (isTRUE(upload)) {
     synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
   }
   return(heatmap)
-
 }
 
 #' Plot using correlation enrichment from leapR package. 
@@ -429,9 +445,9 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   #sprint(res)
  # ret=as.data.frame(res)%>%
 #    dplyr::select(ID,Description,pvalue,p.adjust,Count)
-  
+
 #  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
-  
+
 #  if(nrow(res)==0){
 #    return(res)
 #  }else{
@@ -480,3 +496,21 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   
   return(p.both)
 }
+
+#' #### Optional function to visualize hypothesis testing
+
+hypothesisTestPlotsDE <- function(dds) {
+    par(mfrow=c(2,2),mar=c(2,2,1,1),bg='white')
+    ylim <- c(-5,5)
+    resGA <- results(dds, lfcThreshold=.5, altHypothesis="greaterAbs")
+    resLA <- results(dds, lfcThreshold=.5, altHypothesis="lessAbs")
+    resG <- results(dds, lfcThreshold=.5, altHypothesis="greater")
+    resL <- results(dds, lfcThreshold=.5, altHypothesis="less")
+    drawLines <- function() abline(h=c(-.5,.5),col="dodgerblue",lwd=2)
+    plotMA(resGA, ylim=ylim); drawLines()
+    plotMA(resLA, ylim=ylim); drawLines()
+    plotMA(resG, ylim=ylim); drawLines()
+    plotMA(resL, ylim=ylim); drawLines()
+}
+
+
