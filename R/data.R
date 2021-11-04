@@ -67,7 +67,7 @@ dataFromSynTable<-function(tab,syn,colname){
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
               `RNASeq`=c('GENEID','counts'),
               `Microtissue Drug Data`=c(),
-              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
+              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_2', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
   ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
@@ -232,7 +232,7 @@ loadPDXData<-function(){
   mt.meta<<-mt.meta 
   
   mtDrugData<<-getMicroTissueDrugData(syn, mt.meta)
-  
+
 }
 
 
