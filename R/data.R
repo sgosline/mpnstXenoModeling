@@ -467,10 +467,6 @@ getMicroTissueDrugData <- function(syn, mtd) {
   library(dplyr)
   library(tidyr)
 
-
-
-
-
   drugs<-unique(mtd$experimentalCondition)
   
   res2<-do.call(rbind,lapply(drugs,function(y){
@@ -491,6 +487,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
+    print(tab)
       if(is_combo)
         tab%>%
         dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
