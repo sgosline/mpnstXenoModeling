@@ -281,7 +281,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
     tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
-    left_join(tibble::rownames_to_column(identifiers,'GENEID'))%>%
+    left_join(identifiers)%>%#tibble::rownames_to_column(identifiers,'GENEID'))%>% cHANGED, hope it doesn't break
     group_by(GENENAME)%>%
     dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
     subset(GENENAME!="")%>%
@@ -326,6 +326,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     BiocManager::install('tibble')
     library(tibble)
   }
+
+ 
   if(!require('repr')){
     BiocManager::install('repr')
     library(repr)
@@ -334,12 +336,13 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   synapse=reticulate::import('synapseclient')
   sync=synapse$login()
 
-  de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
-    subset(!is.na('GENENAME'))%>%
-    subset(GENENAME!="")%>%
-    subset(GENENAME%in%genelist)
+ de.out <- de.out%>%
+    tibble::rownames_to_column('GENEID')%>%
+    separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
+    subset(!is.na(GENENAME))%>%
+    subset(GENENAME!='')
   
-  if(is.null(patients))
+    if(is.null(patients))
     patients <- rownames(colData(dds))
   else
     patients <- intersect(patients,rownames(colData(dds)))
@@ -354,6 +357,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 #  de.df <- left_join(de.df,norm.counts,by="TXID")
 #  de.df <- de.df[de.df$adj.P.Val < adjpval,]
   if (isTRUE(upload)) {
+    synapse=reticulate::import('synapseclient')
+    sync=synapse$login()
     write.csv(de.out, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
     synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
   }
@@ -383,7 +388,11 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
   names(annote.colors)<-newVar
 
-  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
+  ##TODO: fix this so it works with join
+  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE),identifiers)
+  count.mat<-count.mat[intersect(rownames(count.mat),sigs$GENENAME),]
+  
+  
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
   options(repr.plot.width=6,repr.plot.height=plotheight)

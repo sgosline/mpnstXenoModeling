@@ -231,7 +231,9 @@ loadPDXData<-function(){
   #mt.meta$experimentalCondition[ot]<-rep('Olaparib;Trabectedin',length(ot))
   mt.meta<<-mt.meta 
   
-  mtDrugData<<-getMicroTissueDrugData(syn, mt.meta)
+  mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()
+  
+  pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
   
 }
 
@@ -466,10 +468,6 @@ getMicroTissueDrugData <- function(syn, mtd) {
   message('Loading MT data')
   library(dplyr)
   library(tidyr)
-
-
-
-
 
   drugs<-unique(mtd$experimentalCondition)
   
