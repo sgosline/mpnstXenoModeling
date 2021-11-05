@@ -130,4 +130,4 @@ generate_DR_plots <- function(res, drugID) {
     theme_bw() +
     ggtitle(paste("Dose-response curves for Drug:", drugID))
   return(list('plot'=temp.plot,'table'=dat.dt))
-}
+  }
