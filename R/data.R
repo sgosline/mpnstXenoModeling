@@ -509,6 +509,5 @@ getMicroTissueDrugData <- function(syn, mtd) {
     return(res)
   }))
   return(res2)
-  #res$`total cell count`=unlist(res$`total cell count`)
-  #res$`live cell count`=unlist(res$`live cell count`)
 
+}
