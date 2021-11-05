@@ -229,8 +229,8 @@ syn=sync$login()
 meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
 
 new.dt <- norm_MTData(syn,met.meta)
-#res  = syn$tableQuery('select * from syn26136282')
-#syn$delete(res)
+res  = syn$tableQuery('select * from syn26136282')
+syn$delete(res)
 #res  = syn$tableQuery('select * from syn26136282')
 #synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
 

@@ -277,7 +277,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
     tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
-    left_join(tibble::rownames_to_column(identifiers,'GENEID'))%>%
+    left_join(identifiers)%>%#tibble::rownames_to_column(identifiers,'GENEID'))%>% cHANGED, hope it doesn't break
     group_by(GENENAME)%>%
     dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
     subset(GENENAME!="")%>%
@@ -322,12 +322,16 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     BiocManager::install('tibble')
     library(tibble)
   }
-  synapse=reticulate::import('synapseclient')
-  sync=synapse$login()
 
-  de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
-    subset(!is.na('GENENAME'))%>%
-    subset(GENENAME!="")
+  de.out <- de.out%>%
+    tibble::rownames_to_column('GENEID')%>%
+    separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
+    subset(!is.na(GENENAME))%>%
+    subset(GENENAME!='')
+  
+#  de.out<-cbind(de.out,identifiers[rownames(de.out),])%>%
+#    subset(!is.na('GENENAME'))%>%
+#    subset(GENENAME!="")
   
   if(is.null(patients))
     patients <- rownames(colData(dds))
@@ -344,6 +348,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 #  de.df <- left_join(de.df,norm.counts,by="TXID")
 #  de.df <- de.df[de.df$adj.P.Val < adjpval,]
   if (isTRUE(upload)) {
+    synapse=reticulate::import('synapseclient')
+    sync=synapse$login()
     write.csv(de.out, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
     synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
   }
@@ -354,6 +360,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
+  
   if(nrow(sigs)<3)
     return(NULL)
   #print(sigs)
@@ -367,7 +374,11 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))
 
-  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE)[rownames(sigs),],identifiers)
+  ##TODO: fix this so it works with join
+  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE),identifiers)
+  count.mat<-count.mat[intersect(rownames(count.mat),sigs$GENENAME),]
+  
+  
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
   library(pheatmap)
