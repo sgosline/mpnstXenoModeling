@@ -135,7 +135,7 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
                                         order.by='NES',clean.names=F,width=width,height=height))
   }
 
-
+}
 
 #' Runs regular bag of genes enrichment
 #' @name doRegularGo
@@ -521,5 +521,3 @@ hypothesisTestPlotsDE <- function(dds) {
     plotMA(resG, ylim=ylim); drawLines()
     plotMA(resL, ylim=ylim); drawLines()
 }
-
-
