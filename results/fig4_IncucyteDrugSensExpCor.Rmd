@@ -4,7 +4,7 @@ Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3
 require(remotes)
 
 #if(!require(mpnstXenoModeling)){
-  remotes::install_github('jessbade/mpnstXenoModeling', ref='sara')
+  remotes::install_github('jessbade/mpnstXenoModeling', ref='release')
   library(mpnstXenoModeling)
 #}
 #remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
@@ -29,6 +29,10 @@ mpnstXenoModeling::loadPDXData()
 ```{r}
 ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
 geom_point()
+```
+
+```{r}
+icyteData
 ```
 
 ```{r}

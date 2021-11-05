@@ -56,7 +56,7 @@ do_deseq_import <- function(file) {
 #' @export
 dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
-
+  print(samps)
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
 
@@ -71,7 +71,7 @@ dataFromSynTable<-function(tab,syn,colname){
   ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
-
+  print(schemas)
   res<-lapply(samps,function(y){
     other.vals<-subset(tab,Sample==y)%>%
     dplyr::select(othercols)
