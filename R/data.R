@@ -1,8 +1,8 @@
 ##get datasets from figshare and whatever drug screening data we have.
 
-#'parses a list of synapse ids, like form `syn24215021`
-#'@param list.column Name of column to select and unlist
-#'@return list of lists
+#' parses a list of synapse ids, like form `syn24215021`
+#' @param list.column Name of column to select and unlist
+#' @return list of lists
 parseSynidListColumn<-function(list.column){
 
   lc <- unlist(list.column)
@@ -10,7 +10,6 @@ parseSynidListColumn<-function(list.column){
     unlist(strsplit(gsub('"','',gsub('[','',gsub(']','',x,fixed=T),fixed=T)),split=','))
   })
   return(res)
-
 }
 
 #' do_deseq2 import
@@ -47,8 +46,6 @@ do_deseq_import <- function(file) {
   return(qnt.table)
 }
 
- 
-
 #' gets a list of synapse ids and binds them together
 #' @param tab table of MPNST samples
 #' @param syn synapse login client
@@ -58,44 +55,42 @@ do_deseq_import <- function(file) {
 #' @import dplyr
 #' @export
 dataFromSynTable<-function(tab,syn,colname){
-
-
   samps <- tab$Sample
-  print(colname)
+
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-  #print(head(tab))
+
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
-              #RNASeq=c('TXID','Symbol','TPM','NumReads'),
-              RNASeq=c('GENEID','counts'),
-              `Microtissue Drug Data`=c())
-
+              `RNASeq`=c('GENEID','counts'),
+              `Microtissue Drug Data`=c(),
+              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
+  ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
 
   res<-lapply(samps,function(y){
     other.vals<-subset(tab,Sample==y)%>%
-      dplyr::select(othercols)
+    dplyr::select(othercols)
     synds = synids[[y]]
     if(synds[1]=='NaN')
       return(NULL)
 
-    full.tab<-do.call(rbind,lapply(synds,function(x){
-      #print(x)
-      x=unlist(x)
-      path <-syn$get(x)$path
-      fend<-unlist(strsplit(basename(path),split='.',fixed=T))
-      fend <- fend[length(fend)]
-      if(fend=='csv')
-        tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
-      else if(fend=='xlsx'){
+  full.tab<-do.call(rbind,lapply(synds,function(x){
+    x=unlist(x)
+    path <-syn$get(x)$path
+    fend<-unlist(strsplit(basename(path),split='.',fixed=T))
+    fend <- fend[length(fend)]
+    if(fend=='csv'){
+      tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
+      }
+    else if(fend=='xlsx'){
         tab<-readxl::read_xlsx(path)
         if(colname=='Somatic Mutations')
-          tab<- tab%>%
+        tab<- tab%>%
                dplyr::select(gene_name,ends_with("_var_count"))%>%
                tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
                tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
@@ -105,31 +100,31 @@ dataFromSynTable<-function(tab,syn,colname){
                ungroup()%>%
                subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
                dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
-
-      }else if(fend=='tsv'){
-        tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
       }
-      else if(fend=='sf'){##add check from rnaseq data
-        tab<-do_deseq_import(path)#%>%
+    else if(fend=='tsv'){
+      tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
+      }
+    else if(fend=='sf'){##add check from rnaseq data
+      tab<-do_deseq_import(path)#%>%
         # dplyr::rename(counts=x)
-       # print(head(tab))
-      }else
-        tab<-readxl::read_xls(path)
-     # print(head(tab))
-      tab<-tab[,schemas[[colname]]]%>%
-        mutate(synid=x)
-      #print(head(tab))
-      data.frame(cbind(tab,other.vals))
+      }
+    else {
+      tab<-readxl::read_xls(path)
+      }
+    tab<-tab[,schemas[[colname]]]%>%
+         mutate(synid=x)
+    data.frame(cbind(tab,other.vals))
     }))
     return(full.tab)
   })
   res <- do.call(rbind,res)
+
   return(res)
 }
 
 #' @name fixDrugData
 #' @param drugData data frame of drug data to harmonize
-#'@export
+#' @export
 fixDrugData<-function(drugData){
   drugDat = #subset(drugData,individualID==specimenId)%>%
     drugData%>%
@@ -158,9 +153,8 @@ fixDrugData<-function(drugData){
   drugDat$batch[b5]<-'batch5'
   drugDat$batch[b6]<-'batch6'
   ##update the control drug name
-  #%in%c(NA,'N/A','control')
+  # #%in%c(NA,'N/A','control')
   # inds0 = grep('vehicle',drugDat$drug)
-  # print(inds0)
   # drugDat$drug[inds0]<-'vehicle0'
   # inds1 = which(is.na(drugDat$drug))
   # drugDat$drug[inds1]='vehicle1'
@@ -173,10 +167,10 @@ fixDrugData<-function(drugData){
   # drugDat$model.id[c(ai)]<-paste(drugDat$model.id[ai],drugDat$drug[ai],sep='_')
   # ##first lets add a replicate to those without
   # inds = grep('_',drugDat$model.id)
-  # #  print(inds)
   # inds<-union(inds,ai)
   # drugDat$model.id[-inds]<-paste(drugDat$model.id[-inds],drugDat$drug[-inds],'1',sep='_')
-  ai<-drugDat$inds%in%c('vehicle','N/A','control',NA)
+  ai<-drugDat$inds %in% c('vehicle','N/A','control',NA)
+
   drugDat$drug[ai]<-rep('control',length(ai))
 
   drugDat$time[which(drugDat$time<0)]<-0
@@ -190,6 +184,7 @@ fixDrugData<-function(drugData){
 #' @import dplyr
 #' @import tidyr
 loadPDXData<-function(){
+  Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
   library(reticulate)
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
@@ -205,17 +200,18 @@ loadPDXData<-function(){
 
 
   drugData<<-dataFromSynTable(data.tab,syn,'PDX Drug Data')%>%
-    rename(drug='compound_name',time='experimental_time_point',volume='assay_value')%>%
-    fixDrugData()
-
+             dplyr::rename(drug=compound_name, time=experimental_time_point, volume=assay_value) %>%
+             fixDrugData()
   #now get RNA-Seq
   #update to use `RNAseq` column
   rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
     mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
     tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
-  
    
   #query microtissue drug data
+
+  #get incucyte data
+  icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\'')$asDataFrame()
   mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
   
@@ -243,28 +239,28 @@ loadPDXData<-function(){
 
 
 
-#' #'getPdxRNAseqData gets all rna seq counts for xenografts
-#' #'#'@export
-#' #'DEPRACATED
-#' #'@param syn synapse item from
-#' getPdxRNAseqData<-function(syn){
-#' #  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
-#'   jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
-#'     subset(individualID=='2-002')
-#'   jh.rnaSeq$individualID<-'JHU 2-002'
-#'   #updated 6/8
-#'   new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
-#' 
-#'   com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
-#'     setdiff(c("ROW_ID","ROW_VERSION"))
-#'   count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
-#'  # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
-#' #  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
-#' 
-#' 
-#'   return(count.tab)
-#' 
-#' }
+#' getPdxRNAseqData gets all rna seq counts for xenografts
+#' #'@export
+#' DEPRACATED
+#' @param syn synapse item from
+getPdxRNAseqData<-function(syn){
+#  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
+  jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
+    subset(individualID=='2-002')
+  jh.rnaSeq$individualID<-'JHU 2-002'
+  #updated 6/8
+  new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
+
+  com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
+    setdiff(c("ROW_ID","ROW_VERSION"))
+  count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
+ # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
+#  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
+
+
+  return(count.tab)
+
+}
 
 #' getAllNF1Expression 
 #' @title getAllNF1Expression
@@ -280,9 +276,7 @@ getAllNF1Expression<-function(syn){
   full.dat<-do.call(rbind,allDat)
   full.dat$tumorType<-sapply(full.dat$tumorType,function(x) gsub('Malignant peripheral nerve sheath tumor','Malignant Peripheral Nerve Sheath Tumor',x))
   return(full.dat)
-
 }
-
 
 # #germline CSV calls
 # #are we using thesee?
@@ -302,7 +296,7 @@ getAllNF1Expression<-function(syn){
 #' @param data.table
 #' #' @import BiocManager
 #' @export 
-deseq2NormFilter<-function(data.table){
+deseq2NormFilter<-function(data.table,newVar=NULL){
   library(dplyr)
   
   if(!require('DESeq2')){
@@ -317,7 +311,7 @@ deseq2NormFilter<-function(data.table){
     round()
   
   coldata<-data.table%>%
-    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`)%>%
+    dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`,newVar)%>%
     distinct()%>%
   #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
     tibble::column_to_rownames('Sample')
@@ -331,7 +325,6 @@ deseq2NormFilter<-function(data.table){
   dds<-DESeq2::DESeq(dds)
   
   return(dds)
-
 }
 
 #' normDiffEx
@@ -359,7 +352,6 @@ normDiffEx<-function(data.table){
     fit <- limma::lmFit(dge)
     #fit <- contrasts.fit(fit, contrasts=contr.matrix)
     fit <- limma::eBayes(fit,trend=TRUE)
-
 }
 
 #' ##out of date xls data
@@ -383,7 +375,7 @@ normDiffEx<-function(data.table){
 #'     ungroup()%>%
 #'     subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
 #'     dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
-#' 
+#'
 #'   return(tab)
 #' }
 
@@ -401,8 +393,7 @@ getNewSomaticCalls<-function(tab,specimen){
     library('EnsDb.Hsapiens.v86')
   }
     library(ensembldb)
-  
-#  print(fileid)
+
   tab<-tab%>%#read.csv2(syn$get(fileid)$path,sep='\t')%>%
     tidyr::separate(HGVSc,into=c('trans_id','var'))%>%
     mutate(trans_id=stringr::str_replace(trans_id,'\\.[0-9]+',''))%>%
@@ -423,9 +414,11 @@ getNewSomaticCalls<-function(tab,specimen){
   return(res)
 }
 
+
+
 #' getOldVariantData
-#'@import dplyr
-#'@import purrr
+#' @import dplyr
+#' @import purrr
 
 getOldVariantData<-function(syn){
   library(dplyr)
@@ -439,7 +432,6 @@ getOldVariantData<-function(syn){
 
   return(som.tab)
   ##create one giant table of variant allele frequences
-
 }
 
 #' getLatestVariantdata
@@ -519,4 +511,4 @@ getMicroTissueDrugData <- function(syn, mtd) {
   return(res2)
   #res$`total cell count`=unlist(res$`total cell count`)
   #res$`live cell count`=unlist(res$`live cell count`)
-}
+
