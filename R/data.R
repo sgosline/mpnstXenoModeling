@@ -58,7 +58,7 @@ dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-
+  print(synids)
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
