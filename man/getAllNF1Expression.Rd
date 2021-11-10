@@ -11,8 +11,5 @@ getAllNF1Expression(syn)
 \item{syn}{object}
 }
 \description{
-
-}
-\details{
-
+getAllNF1Expression
 }

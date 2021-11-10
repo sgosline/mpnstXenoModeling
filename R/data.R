@@ -18,14 +18,14 @@ parseSynidListColumn<-function(list.column){
 #' TODO: update to include more than just counts
 #' @param file in sf format
 #' @import BiocManager
-#' @export 
+#' @export
 do_deseq_import <- function(file) {
-  
+
   if(!require('DESeq2')){
     BiocManager::install("DESeq2")
     library(DESeq2)
   }
-  
+
   if(!require('tximportData')){
     BiocManager::install("tximportData")
     library(tximportData)
@@ -205,29 +205,31 @@ loadPDXData<-function(){
   rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
     mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
     tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
-   
+
   #query microtissue drug data
 
   #get incucyte data
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
-  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()  
+  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
-  
+
   ##fig drug combo errors
   #sv<-grep("Selumetinib;Vorinost",mt.meta$experimentalCondition)
   #mt.meta$experimentalCondition[sv]<-rep('Selumetinib;Vorinostat',length(sv))
-  
+
   #mt<-grep('Trabectedin;Mirdametinib',mt.meta$experimentalCondition)
   #mt.meta$experimentalCondition[mt]<-rep('Mirdametinib;Trabectedin',length(mt))
-  
+
   #ot<-c(grep('Trabectedin; Olaparib',mt.meta$experimentalCondition),
   #      grep('Trabectedin;Olaparib',mt.meta$experimentalCondition))
   #mt.meta$experimentalCondition[ot]<-rep('Olaparib;Trabectedin',length(ot))
-  mt.meta<<-mt.meta 
-  
-  mtDrugData<<-getMicroTissueDrugData(syn, mt.meta)
+  mt.meta<<-mt.meta
+
+  mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()
+
+  pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 
 }
 
@@ -256,7 +258,7 @@ getPdxRNAseqData<-function(syn){
 
 }
 
-#' getAllNF1Expression 
+#' getAllNF1Expression
 #' @title getAllNF1Expression
 #' collects all data from NF1 processed data in synapse
 #' @export
@@ -289,35 +291,35 @@ getAllNF1Expression<-function(syn){
 #' Only does column normalization and returns DESeq2 object
 #' @param data.table
 #' #' @import BiocManager
-#' @export 
+#' @export
 deseq2NormFilter<-function(data.table,newVar=NULL){
   library(dplyr)
-  
+
   if(!require('DESeq2')){
     BiocManager::install('DESeq2')
     library(DESeq2)
   }
-  
+
   counts <- data.table%>%
     dplyr::select(GENEID,counts,Sample)%>%
     tidyr::pivot_wider(values_from='counts',names_from='Sample')%>%
     tibble::column_to_rownames('GENEID')%>%
     round()
-  
+
   coldata<-data.table%>%
     dplyr::select(Sample,Sex,MicroTissueQuality,Location,Size,Age,`Clinical Status`,newVar)%>%
     distinct()%>%
   #  mutate(Clinical.Status=unlist(Clinical.Status))%>%
     tibble::column_to_rownames('Sample')
-  
+
   dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
                                 colData = coldata,
                                 design = ~ Sex)# + Clinical.Status)
-  
+
   keep <- rowSums(counts(dds)) >= 10
   dds <- dds[keep,]
   dds<-DESeq2::DESeq(dds)
-  
+
   return(dds)
 }
 
@@ -335,13 +337,13 @@ normDiffEx<-function(data.table){
 
     # Specify a design matrix without an intercept term
     #design <- model.matrix(~ Clinical.Status + MicroTissueQuality + Age + Sex)
-  
+
     #row.names(design) <- colnames(counts)[as.numeric(rownames(design))] #sampleIDs[names]
     #attr(design, "row.names") <- subset.names
-    
+
     # Limma voom model fitting
    # v <- voom(dge[,row.names(design)],design,plot=TRUE)
-    
+
     # Limma fit analysis
     fit <- limma::lmFit(dge)
     #fit <- contrasts.fit(fit, contrasts=contr.matrix)
@@ -393,10 +395,10 @@ getNewSomaticCalls<-function(tab,specimen){
     mutate(trans_id=stringr::str_replace(trans_id,'\\.[0-9]+',''))%>%
     tidyr::separate(HGVSp,into=c('prot_id','pvar'))%>%
     mutate(prot_id=stringr::str_replace(prot_id,'\\.[0-9]+',''))
-  
+
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, keys=tab$trans_id, keytype = "TXNAME", columns = c("GENENAME"))
-  
+
   ftab<-tab%>%dplyr::rename(TXNAME='trans_id')%>%left_join(pmap)
 
   res<-ftab%>%
@@ -464,7 +466,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
   library(tidyr)
 
   drugs<-unique(mtd$experimentalCondition)
-  
+
   res2<-do.call(rbind,lapply(drugs,function(y){
     mt2<-subset(mtd,experimentalCondition==y)
     is_combo=length(grep(';',y))>0
@@ -502,7 +504,5 @@ getMicroTissueDrugData <- function(syn, mtd) {
     return(res)
   }))
   return(res2)
-  #res$`total cell count`=unlist(res$`total cell count`)
-  #res$`live cell count`=unlist(res$`live cell count`)
-}
 
+}

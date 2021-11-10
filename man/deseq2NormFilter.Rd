@@ -7,7 +7,7 @@ Utilizes the geometric mean to normalize the entire table to generate a normaliz
 list of RNAseq counts filtered for low abundance
 Only does column normalization and returns DESeq2 object}
 \usage{
-deseq2NormFilter(data.table)
+deseq2NormFilter(data.table, newVar = NULL)
 }
 \arguments{
 \item{data.table}{#' @import BiocManager}

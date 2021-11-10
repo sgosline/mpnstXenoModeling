@@ -14,7 +14,9 @@ plotTopGenesHeatmap(
   upload = FALSE,
   path = ".",
   parentID = NULL,
-  newVar = ""
+  newVar = NULL,
+  plotheight = 20,
+  genelist = identifiers$GENENAME
 )
 }
 \arguments{

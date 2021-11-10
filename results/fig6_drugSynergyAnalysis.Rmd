@@ -1,0 +1,237 @@
+---
+title: "Fig6 MT Drug Synergy analysis"
+author: "Sara Gosline"
+date: "11/3/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+This markdown assesses gene expression changes the correlate with drug sensitivity.
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+if(!require('DT')){
+  install.packages("DT")
+  library(leapr)
+}
+
+library(dplyr)
+library(ggrepel)
+```
+
+
+## Load drug data and expression data
+```{r mutation data,message=FALSE,warning=FALSE}
+mpnstXenoModeling::loadPDXData()
+
+
+```
+
+
+## Synergy detection in Microtissues
+
+For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. 
+
+
+```{r MT drug plots, message=FALSE, warning=FALSE}
+mtStats <- mtDrugData
+
+good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
+
+print(paste('Looking at ',nrow(good.mt),'micro tisues'))
+
+mtStats <- mtStats%>%
+  subset(CellLine%in%good.mt$Sample)
+
+sh<-grep("99.00",mtStats$Drug)
+mtStats$Drug[sh]<-rep("SHP099",length(sh))
+
+minDrugs <- mtStats%>%
+   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
+  group_by(Drug)%>%
+  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
+  subset(samps>3)
+
+DT::datatable(minDrugs)
+
+##these are the drugs we want to evaluate!!!
+combos=minDrugs$Drug[grep(';',minDrugs$Drug)]
+
+cdrugs<-lapply(combos,function(x) unlist(stringr::str_split(x,';')))
+names(cdrugs)<-combos
+
+comboStats<-mtStats%>%subset(Drug%in%combos)%>%dplyr::select(Drug,CellLine,auc)%>%
+  tidyr::separate(Drug,into=c("Drug1","Drug2"),sep=';')
+
+singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%dplyr::select(Drug,CellLine,auc)
+
+combined<-comboStats%>%
+  left_join(rename(singleStats,Drug='Drug1',auc='auc1'))%>%
+  left_join(rename(singleStats,Drug='Drug2',auc='auc2'))%>%
+  mutate(synergistic=(auc<auc1&auc<auc2))%>%
+  arrange(synergistic)
+
+comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+  mutate(nSyn=count(synergistic))
+
+DT::datatable(comb.stats)
+
+write.csv(comb.stats,file='drugCombinationStats.csv')
+
+```
+
+Now we have a list of which samples were synergistic and why.
+
+### RNA Expression
+ We can now collect gene expression values by each sample to identify gene signatures in the drugs of interest.
+
+```{r rnaseq,message=FALSE,warning=FALSE}
+    library(ensembldb)
+ library("EnsDb.Hsapiens.v86")
+  library(ggrepel)
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, 
+                              keys=list(GeneIdFilter(rnaSeq$GENE),
+                                        TxBiotypeFilter("protein_coding")),
+        columns = c("GENENAME"))%>%
+      dplyr::rename(GENE='GENEID')%>%
+      right_join(rnaSeq)%>%
+      subset(TXBIOTYPE=='protein_coding')%>%
+      dplyr::select(GENE,GENENAME,GENEID)%>%distinct()
+  
+  dds<-rnaSeq%>%
+    subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+
+  genemat<-counts(dds,normalize=TRUE)%>%
+    as.data.frame()%>%
+    tibble::rownames_to_column("GENEID")%>%
+    tidyr::pivot_longer(-GENEID,names_to='Sample',values_to='gcounts')%>%
+    left_join(pmap)%>%
+    group_by(Sample,GENENAME)%>%
+    summarize(gcounts=sum(gcounts))%>%
+    tidyr::pivot_wider(values_from=gcounts,names_from='Sample')%>%
+    tibble::column_to_rownames('GENENAME')%>%
+    as.matrix()
+
+  
+  diffexFromTab<-function(tab,dds,pmap){
+      x=unique(paste0(tab$Drug1,tab$Drug2))
+      print(x)
+      sens=tab$CellLine[tab$synergistic]
+      nonsens=tab$CellLine[!tab$synergistic]
+  ##add col data to dds
+    
+    drug.res <- ds2FactorDE(dds, ids1=sens,
+                                    ids2=nonsens,name=x,doShrinkage=TRUE)
+    if(nrow(drug.res)>0)
+      try(mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
+                                             pmap,                                        
+                                             paste0('AUC_MT',x),
+                                          patients=c(sens,nonsens),
+                                           adjpval=0.05, 
+                                           upload=FALSE, 
+                                           parentID='syn25323411'))
+  
+    return(drug.res%>%mutate(Drug=x))  
+  }
+  
+  combos.to.eval<-subset(comb.stats,nSyn%in%c(2,3))%>%
+    dplyr::select(Drug1,Drug2,CellLine,synergistic)%>%
+    group_by(Drug1,Drug2)%>%
+    group_map( ~ diffexFromTab(.x,dds,pmap),.keep=TRUE)
+  
+  
+  full.res<-do.call(rbind,combos.to.eval)
+   
+  write.table(full.res,file='AUCMTGenesSynAUC.csv')
+
+  
+full.res%>%
+  group_by(Drug)%>%
+  summarize(sigGenes=count(padj<0.05,na.rm=T))%>%
+  DT::datatable()                                  
+```
+
+
+### GO Enrichment
+
+By running GO enrichment on each set of genes we can determine if there are specific GO terms that are enriched or depleted in each set. 
+
+```{r go enrichment, message=FALSE, warning=FALSE}
+###now let's do GO enrichment
+go.res<-lapply(combos.to.eval,function(drug.res){
+    x=drug.res$Drug[1]
+   
+    genes<-drug.res%>%
+      subset(padj<0.01)%>%
+      tibble::rownames_to_column('GENEID')%>%
+      tidyr::separate(GENEID,into=c("GENE","VERSION"))%>%
+      left_join(pmap)%>%
+        dplyr::select(GENENAME)%>%
+        distinct()
+    genes=genes$GENENAME
+    #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']
+    res2<-mpnstXenoModeling::doRegularGo(genes,prefix=paste0('MT_AUC',x)) 
+    #genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+    #dplyr::select(Gene='GENENAME',value='log2FoldChange')
+                   
+  #res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('AUC_MT_',x),useEns=FALSE)
+  #drug.res
+  res2%>%mutate(Drug=x)
+})
+
+full.go<-do.call(rbind,go.res)
+
+full.go%>%
+  group_by(Drug)%>%
+  summarize(sigTerms=count(p.adjust<0.05,na.rm=T))%>%
+  DT::datatable()  
+```
+
+## Synergy detection in PDXs
+
+For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. 
+
+
+```{r PDX drug plots, message=FALSE, warning=FALSE}
+
+##these are the drugs we want to evaluate!!!
+combos=pdxDrugStats$drug[grep('+',pdxDrugStats$drug,fixed=TRUE)]
+
+cdrugs<-lapply(combos,function(x) unlist(stringr::str_split_fixed(x,'\\+',n=2)))
+names(cdrugs)<-combos
+
+pcomboStats<-pdxDrugStats%>%subset(drug%in%combos)%>%dplyr::select(drug,individualID,AUC)%>%
+  tidyr::separate(drug,into=c("Drug1","Drug2"),sep='\\+')
+
+psingleStats<-pdxDrugStats%>%subset(drug%in%unlist(cdrugs))%>%dplyr::select(drug,individualID,AUC)
+
+combined<-pcomboStats%>%
+  left_join(dplyr::rename(psingleStats,Drug1='drug',auc1='AUC'))%>%
+  left_join(dplyr::rename(psingleStats,Drug2='drug',auc2='AUC'))%>%
+  mutate(synergistic=(AUC<auc1&AUC<auc2))%>%
+  arrange(synergistic)
+
+pcomb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+  mutate(nSyn=count(synergistic))
+
+DT::datatable(pcomb.stats)
+
+write.csv(pcomb.stats,file='drugCombinationStatsInPDX.csv')
+
+```
