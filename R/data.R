@@ -56,7 +56,6 @@ do_deseq_import <- function(file) {
 #' @export
 dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
-  print(samps)
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
 
@@ -71,7 +70,6 @@ dataFromSynTable<-function(tab,syn,colname){
   ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
-  print(schemas)
   res<-lapply(samps,function(y){
     other.vals<-subset(tab,Sample==y)%>%
     dplyr::select(othercols)
@@ -212,9 +210,7 @@ loadPDXData<-function(){
 
   #get incucyte data
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
-  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\'')$asDataFrame()
-  mt.meta<- mt.meta[!(mt.meta$parentId == 'syn25791480' | mt.meta$parentId == 'syn25791505'),]
-  
+  mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()  
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
@@ -487,27 +483,26 @@ getMicroTissueDrugData <- function(syn, mtd) {
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
-    print(tab)
       if(is_combo)
         tab%>%
-        dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
-                    Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
-        rowwise()%>%
-        mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
-        dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
-        tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-        dplyr::rename(Viabilities='percent viability')%>%unnest()
+          dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
+                        Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+          rowwise()%>%
+          mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
+          dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
+          tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+          dplyr::rename(Viabilities='percent viability')%>%unnest()
       else
         tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
-                      Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
+                        Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%
-      unnest()
+          dplyr::rename(Viabilities='percent viability')%>%unnest()
     }))
     return(res)
   }))
   return(res2)
   #res$`total cell count`=unlist(res$`total cell count`)
   #res$`live cell count`=unlist(res$`live cell count`)
+}
 

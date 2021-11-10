@@ -41,12 +41,11 @@ if(!require('pROC')){
 
 Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
-```{r load data,warning=FALSE}
+```{r load data, warning=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
 ##let's clean up drug Dat
 #head(drugData)
-
 ```
 
 ## Load microtissue data and compare
@@ -145,8 +144,6 @@ generate_DR_plots <- function(res, drugID) {
     df <- as.data.frame(dt)
     cells <- unique(df$CellLine)
     # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
-    print(head(df$Conc))
-    print(head(df$Viabilities))
     auc <- pROC::auc(df$Viabilities,df$Conc)
     
     meta2 <- data.table(Drug=drugID,CellLine=cells,
@@ -207,7 +204,7 @@ process_MicroTissueDrugData <- function(syn, master.table,
 ```
 
 ## Reprocess MT data
-```{r reprocess data, warning=FALSE,message=FALSE}
+```{r reprocess data, warning=FALSE, message=FALSE}
 
 library(reticulate)
 library(dplyr)
@@ -223,5 +220,9 @@ res  = syn$tableQuery('select * from syn26136282')
 
 pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
 syn$store(pd)
+
+```
+
+```{r}
 
 ```
