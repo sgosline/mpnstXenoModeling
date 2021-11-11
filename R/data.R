@@ -58,7 +58,9 @@ dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-  print(synids)
+  # removing NaN from sample list
+  synids <- synids[synids != "NaN"]
+  samps <- names(synids)
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
@@ -82,6 +84,7 @@ dataFromSynTable<-function(tab,syn,colname){
     path <-syn$get(x)$path
     fend<-unlist(strsplit(basename(path),split='.',fixed=T))
     fend <- fend[length(fend)]
+    print(fend)
     if(fend=='csv'){
       tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
       }
