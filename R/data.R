@@ -66,7 +66,7 @@ dataFromSynTable<-function(tab,syn,colname){
               `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
               `RNASeq`=c('GENEID','counts'),
               `Microtissue Drug Data`=c(),
-              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_2...10', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit'))
+              `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_2...10', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit','replicate'))
   ##RNASeq=c('TXID','Symbol','TPM','NumReads'),
   ##the columns in the table we need
   othercols<-c('Sample','Age','Sex','MicroTissueQuality','Location','Size','Clinical Status')
@@ -87,7 +87,7 @@ dataFromSynTable<-function(tab,syn,colname){
       }
     else if(fend=='xlsx'){
         if(colname=='Incucyte drug Data'){
-          tab<-readxl::read_excel(path,col_types=c("text","text","text","text","text","text","text","text","numeric","numeric","text","text","numeric","text","text","text","text","text","text","numeric","text"))
+          tab<-readxl::read_excel(path,col_types=c("text","text","text","text","text","text","text","text","numeric","numeric","text","text","numeric","text","text","text","text","text","text","numeric","text","numeric"))
         }
         else {
           tab<-readxl::read_excel(path)
