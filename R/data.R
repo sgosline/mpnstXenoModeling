@@ -58,9 +58,7 @@ dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-  # removing NaN from sample list
-  synids <- synids[synids != "NaN"]
-  samps <- names(synids)
+
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
@@ -84,13 +82,17 @@ dataFromSynTable<-function(tab,syn,colname){
     path <-syn$get(x)$path
     fend<-unlist(strsplit(basename(path),split='.',fixed=T))
     fend <- fend[length(fend)]
-    print(fend)
     if(fend=='csv'){
       tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
       }
     else if(fend=='xlsx'){
-        tab<-readxl::read_xlsx(path)
-        if(colname=='Somatic Mutations')
+        if(colname=='Incucyte drug Data'){
+          tab<-readxl::read_excel(path,col_types=c("text","text","text","text","text","text","text","text","numeric","numeric","text","text","numeric","text","text","text","text","text","text","numeric","text"))
+        }
+        else {
+          tab<-readxl::read_excel(path)
+        }
+        if(colname=='Somatic Mutations') {
         tab<- tab%>%
                dplyr::select(gene_name,ends_with("_var_count"))%>%
                tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
@@ -101,6 +103,7 @@ dataFromSynTable<-function(tab,syn,colname){
                ungroup()%>%
                subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
                dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
+        }
       }
     else if(fend=='tsv'){
       tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
