@@ -256,7 +256,8 @@ loadPDXData<-function(reticulate_python=NULL){
             tidyr::separate(experimentalCondition,c('drug1','drug2'),sep=';',remove=TRUE)%>%
             rowwise()%>%
             dplyr::mutate(experimentalCondition=paste0(sort(c(drug1,drug2)),collapse=';'))%>%
-            ungroup()
+            ungroup()%>%
+            dplyr::select(-c('drug1','drug2'))
   ##fig drug combo errors
   #sv<-grep("Selumetinib;Vorinost",mt.meta$experimentalCondition)
   #mt.meta$experimentalCondition[sv]<-rep('Selumetinib;Vorinostat',length(sv))
@@ -273,9 +274,6 @@ loadPDXData<-function(reticulate_python=NULL){
 
   pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 }
-
-x<-5
-if(!is.null(x)) print('yo')
 
 #' getPdxRNAseqData gets all rna seq counts for xenografts
 #' #'@export
