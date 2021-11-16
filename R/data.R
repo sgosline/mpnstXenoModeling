@@ -214,8 +214,8 @@ fixDrugData<-function(drugData){
 #' @import reticulate
 #' @import dplyr
 #' @import tidyr
-loadPDXData<-function(){
-  #Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+loadPDXData<-function(reticulate_python=NULL){
+  if(!is.null(reticulate_python)) Sys.setenv(RETICULATE_PYTHON = reticulate_python)
   library(reticulate)
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
@@ -274,7 +274,8 @@ loadPDXData<-function(){
   pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 }
 
-
+x<-5
+if(!is.null(x)) print('yo')
 
 #' getPdxRNAseqData gets all rna seq counts for xenografts
 #' #'@export
