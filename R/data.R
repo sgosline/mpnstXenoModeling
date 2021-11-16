@@ -54,16 +54,17 @@ do_deseq_import <- function(file) {
 #' @import tidyr
 #' @import dplyr
 #' @export
+
+
 dataFromSynTable<-function(tab,syn,colname){
   samps <- tab$Sample
   synids<-parseSynidListColumn(tab[,colname])
   names(synids)<-samps
-
   ##get the columns from the csvs
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
-              `Somatic Mutations`=c('Symbol','individualID','specimenID','AD'),
+              `Somatic Mutations`=c('Symbol','individualID','specimenID','Tumor_AF'),#'AD'),
               `RNASeq`=c('GENEID','counts'),
               `Microtissue Drug Data`=c(),
               `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_2...10', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit','replicate'))
@@ -83,32 +84,58 @@ dataFromSynTable<-function(tab,syn,colname){
     fend<-unlist(strsplit(basename(path),split='.',fixed=T))
     fend <- fend[length(fend)]
     if(fend=='csv'){
-      tab<-read.csv(path,fileEncoding = 'UTF-8-BOM')
+      # Reading PDX tumor data processed by WU
+      # TODO memory footprint optimize this func, specify colClasses as vector
+      tab<-read.csv(path,fileEncoding = 'UTF-8-BOM',header=TRUE,row.names=NULL,check.names=TRUE)
       }
     else if(fend=='xlsx'){
+        # Reading incucyte data
         if(colname=='Incucyte drug Data'){
           tab<-readxl::read_excel(path,col_types=c("text","text","text","text","text","text","text","text","numeric","numeric","text","text","numeric","text","text","text","text","text","text","numeric","text","numeric"))
+        }
+        # Reading PDX tumor data not processed by WU
+        else if(colname=='PDX Drug Data'){
+          tab <- tryCatch({
+              readxl::read_excel(path,col_types=c("text","text","text","text","text","skip","numeric","text","text","text","text","skip","numeric","text","text","text","numeric","text","text","numeric","text","text"))
+              },
+              error=function(cond){
+              readxl::read_excel(path,col_types=c("text","text","text","text","text","skip","numeric","text","text","text","numeric","text","text","numeric","text","text"))
+              }            
+              )
         }
         else {
           tab<-readxl::read_excel(path)
         }
-        if(colname=='Somatic Mutations') {
-        tab<- tab%>%
-               dplyr::select(gene_name,ends_with("_var_count"))%>%
-               tidyr::pivot_longer(cols=ends_with("_var_count"),names_to='Value',values_to='ADs')%>%
-               tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
-               mutate(individualID=y)%>%
-               rowwise()%>%
-               mutate(specimenID=paste(individualID,CountType,sep='_'))%>%
-               ungroup()%>%
-               subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
-               dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
-        }
       }
+    else if(fend=='maf'){
+      # Reading in somatic variants
+      # TODO memory footprint optimize this func, specify colClasses as vector
+      tab <- read.delim(path,header=TRUE,skip=1)
+      tab <- tab %>% 
+             tidyr::separate(Tumor_Sample_Barcode,c('individualID',NA),sep='_')
+      # TODO check in if we should be subsetting IMPACT
+      tab <- tab[tab$IMPACT %in% c('MODIFIER','HIGH'),]
+      # TODO specimenID is assumed as individualID, will need to be updated
+      tab$specimenID <- tab$individualID
+      tab$Symbol <- tab$SYMBOL
+        # tab<- tab%>%
+        #    dplyr::select(gene_name,ends_with('_var_count'))%>%
+        #    tidyr::pivot_longer(cols=ends_with('_var_count'),names_to='Value',values_to='ADs')%>%
+        #    tidyr::separate(2,sep='_',into=c('individualID','CountType'))%>%
+        #    mutate(individualID=y)%>%
+        #    rowwise()%>%
+        #    mutate(specimenID=paste(individualID,CountType,sep='_'))%>%
+        #    ungroup()%>%
+        #    subset(CountType!='RNA')%>% ##rna type gets lost in this parsing
+        #    dplyr::select(Symbol='gene_name',individualID,specimenID,AD='ADs')
+    }
     else if(fend=='tsv'){
-      tab<-getNewSomaticCalls(read.csv2(path,sep='\t',header=T),y)
+      # TODO memory footprint optimize this func, specify colClasses as vector
+      tab<-getNewSomaticCalls(read.delim(path,header=TRUE),y)
       }
-    else if(fend=='sf'){##add check from rnaseq data
+    else if(fend=='sf'){
+      # Reading in RNASeq data
+      #add check from rnaseq data
       tab<-do_deseq_import(path)#%>%
         # dplyr::rename(counts=x)
       }
@@ -188,7 +215,7 @@ fixDrugData<-function(drugData){
 #' @import dplyr
 #' @import tidyr
 loadPDXData<-function(){
-  Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+  #Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
   library(reticulate)
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
@@ -215,12 +242,21 @@ loadPDXData<-function(){
   #query microtissue drug data
 
   #get incucyte data
-  icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')
+  icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')%>%
+    rowwise()%>%
+    dplyr::mutate(experimentalCondition=paste0(c(compound_name,compound_name_2),collapse=';'))%>%
+    dplyr::mutate(dosage1=dosage,dosage=paste0(c(dosage,`dosage_2...10`),collapse=';'))%>%
+    ungroup()
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
-
+  # Alphabetize drug combinations
+  mt.meta<-mt.meta%>%
+            tidyr::separate(experimentalCondition,c('drug1','drug2'),sep=';',remove=TRUE)%>%
+            rowwise()%>%
+            dplyr::mutate(experimentalCondition=paste0(sort(c(drug1,drug2)),collapse=';'))%>%
+            ungroup()
   ##fig drug combo errors
   #sv<-grep("Selumetinib;Vorinost",mt.meta$experimentalCondition)
   #mt.meta$experimentalCondition[sv]<-rep('Selumetinib;Vorinostat',length(sv))
@@ -236,7 +272,6 @@ loadPDXData<-function(){
   mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()
 
   pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
-
 }
 
 
@@ -261,8 +296,9 @@ getPdxRNAseqData<-function(syn){
 
 
   return(count.tab)
-
 }
+
+
 
 #' getAllNF1Expression
 #' @title getAllNF1Expression
@@ -455,9 +491,9 @@ getLatestVariantData<-function(syn){
 }
 
 #' until we have fully processed new data, grab missing samples from the old data
-mergeMutData<-function(mutData,newMutData){
+mergeMutData<-function(mutData,newMutData){}
 
-}
+
 
 #' getMicroTissueDrugData
 #' @name getMicroTissueDrugData
@@ -510,5 +546,6 @@ getMicroTissueDrugData <- function(syn, mtd) {
     return(res)
   }))
   return(res2)
-
 }
+
+
