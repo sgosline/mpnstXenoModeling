@@ -244,8 +244,8 @@ loadPDXData<-function(reticulate_python=NULL){
   #get incucyte data
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')%>%
     rowwise()%>%
-    dplyr::mutate(experimentalCondition=paste0(c(compound_name,compound_name_2),collapse=';'))%>%
-    dplyr::mutate(dosage1=dosage,dosage=paste0(c(dosage,`dosage_2...10`),collapse=';'))%>%
+    tidyr::unite(experimentalCondition,compound_name,compound_name_2,sep=';',na.rm=TRUE,remove=TRUE)%>%
+    tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',remove=TRUE)%>%
     ungroup()
   mt.meta <- syn$tableQuery('SELECT id,individualID,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
   ##fix CUDC annotations
@@ -274,6 +274,8 @@ loadPDXData<-function(reticulate_python=NULL){
 
   pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 }
+
+loadPDXData(reticulate_python='/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 
 #' getPdxRNAseqData gets all rna seq counts for xenografts
 #' #'@export
