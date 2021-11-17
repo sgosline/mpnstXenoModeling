@@ -275,8 +275,6 @@ loadPDXData<-function(reticulate_python=NULL){
   pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 }
 
-loadPDXData(reticulate_python='/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
-
 #' getPdxRNAseqData gets all rna seq counts for xenografts
 #' #'@export
 #' DEPRACATED
