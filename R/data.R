@@ -511,7 +511,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
   res2<-do.call(rbind,lapply(drugs,function(y){
     mt2<-subset(mtd,experimentalCondition==y)
     is_combo=length(grep(';',y))>0
-
+    is_dmso=y=='DMSO'
     #ids is list of synapse ids
     ids<-mt2$id
     #indiv is list of patient IDs
@@ -519,11 +519,10 @@ getMicroTissueDrugData <- function(syn, mtd) {
     #sets filenames to names of ids
     names(indiv)<-ids
     #warning(y)
-    res=do.call(rbind,lapply(names(indiv),function(x)
-    {
+    res=do.call(rbind,lapply(names(indiv),function(x) {
       #warning(indiv[x])
       #print(x)
-    tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
+      tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
       if(is_combo){
@@ -535,7 +534,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
           dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest()
-      } else if(y=='DMSO') {
+      } else if(is_dmso) {
         tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit',MeasID='measurement_id') %>%
