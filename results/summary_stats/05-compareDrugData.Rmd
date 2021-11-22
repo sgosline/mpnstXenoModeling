@@ -7,10 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-if(!require(mpnstXenoModeling)){
-  remotes::install_github('sgosline/mpnstXenoModeling')
+#if(!require(mpnstXenoModeling)){
+  remotes::install_github('jessbade/mpnstXenoModeling',ref='release',force=TRUE)
   library(mpnstXenoModeling)
-}
+#}
 if(!require('dplyr')){
   BiocManager::install('dplyr')
   library(dplyr)
@@ -48,14 +48,58 @@ loadPDXData()
 #head(drugData)
 ```
 
+```{r}
+
+```
+
+```{r}
+library(reticulate)
+library(dplyr)
+sync<-reticulate::import('synapseclient')
+syn=sync$login()
+```
+
 ## Load microtissue data and compare
 The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
-```{r processMicroTissueData functions, warning=FALSE}
+```{r}
+cleanupMTDrugData<-function(mt.meta){
+  mt.drug<-mt.meta[mt.meta$experimentalCondition!='DMSO',]
+  mt.drug$modelSystemName<-gsub('.*CL','CL',mt.drug$modelSystemName)
+  mt.drug$modelSystemName[mt.drug$modelSystemName=="NaN"]<-NA
+  mt.drug<-mt.drug%>%tidyr::unite(individualID,c(individualID,modelSystemName), sep=" ", na.rm=TRUE)
+  mt.drug$specimenID<-gsub('MN3-001','001',mt.drug$specimenID)
+  mt.drug$specimenID[mt.drug$specimenID!="001"]<-NA
+  mt.drug<-mt.drug%>%tidyr::unite(individualID,c(individualID,specimenID), sep="-", na.rm=TRUE)
+  mt.drug$individualID<-gsub('MN-3$','MN-3-002',mt.drug$individualID)
+  return(mt.drug)
+}
+cleanupMTDMSOData<-function(mt.meta){
+  mt.dmso<-mt.meta[mt.meta$experimentalCondition=='DMSO',]
+  mt.dmso<-mt.dmso%>%dplyr::select(-c(specimenID,modelSystemName))
+  return(mt.dmso)
+}
 
-filter_byDrug <- function(syn, mtd, drugID) {
-  mtd <- subset(mtd, experimentalCondition == drugID)
+mt.drug<-cleanupMTDrugData(mt.meta)
+mt.dmso<-cleanupMTDMSOData(mt.meta)
+```
+
+```{r}
+process_DMSO <- function(syn, mt.dmso){
+  res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
+  return(res)
+}
+normalize_toDMSO <- function(mt.dmso, drugID){
+    #TODO need to understand pairing of dmso file to mt data
+}
+dmso.dat<-process_DMSO(syn,mt.dmso)
+```
+
+```{r processMicroTissueData functions, warning=FALSE}
+filter_byDrug <- function(syn, mtdrug, drugID) {
+  mtd <- subset(mtdrug, experimentalCondition == drugID)
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
+  # does this need to not be sorted for comparison to DMSO
   out = res[order(res$Conc),]
   # Assumes log(M) concentration
   return(out)
@@ -168,17 +212,16 @@ generate_DR_plots <- function(res, drugID) {
 }
 
 
-process_MicroTissueDrugData <- function(syn, master.table, 
+process_MicroTissueDrugData <- function(syn, master.drug, master.dmso, 
                                         upload=FALSE, path='.', parentID=NULL){
   
-  drugIDs <- unique(master.table$experimentalCondition)
-  
   meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
-  
   plt.list <- list()
+  drugIDs <- unique(master.drug$experimentalCondition)
   
   for (drug in drugIDs) {
-    res <- filter_byDrug(syn, master.table, drug)
+    res <- filter_byDrug(syn, master.drug, drug)
+    # TODO normalize_toDMSO(res,master.dmso)
     plt = generate_DR_plots(res,drug)
     myplt <- plt$plot
     mytab <- plt$table
@@ -206,20 +249,17 @@ process_MicroTissueDrugData <- function(syn, master.table,
 ## Reprocess MT data
 ```{r reprocess data, warning=FALSE, message=FALSE}
 
-library(reticulate)
-library(dplyr)
-sync<-reticulate::import('synapseclient')
-syn=sync$login()
+#unique(mt.drug$individualID)
+#meta.dt<-process_MicroTissueDrugData(syn, mt.drug, mt.dmso, upload=FALSE)
 
-meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
-
-res  = syn$tableQuery('select * from syn26136282')
-syn$delete(res)
-res  = syn$tableQuery('select * from syn26136282')
+#meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
+#res  = syn$tableQuery('select * from syn26136282')
+#syn$delete(res)
+#res  = syn$tableQuery('select * from syn26136282')
 #synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
 
-pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
-syn$store(pd)
+#pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
+#syn$store(pd)
 
 ```
 
