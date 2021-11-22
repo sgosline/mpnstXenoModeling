@@ -533,19 +533,19 @@ getMicroTissueDrugData <- function(syn, mtd) {
           mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
           dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest()
+          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else if(is_dmso) {
         tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit',MeasID='measurement_id') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest()
+          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else{
         tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest()
+          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       }
     }))
     return(res)
