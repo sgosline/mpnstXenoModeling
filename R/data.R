@@ -526,7 +526,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
     tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
-      if(is_combo)
+      if(is_combo){
         tab%>%
           dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
@@ -535,7 +535,13 @@ getMicroTissueDrugData <- function(syn, mtd) {
           dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest()
-      else
+      } else if(y=='DMSO') {
+        tab%>%
+          dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
+                        Resp='response', RespType='response_type', ConcUnit='dosage_unit',MeasID='measurement_id') %>%
+          tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
+          dplyr::rename(Viabilities='percent viability')%>%unnest()
+      } else{
         tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
