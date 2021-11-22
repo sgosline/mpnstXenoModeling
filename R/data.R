@@ -546,6 +546,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest()
+      }
     }))
     return(res)
   }))
