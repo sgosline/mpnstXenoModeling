@@ -7,10 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#if(!require(mpnstXenoModeling)){
-  remotes::install_github('jessbade/mpnstXenoModeling',ref='release',force=TRUE)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
-#}
+}
 if(!require('dplyr')){
   BiocManager::install('dplyr')
   library(dplyr)
@@ -43,6 +43,7 @@ Let's load all the data using the `mpnstXenoModeling` package function. This wil
 
 ```{r load data, warning=FALSE}
 #this function simply loads all the data into memory
+#loadPDXData()
 loadPDXData()
 ##let's clean up drug Dat
 #head(drugData)
@@ -86,20 +87,26 @@ mt.dmso<-cleanupMTDMSOData(mt.meta)
 
 ```{r}
 process_DMSO <- function(syn, mt.dmso){
+  # TODO unite(CellLine, ExperimentID) #when uploaded to metadata folder
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
+  res=aggregate(Viabilities ~ CellLine, data=dmso.dat, FUN=mean)
   return(res)
 }
-normalize_toDMSO <- function(mt.dmso, drugID){
-    #TODO need to understand pairing of dmso file to mt data
-}
-dmso.dat<-process_DMSO(syn,mt.dmso)
+dmso.dat<-process_DMSO(syn,head(mt.dmso,1))
+```
+
+```{r}
+###TODO###
+# mutate dmso.dat column name to MaxViability
+# unite(mt.drg,dmso.dat) by experimentID and individualID
+# mt.drug now has a column of MaxViability
+
 ```
 
 ```{r processMicroTissueData functions, warning=FALSE}
 filter_byDrug <- function(syn, mtdrug, drugID) {
   mtd <- subset(mtdrug, experimentalCondition == drugID)
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
-  # does this need to not be sorted for comparison to DMSO
   out = res[order(res$Conc),]
   # Assumes log(M) concentration
   return(out)
@@ -166,6 +173,7 @@ generate_DR_plots <- function(res, drugID) {
     df <- as.data.frame(dt)
 #    min_value <- min(df$Viabilities)
 #    max_value <- max(df$Viabilities)
+    ## TODO add MaxViability here for normalization to DMSO##
     min_value <- min(df$meanViability)
     max_value <-max(df$meanViability)
     fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
