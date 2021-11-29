@@ -64,7 +64,7 @@ dataFromSynTable<-function(tab,syn,colname){
   schemas=list(`PDX Drug Data`=c('individual_id','specimen_id','compound_name','dose','dose_unit','dose_frequency',
               'experimental_time_point','experimental_time_point_unit',
               'assay_value','assay_units'),
-              `Somatic Mutations`=c('Symbol','individualID','specimenID','Tumor_AF'),#'AD'),
+              `Somatic Mutations`=c('Symbol','individualID','specimenID','Tumor_AF','AD'),
               `RNASeq`=c('GENEID','counts'),
               `Microtissue Drug Data`=c(),
               `Incucyte drug Data`=c('model_system_name', 'compound_name', 'compound_name_2', 'dosage', 'dosage_2...10', 'dosage_unit', 'response', 'response_unit','experimental_time_point','experimental_time_point_unit','replicate'))
@@ -118,6 +118,7 @@ dataFromSynTable<-function(tab,syn,colname){
       # TODO specimenID is assumed as individualID, will need to be updated
       tab$specimenID <- tab$individualID
       tab$Symbol <- tab$SYMBOL
+      tab$AD <- tab$t_depth
         # tab<- tab%>%
         #    dplyr::select(gene_name,ends_with('_var_count'))%>%
         #    tidyr::pivot_longer(cols=ends_with('_var_count'),names_to='Value',values_to='ADs')%>%
