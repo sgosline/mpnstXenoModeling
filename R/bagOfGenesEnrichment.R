@@ -168,7 +168,7 @@ doRegularGo<-function(genes,bg=NULL,prefix='',gsea_FDR=0.05,pathway.plot.size=3,
   plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
                      order.by='Count',clean.names=F,width=width,height=height)
   return(res)
- 
+
 }
 
 

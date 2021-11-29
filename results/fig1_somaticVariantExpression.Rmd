@@ -10,13 +10,12 @@ output:
 
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
-#if(!require(mpnstXenoModeling)){
-remotes::install_github('jessbade/mpnstXenoModeling', ref='sara',force=TRUE)
-library(mpnstXenoModeling)
-#}
+if(!require(mpnstXenoModeling)){
+    remotes::install_github('sgosline/mpnstXenoModeling')
+    library(mpnstXenoModeling)
+}
 
 if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
