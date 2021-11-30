@@ -533,7 +533,8 @@ getMicroTissueDrugData <- function(syn, mtd) {
           mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
           dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities='percent viability')%>%
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else if(is_dmso) {
         ttab<-tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
@@ -545,9 +546,10 @@ getMicroTissueDrugData <- function(syn, mtd) {
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities='percent viability')%>%
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       }
-      
+      ##override the cellLine in the file with the annotations from the table
       ttab%>%mutate(CellLine=indiv[[x]])
     }))
     return(res)

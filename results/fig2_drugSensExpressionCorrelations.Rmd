@@ -101,6 +101,8 @@ eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
                 'Ribociclib;SHP099','Ribociclib',
                 'SHP099','Trametinib','SHP099;Trametinib')
 
+eval.samps<-c()
+
 ```
 
 Now we have three metrics: maxKilling, AUC, and IC50. How do these compare across tissues?

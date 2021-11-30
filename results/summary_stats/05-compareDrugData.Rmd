@@ -86,14 +86,26 @@ process_DMSO <- function(syn, mt.dmso){
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
   return(res)
 }
-normalize_toDMSO <- function(mt.dmso, drugID){
-    #TODO need to understand pairing of dmso file to mt data
-}
+
 dmso.dat<-process_DMSO(syn,mt.dmso)
 dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine)%>%summarize(meanViab=mean(Viabilities))
 ```
 
 ```{r processMicroTissueData functions, warning=FALSE}
+
+
+
+#' filter_byDrug: Retrieves the drug sensitivity data for a 
+#' subset of drug experiments filtered by a particular drug name
+#'
+#' @param syn 
+#' @param mtdrug 
+#' @param drugID 
+#'
+#' @return a data.frame of drug data
+#' @export
+#'
+#' @examples
 filter_byDrug <- function(syn, mtdrug, drugID) {
   mtd <- subset(mtdrug, experimentalCondition == drugID)
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
@@ -104,7 +116,23 @@ filter_byDrug <- function(syn, mtdrug, drugID) {
 }
 
 
-TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
+#' TryFit
+#'
+#' @param dose_response 
+#' @param fixed 
+#' @param names 
+#' @param nan.handle 
+#' @param curve_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+TryFit <- function(dose_response, 
+                   fixed = c(NA, NA, NA, NA), 
+                   names = c(NA, NA, NA, NA), 
+                   nan.handle = c("LL4", "L4"), 
+                   curve_type){
 
     if (var(dose_response$Viabilities) == 0) {
         dose_response$Viabilties[nrow(dose_response)] <- dose_response$Viabilities[nrow(dose_response)] + 10^-10
@@ -127,6 +155,16 @@ TryFit <- function(dose_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, N
 }
 
 
+#' drcmod Creates a dose response model object 
+#'
+#' @param dose_resp 
+#' @param fctval 
+#' @param curve_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 drcmod <- function(dose_resp, fctval, curve_type){
   drm(formula   = Viabilities ~ Conc
       , curveid   = CellLine
@@ -138,19 +176,31 @@ drcmod <- function(dose_resp, fctval, curve_type){
 }
 
 
+#' generate_DR_plots
+#'
+#' @param res 
+#' @param drugID 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 generate_DR_plots <- function(res, drugID) {
   require(data.table)
   dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine)%>%
     rowwise()%>%
     mutate(meanViability=mean(Viabilities,na.rm=T))%>%
     unnest(Viabilities)#%>% setDT()
+  
   #dr.df <- tidyr::unnest(dr.df, Viabilities)
   dr.df$Viabilities<- na_if(dr.df$Viabilities, "NA")
   dr.df <- dr.df[complete.cases(dr.df), ]
+  
   dr.dt <- data.table(dr.df)
   dt2 <- data.table()
   dat.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),
-                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric(),
+                       auc_hi=numeric(),auc_low=numeric())
   # factor by CellLine
   dr.dt[,CellLine:=as.factor(CellLine)]
   scale.num <- nlevels(dr.dt$CellLine)
@@ -166,6 +216,8 @@ generate_DR_plots <- function(res, drugID) {
 #    max_value <- max(df$Viabilities)
     min_value <- min(df$meanViability)
     max_value <-max(df$meanViability)
+    
+    ##here we create the actual fit values
     fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
     # hill from fit.LL4
     # ic50 code from https://rstudio-pubs-static.s3.amazonaws.com/378543_5b5bda32bf0541a485ccc49efbea680a.html
@@ -186,14 +238,17 @@ generate_DR_plots <- function(res, drugID) {
     df <- as.data.frame(dt)
     cells <- unique(df$CellLine)
     # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
-    auc <- pROC::auc(df$Viabilities,df$Conc)
-    
+    auc <- pROC::auc(df$Pred,df$Conc)
+    ci <- pROC::ci.auc(auc,method='bootstrap',progress='none')
+    #print(ci)
     meta2 <- data.table(Drug=drugID,CellLine=cells,
                         Hill=coefs['hill'],
                         ec50=coefs['ec_50'],
                        MinViability=min_value,
                        MaxViability=max_value,
-                       ic50=ic_50,auc=as.numeric(auc))
+                       ic50=ic_50,auc=as.numeric(auc),
+                       auc_low=ci[1], #2.5% confidence interval
+                       auc_hi=ci[3]) #97.5% confidence interval
     
     dat.dt <- rbind(dat.dt,meta2)
     dt = merge(dt,sd.lst)
@@ -210,11 +265,24 @@ generate_DR_plots <- function(res, drugID) {
 }
 
 
-process_MicroTissueDrugData <- function(syn, master.drug, master.dmso, 
+#' Title
+#'
+#' @param syn 
+#' @param master.drug 
+#' @param master.dmso 
+#' @param upload 
+#' @param path 
+#' @param parentID 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL, 
                                         upload=FALSE, path='.', parentID=NULL){
   
   ##final table
-  meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+  meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric(),auc_hi=numeric(),auc_low=numeric())
   plt.list <- list()
   
   ##drugs to process
@@ -222,20 +290,28 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso,
   
   for (drug in drugIDs) {
     res <- filter_byDrug(syn, master.drug, drug)
-    # TODO normalize_toDMSO(res,master.dmso)
+    
+    if(!is.null(master.dmso)) ## if we have DMSO data we can normalize viabilities
+      res<-res%>%
+        left_join(dplyr::select(ungroup(master.dmso),'CellLine','meanViab'))%>%
+        mutate(Viabilities=100*Viabilities/meanViab)
+    
     plt = generate_DR_plots(res,drug)
     myplt <- plt$plot
     mytab <- plt$table
     meta.dt <- rbind(meta.dt, plt$table)
     plt.list[[drug]] = plt$plot
   }
+  
   meta.dt<-meta.dt%>%
     tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
 
   fwrite(meta.dt,file="doseResponse_table.csv")
+  
   pdf("doseResponsePlots.pdf", onefile = TRUE)
   for (drug in drugIDs) {print(plt.list[[drug]])}
   dev.off()
+  
   if (isTRUE(upload)) {
     synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
     synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
@@ -251,7 +327,8 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso,
 ```{r reprocess data, warning=FALSE, message=FALSE}
 
 unique(mt.drug$individualID)
-meta.dt<-process_MicroTissueDrugData(syn, mt.drug, mt.dmso, upload=FALSE)
+meta.dt<-process_MicroTissueDrugData(syn, mt.drug, NULL, upload=FALSE)
+meta.with.dmso<-process_MicroTissueDrugData(syn, mt.drug, dmso.stat, upload=FALSE)
 
 #meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
 res  = syn$tableQuery('select * from syn26136282')
@@ -262,6 +339,8 @@ pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse
 syn$store(pd)
 
 ```
+
+Now we can evaluate how the normalization changes things
 
 ```{r}
 
