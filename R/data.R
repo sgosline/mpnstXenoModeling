@@ -526,7 +526,7 @@ getMicroTissueDrugData <- function(syn, mtd) {
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
       if(is_combo){
-        tab%>%
+        ttab<-tab%>%
           dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           rowwise()%>%
@@ -535,18 +535,20 @@ getMicroTissueDrugData <- function(syn, mtd) {
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else if(is_dmso) {
-        tab%>%
+        ttab<-tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit',MeasID='measurement_id') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else{
-        tab%>%
+        ttab<-tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       }
+      
+      ttab%>%mutate(CellLine=indiv[[x]])
     }))
     return(res)
   }))

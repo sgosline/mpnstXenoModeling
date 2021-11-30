@@ -36,7 +36,25 @@ library(ggrepel)
 
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
-mpnstXenoModeling::loadPDXData()
+#mpnstXenoModeling::loadPDXData()
+
+#here we need mT drug sensitivyt and gene expression
+  #update to use `RNAseq` column
+  syn<-synapseLogin()
+
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+
+  clin.tab <<- data.tab%>%
+    dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
+    distinct()
+  
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
+    mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+    tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+ 
+  mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()
+  pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 
 
 ```
@@ -53,8 +71,7 @@ The first thing we need to do is establish good metrics for evaluating drug sens
 
 
 ```{r MT drug plots, message=FALSE, warning=FALSE}
-syn = synapseLogin()
-mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
+mtStats <- mtDrugData%>%
   mutate(maxKilling = 1-(MinViability/MaxViability))
 
 
@@ -81,7 +98,7 @@ DT::datatable(minDrugs)
 
 eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
                 'Olaparib','Olaparib;Trabectedin',
-                'SHP099;Ribociclib','Ribociclib',
+                'Ribociclib;SHP099','Ribociclib',
                 'SHP099','Trametinib','SHP099;Trametinib')
 
 ```
@@ -97,9 +114,14 @@ auc.mat<-mtStats%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
 
-  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT.png')
+  ##single treatments only
+  combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
+  singls<-setdiff(rownames(auc.mat),combos)
+  pheatmap(auc.mat[singls,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_single.png')
+   pheatmap(auc.mat[combos,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_combo.png')
   pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data')
 
+  ##combos
   
    pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
   pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')

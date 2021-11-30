@@ -7,10 +7,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#if(!require(mpnstXenoModeling)){
+if(!require(mpnstXenoModeling)){
   remotes::install_github('jessbade/mpnstXenoModeling',ref='release',force=TRUE)
   library(mpnstXenoModeling)
-#}
+}
 if(!require('dplyr')){
   BiocManager::install('dplyr')
   library(dplyr)
@@ -48,11 +48,8 @@ loadPDXData()
 #head(drugData)
 ```
 
-```{r}
 
-```
-
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(reticulate)
 library(dplyr)
 sync<-reticulate::import('synapseclient')
@@ -62,7 +59,7 @@ syn=sync$login()
 ## Load microtissue data and compare
 The first thing we want to do is to load the microtissue data and carry out the bayesian correction. This is pretty straightforward.
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 cleanupMTDrugData<-function(mt.meta){
   mt.drug<-mt.meta[mt.meta$experimentalCondition!='DMSO',]
   mt.drug$modelSystemName<-gsub('.*CL','CL',mt.drug$modelSystemName)
@@ -84,7 +81,7 @@ mt.drug<-cleanupMTDrugData(mt.meta)
 mt.dmso<-cleanupMTDMSOData(mt.meta)
 ```
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 process_DMSO <- function(syn, mt.dmso){
   res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
   return(res)
@@ -93,6 +90,7 @@ normalize_toDMSO <- function(mt.dmso, drugID){
     #TODO need to understand pairing of dmso file to mt data
 }
 dmso.dat<-process_DMSO(syn,mt.dmso)
+dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine)%>%summarize(meanViab=mean(Viabilities))
 ```
 
 ```{r processMicroTissueData functions, warning=FALSE}
@@ -215,8 +213,11 @@ generate_DR_plots <- function(res, drugID) {
 process_MicroTissueDrugData <- function(syn, master.drug, master.dmso, 
                                         upload=FALSE, path='.', parentID=NULL){
   
+  ##final table
   meta.dt <- data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
   plt.list <- list()
+  
+  ##drugs to process
   drugIDs <- unique(master.drug$experimentalCondition)
   
   for (drug in drugIDs) {
@@ -249,17 +250,16 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso,
 ## Reprocess MT data
 ```{r reprocess data, warning=FALSE, message=FALSE}
 
-#unique(mt.drug$individualID)
-#meta.dt<-process_MicroTissueDrugData(syn, mt.drug, mt.dmso, upload=FALSE)
+unique(mt.drug$individualID)
+meta.dt<-process_MicroTissueDrugData(syn, mt.drug, mt.dmso, upload=FALSE)
 
 #meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
-#res  = syn$tableQuery('select * from syn26136282')
-#syn$delete(res)
-#res  = syn$tableQuery('select * from syn26136282')
+res  = syn$tableQuery('select * from syn26136282')
+syn$delete(res)
+res  = syn$tableQuery('select * from syn26136282')
 #synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
-
-#pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
-#syn$store(pd)
+pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
+syn$store(pd)
 
 ```
 
