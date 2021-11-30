@@ -54,22 +54,22 @@ good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%
 
 print(paste('Looking at ',nrow(good.mt),'micro tisues'))
 
-mtStats <- mtStats%>%
-  subset(CellLine%in%good.mt$Sample)
+#mtStats <- mtStats%>%
+#  subset(CellLine%in%good.mt$Sample)
 
 sh<-grep("99.00",mtStats$Drug)
 mtStats$Drug[sh]<-rep("SHP099",length(sh))
 
-minDrugs <- mtStats%>%
-   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
-  group_by(Drug)%>%
-  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
-  subset(samps>3)
+#minDrugs <- mtStats%>%
+#   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
+#  group_by(Drug)%>%
+#  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
+#  subset(samps>3)
 
-DT::datatable(minDrugs)
+#DT::datatable(minDrugs)
 
 ##these are the drugs we want to evaluate!!!
-combos=minDrugs$Drug[grep(';',minDrugs$Drug)]
+combos=mtStats$Drug[grep(';',mtStats$Drug)]
 
 cdrugs<-lapply(combos,function(x) unlist(stringr::str_split(x,';')))
 names(cdrugs)<-combos
