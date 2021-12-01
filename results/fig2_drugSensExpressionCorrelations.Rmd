@@ -116,11 +116,10 @@ auc.mat<-mtStats%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
 
-  ##can we plot correlation between AUC values? 
-
   ##single treatments only
   combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
   singls<-setdiff(rownames(auc.mat),combos)
+  
   #pheatmap(auc.mat[singls,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_single.png')
   # pheatmap(auc.mat[combos,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_combo.png')
   #pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data')

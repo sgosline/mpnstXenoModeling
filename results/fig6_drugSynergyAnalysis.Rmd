@@ -54,19 +54,10 @@ good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%
 
 print(paste('Looking at ',nrow(good.mt),'micro tisues'))
 
-#mtStats <- mtStats%>%
-#  subset(CellLine%in%good.mt$Sample)
 
 sh<-grep("99.00",mtStats$Drug)
 mtStats$Drug[sh]<-rep("SHP099",length(sh))
 
-#minDrugs <- mtStats%>%
-#   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
-#  group_by(Drug)%>%
-#  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
-#  subset(samps>3)
-
-#DT::datatable(minDrugs)
 
 ##these are the drugs we want to evaluate!!!
 combos=mtStats$Drug[grep(';',mtStats$Drug)]
@@ -96,6 +87,41 @@ write.csv(comb.stats,file='drugCombinationStats.csv')
 
 Now we have a list of which samples were synergistic and why.
 
+### Drug correlation
+
+We now want to evaluate the behavior of single drugs to determine which ones were anti-correlated. Are drugs that are anti-correlated more likely to be synergistyc? 
+
+
+```{r correlation analysiss,message=FALSE,warning=FALSE}
+auc.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,auc)%>%
+  tidyr::pivot_wider(values_from=auc,names_from=CellLine,values_fn=list(auc=mean),values_fill=0.0)%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+
+  ##single treatments only
+  combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
+  singls<-setdiff(rownames(auc.mat),combos)
+
+  ##can we plot correlation between AUC values? 
+  pheatmap(cor(t(auc.mat[singls,])))
+
+  cortab<-cor(t(auc.mat[singls,]))%>%as.data.frame()%>%
+    tibble::rownames_to_column('firstDrug')%>%
+    pivot_longer(cols=c(-firstDrug),values_to='corVal',names_to='otherDrug')%>%
+    arrange(corVal)%>%
+    unite(c(firstDrug,otherDrug),col='combo',sep=';')%>%
+    rowwise()%>%
+    mutate(combo=paste(sort(unlist(strsplit(combo,split=';'))),collapse=';'))%>%
+    dplyr::select(combo,corVal)%>%distinct()
+  
+  mt.combs<-comb.stats%>%
+    unite(Drug1,Drug2,sep=';',col='combo')%>%dplyr::select(combo,nSyn)%>%distinct()
+
+  cortab%>%arrange(corVal)%>%
+    inner_join(mt.combs)%>%
+    ggplot(aes(x=nSyn,y=corVal,col=nSyn))+geom_point()
+```
 ### RNA Expression
  We can now collect gene expression values by each sample to identify gene signatures in the drugs of interest.
 

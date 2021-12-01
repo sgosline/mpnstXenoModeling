@@ -83,12 +83,13 @@ mt.dmso<-cleanupMTDMSOData(mt.meta)
 
 ```{r, warning=FALSE, message=FALSE}
 process_DMSO <- function(syn, mt.dmso){
-  res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
+ # res = mpnstXenoModeling::
+    res<-getMicroTissueDrugData(syn,mt.dmso) 
   return(res)
 }
 
 dmso.dat<-process_DMSO(syn,mt.dmso)
-dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine)%>%summarize(meanViab=mean(Viabilities))
+dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine,experimentId)%>%summarize(meanViab=mean(Viabilities))
 ```
 
 ```{r processMicroTissueData functions, warning=FALSE}
@@ -108,7 +109,7 @@ dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine)%>%summarize(meanViab=mean(Viab
 #' @examples
 filter_byDrug <- function(syn, mtdrug, drugID) {
   mtd <- subset(mtdrug, experimentalCondition == drugID)
-  res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
+  res = getMicroTissueDrugData(syn,mtd)
   # does this need to not be sorted for comparison to DMSO
   out = res[order(res$Conc),]
   # Assumes log(M) concentration
@@ -294,7 +295,7 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL,
     
     if(!is.null(master.dmso)) ## if we have DMSO data we can normalize viabilities
       res<-res%>%
-        left_join(dplyr::select(ungroup(master.dmso),'CellLine','meanViab'))%>%
+        left_join(dplyr::select(ungroup(master.dmso),'CellLine','experimentId','meanViab'))%>%
         mutate(Viabilities=100*Viabilities/meanViab)
     
     plt = generate_DR_plots(res,drug)
@@ -346,6 +347,8 @@ ggplot(full,aes(x=auc.norm,y=auc.orig,col=CellLine))+geom_point()
 ggplot(full,aes(x=ic50.norm,y=ic50.orig,col=CellLine))+geom_point()+scale_x_log10()+scale_y_log10()
 
 ggplot(full,aes(x=MinViability.norm,y=MinViability.orig,col=CellLine))+geom_point()
+
+ggplot(full,aes(x=MaxViability.norm,y=MaxViability.orig,col=CellLine))+geom_point()
 
 ```
 
