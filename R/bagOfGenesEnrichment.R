@@ -127,13 +127,15 @@ doGSEA<-function(genes.with.values,prot.univ,prefix,useEns=FALSE,pathway.plot.si
                         core_enrichment=NA))
     
   res<-filter(as.data.frame(gr),p.adjust<gsea_FDR)
-  
+  plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+                     order.by='NES',clean.names=F,width=width,height=height)
+
   if(nrow(res)==0){
-    return(gr)
+    return(as.data.frame(gr))
   }else{
-    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
-                                        order.by='NES',clean.names=F,width=width,height=height))
+    return(as.data.frame(gr))
   }
+    
 
 }
 

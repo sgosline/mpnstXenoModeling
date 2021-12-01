@@ -578,9 +578,9 @@ Next we do the GO term enrichment of those genes
 mk.go.res<-lapply(mk.all.res,function(drug.res){
   if(is.null(drug.res))
     return(NULL)
-    x=drug.res$Drug[1]
-    genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
-    dplyr::select(Gene='GENENAME',value='log2FoldChange')
+  x=drug.res$Drug[1]
+  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
   res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxKilling',x),useEns=FALSE)
   #drug.res
@@ -627,3 +627,5 @@ mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 # p
 # ggsave('PCAplotbyGo_MT_MK.png',p)
 ```
+
+There is not a lot of enrichment here from the GSEA persecptive. 
