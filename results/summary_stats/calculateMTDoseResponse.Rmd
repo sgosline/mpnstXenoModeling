@@ -41,7 +41,7 @@ if(!require('pROC')){
 
 Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
 
-```{r load data, warning=FALSE}
+```{r load data, warning=FALSE, message=FALSE}
 #this function simply loads all the data into memory
 loadPDXData()
 ##let's clean up drug Dat
@@ -238,7 +238,7 @@ generate_DR_plots <- function(res, drugID) {
     df <- as.data.frame(dt)
     cells <- unique(df$CellLine)
     # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
-    auc <- pROC::auc(df$Pred,df$Conc)
+    auc <- pROC::auc(df$Viabilities,df$Conc)
     ci <- pROC::ci.auc(auc,method='bootstrap',progress='none')
     #print(ci)
     meta2 <- data.table(Drug=drugID,CellLine=cells,
@@ -289,6 +289,7 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL,
   drugIDs <- unique(master.drug$experimentalCondition)
   
   for (drug in drugIDs) {
+    message(drug)
     res <- filter_byDrug(syn, master.drug, drug)
     
     if(!is.null(master.dmso)) ## if we have DMSO data we can normalize viabilities
@@ -306,30 +307,50 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL,
   meta.dt<-meta.dt%>%
     tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
 
-  fwrite(meta.dt,file="doseResponse_table.csv")
-  
-  pdf("doseResponsePlots.pdf", onefile = TRUE)
+  if(is.null(master.dmso)){
+    fwrite(meta.dt,file="doseResponse_table.csv")
+      pdf("doseResponsePlots.pdf", onefile = TRUE)
+  }else{
+    fwrite(meta.dt,file="doseResponseNorm_table.csv")
+    pdf("doseResponsePlotsNorm.pdf", onefile = TRUE)
+
+  }
   for (drug in drugIDs) {print(plt.list[[drug]])}
   dev.off()
   
-  if (isTRUE(upload)) {
-    synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
-    synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
+ # if (isTRUE(upload)) {
+  #  synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
+  #  synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
      #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
    
-  }
+#  }
   return(meta.dt)
 }
 
 ```
 
 ## Reprocess MT data
+
+How does the MT data look? how does the DMSO change things? 
 ```{r reprocess data, warning=FALSE, message=FALSE}
 
-unique(mt.drug$individualID)
+#unique(mt.drug$individualID)
 meta.dt<-process_MicroTissueDrugData(syn, mt.drug, NULL, upload=FALSE)
 meta.with.dmso<-process_MicroTissueDrugData(syn, mt.drug, dmso.stat, upload=FALSE)
 
+full<-meta.dt%>%left_join(meta.with.dmso,by=c('Drug','CellLine'),suffix=c('.orig','.norm'))
+
+
+ggplot(full,aes(x=auc.norm,y=auc.orig,col=CellLine))+geom_point()
+
+ggplot(full,aes(x=ic50.norm,y=ic50.orig,col=CellLine))+geom_point()+scale_x_log10()+scale_y_log10()
+
+ggplot(full,aes(x=MinViability.norm,y=MinViability.orig,col=CellLine))+geom_point()
+
+```
+
+Now we store to synapse
+```{r}
 #meta.dt<-process_MicroTissueDrugData(syn, mt.meta, upload=TRUE, parentID='syn26066928')
 res  = syn$tableQuery('select * from syn26136282')
 syn$delete(res)
@@ -338,10 +359,9 @@ res  = syn$tableQuery('select * from syn26136282')
 pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
 syn$store(pd)
 
-```
-
-Now we can evaluate how the normalization changes things
-
-```{r}
-
+res  = syn$tableQuery('select * from syn26485995')
+syn$delete(res)
+res  = syn$tableQuery('select * from syn26485995')
+pd <- sync$build_table('Microtissue Response Values with DMSO','syn21984813','doseResponseNorm_table.csv')
+syn$store(pd)
 ```

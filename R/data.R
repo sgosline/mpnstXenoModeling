@@ -247,7 +247,8 @@ loadPDXData<-function(reticulate_python=NULL){
     tidyr::unite(experimentalCondition,compound_name,compound_name_2,sep=';',na.rm=TRUE,remove=TRUE)%>%
     tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',remove=TRUE)%>%
     ungroup()
-  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
+  
+  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
