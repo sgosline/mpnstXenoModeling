@@ -227,7 +227,7 @@ ds2FactorDE<-function(dds,ids1,ids2,name,doShrinkage=FALSE){
 #  print(summary(res))  
 
   as.data.frame(res)%>%arrange(pvalue)
-
+  
 }
 
 
@@ -266,7 +266,7 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
   design <- model.matrix(~fac)
   fit <- lmFit(dat[,c(sampleIDs.group2, sampleIDs.group1)], design)
   fit <- eBayes(fit)
-#  print(topTable(fit, coef=2))
+  #  print(topTable(fit, coef=2))
   res <- topTable(fit, coef=2, number=Inf, sort.by="none")
   res <- data.frame(featureID=rownames(res), res, stringsAsFactors = F)
   return(arrange(res,P.Value))
@@ -306,7 +306,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #' @param identifiers mapping to gene name
 #' @param myvar is name of variable
 plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
-                                upload=FALSE, path='.', parentID=NULL, newVar=NULL, plotheight=20, genelist=identifiers$GENENAME) {
+                                upload=FALSE, path='.', parentID=NULL, newVar="", plotheight=20, genelist=identifiers$GENENAME) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
   # Args:
@@ -328,23 +328,23 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     BiocManager::install('tibble')
     library(tibble)
   }
-
- 
+  
+  
   if(!require('repr')){
     BiocManager::install('repr')
     library(repr)
   }
-
-  synapse=reticulate::import('synapseclient')
-  sync=synapse$login()
-
- de.out <- de.out%>%
+  
+ # synapse=reticulate::import('synapseclient')
+#  sync=synapse$login()
+  
+  de.out <- de.out%>%
     tibble::rownames_to_column('GENEID')%>%
     separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
     subset(!is.na(GENENAME))%>%
     subset(GENENAME!='')
   
-    if(is.null(patients))
+  if(is.null(patients))
     patients <- rownames(colData(dds))
   else
     patients <- intersect(patients,rownames(colData(dds)))
@@ -355,9 +355,9 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
   
   #combined differentially expressed txids, genenames, and normalized counts
- # de.df <- left_join(de.out,identifiers,by="TXID")
-#  de.df <- left_join(de.df,norm.counts,by="TXID")
-#  de.df <- de.df[de.df$adj.P.Val < adjpval,]
+  # de.df <- left_join(de.out,identifiers,by="TXID")
+  #  de.df <- left_join(de.df,norm.counts,by="TXID")
+  #  de.df <- de.df[de.df$adj.P.Val < adjpval,]
   if (isTRUE(upload)) {
     synapse=reticulate::import('synapseclient')
     sync=synapse$login()
@@ -368,10 +368,10 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     print("No top genes within specified adj.p.val threshold to make heatmap")
     return(NULL)
   }
-
+  
   
   sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-
+  
   if(nrow(sigs)<3)
     return(NULL)
   #print(sigs)
@@ -380,16 +380,17 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
     all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
   else
     all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
-  
+  all.vars<-unique(all.vars)
   var.ID<-colData(dds)[,all.vars]%>%
     as.data.frame()%>%
     mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
     mutate(Clinical.Status=unlist(Clinical.Status))
-  var.ID[newVar] <- lapply(var.ID[newVar],as.character)
+  if(newVar!="")
+    var.ID[newVar] <- lapply(var.ID[newVar],as.character)
   
   annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
   names(annote.colors)<-newVar
-
+  
   ##TODO: fix this so it works with join
   count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE),identifiers)
   count.mat<-count.mat[intersect(rownames(count.mat),sigs$GENENAME),]
@@ -399,11 +400,11 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   var.ID <- var.ID[patients,]
   options(repr.plot.width=6,repr.plot.height=plotheight)
   heatmap <- pheatmap(log10(0.01+count.mat),
-                     cellheight=10,
-                     annotation_col=var.ID,
-                     annotation_colors=annote.colors,
-                     filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
-
+                      cellheight=10,
+                      annotation_col=var.ID,
+                      annotation_colors=annote.colors,
+                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
+  
   if (isTRUE(upload)) {
     synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
   }
@@ -432,8 +433,8 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
     library(leapr)
   }
   corr.enrichment <- leapr::leapR(geneset, 
-                           enrichment_method = "correlation_enrichment",
-                           datamatrix = exprs) 
+                                  enrichment_method = "correlation_enrichment",
+                                  datamatrix = exprs) 
   corr.enrichment <- corr.enrichment %>%
     mutate(Pathway = rownames(.)) %>%
     rename(`Ingroup mean` = ingroup_mean,
@@ -454,17 +455,17 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   }
   
   #sprint(res)
- # ret=as.data.frame(res)%>%
-#    dplyr::select(ID,Description,pvalue,p.adjust,Count)
-
-#  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
-
-#  if(nrow(res)==0){
-#    return(res)
-#  }else{
-#    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
-#                              order.by='Count',clean.names=F,width=width,height=height))
-#  }
+  # ret=as.data.frame(res)%>%
+  #    dplyr::select(ID,Description,pvalue,p.adjust,Count)
+  
+  #  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
+  
+  #  if(nrow(res)==0){
+  #    return(res)
+  #  }else{
+  #    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
+  #                              order.by='Count',clean.names=F,width=width,height=height))
+  #  }
   
   p.corr <- ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`, 
                                                  y = reorder(Pathway, `Ingroup mean`))) +
@@ -503,7 +504,7 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
   p.both <- grid.arrange(p.corr,p.pval,layout_matrix = arrange_matrix)
   
   try(ggsave(paste0("sig-included-", prefix,"-correlation-enrichment-plot.png"), p.both, 
-         height = height, width = width, units = "in"))
+             height = height, width = width, units = "in"))
   
   return(p.both)
 }
@@ -511,15 +512,15 @@ plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05,
 #' #### Optional function to visualize hypothesis testing
 
 hypothesisTestPlotsDE <- function(dds) {
-    par(mfrow=c(2,2),mar=c(2,2,1,1),bg='white')
-    ylim <- c(-5,5)
-    resGA <- results(dds, lfcThreshold=.5, altHypothesis="greaterAbs")
-    resLA <- results(dds, lfcThreshold=.5, altHypothesis="lessAbs")
-    resG <- results(dds, lfcThreshold=.5, altHypothesis="greater")
-    resL <- results(dds, lfcThreshold=.5, altHypothesis="less")
-    drawLines <- function() abline(h=c(-.5,.5),col="dodgerblue",lwd=2)
-    plotMA(resGA, ylim=ylim); drawLines()
-    plotMA(resLA, ylim=ylim); drawLines()
-    plotMA(resG, ylim=ylim); drawLines()
-    plotMA(resL, ylim=ylim); drawLines()
+  par(mfrow=c(2,2),mar=c(2,2,1,1),bg='white')
+  ylim <- c(-5,5)
+  resGA <- results(dds, lfcThreshold=.5, altHypothesis="greaterAbs")
+  resLA <- results(dds, lfcThreshold=.5, altHypothesis="lessAbs")
+  resG <- results(dds, lfcThreshold=.5, altHypothesis="greater")
+  resL <- results(dds, lfcThreshold=.5, altHypothesis="less")
+  drawLines <- function() abline(h=c(-.5,.5),col="dodgerblue",lwd=2)
+  plotMA(resGA, ylim=ylim); drawLines()
+  plotMA(resLA, ylim=ylim); drawLines()
+  plotMA(resG, ylim=ylim); drawLines()
+  plotMA(resL, ylim=ylim); drawLines()
 }

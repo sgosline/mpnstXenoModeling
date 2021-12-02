@@ -78,8 +78,8 @@ comboStats<-mtStats%>%subset(Drug%in%combos)%>%dplyr::select(Drug,CellLine,auc)%
 singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%dplyr::select(Drug,CellLine,auc)
 
 combined<-comboStats%>%
-  left_join(rename(singleStats,Drug1='Drug',auc1='auc'))%>%
-  left_join(rename(singleStats,Drug2='Drug',auc2='auc'))%>%
+  left_join(rename(singleStats,Drug='Drug1',auc='auc1'))%>%
+  left_join(rename(singleStats,Drug='Drug2',auc='auc2'))%>%
   mutate(synergistic=(auc<auc1&auc<auc2))%>%
   arrange(synergistic)
 
@@ -104,7 +104,8 @@ comboStats<-mtStats%>%
   dplyr::select(Drug,CellLine,maxKilling)%>%
   tidyr::separate(Drug,into=c("Drug1","Drug2"),sep=';')
 
-singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%dplyr::select(Drug,CellLine,maxKilling)
+singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%
+  dplyr::select(Drug,CellLine,maxKilling)
 
 combined<-comboStats%>%
   left_join(dplyr::rename(singleStats,Drug1='Drug',mk1='maxKilling'))%>%

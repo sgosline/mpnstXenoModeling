@@ -226,10 +226,7 @@ qual_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                      good, 
                                      bad,'MTQuality')
 
-plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
-
-
-res<-pmap%>%subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
+plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',patients=c(good,bad),newVar='',adjpval=0.0001, upload=FALSE, parentID='syn25323411')res<-pmap%>%subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
 
 res<-doRegularGo(res$GENENAME,prefix='MTqualGO')
 plot(res)
@@ -250,15 +247,19 @@ qual_res <- mpnstXenoModeling::ds2FactorDE(dds,
                                      good, 
                                      bad,'MTQuality',doShrinkage=TRUE)
 
-mpnstXenoModeling::plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
+plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
 
 
 
-res<-pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
-  doRegularGo(prefix='MTqualGOShrink')
-plot(res)
+res<-qual_res%>%
+  tibble::rownames_to_column('GENEID')%>%
+  subset(padj<0.0001)%>%
+  left_join(pmap)
+#pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
+  p<-doRegularGo(res$GENENAME,prefix='MTqualGOShrink')
+#plot(res)
 
-genes.with.values<-cbind(qual_res,pmap[rownames(qual_res),])%>%
+genes.with.values<-tibble::rownames_to_column(qual_res,'GENEID')%>%left_join(pmap)%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
 res2<-doGSEA(genes.with.values,NULL,'MTqualityShrink',useEns=FALSE)
