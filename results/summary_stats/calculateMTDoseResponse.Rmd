@@ -98,7 +98,6 @@ dmso.dat<-process_DMSO(syn,head(mt.dmso,1))
 # unite(mt.drg,dmso.dat) by experimentID and individualID
 # mt.drug now has a column of MaxViability
 
-=======
  # res = mpnstXenoModeling::
     res<-getMicroTissueDrugData(syn,mt.dmso) 
   return(res)
