@@ -248,7 +248,8 @@ loadPDXData<-function(reticulate_python=NULL){
     tidyr::unite(experimentalCondition,compound_name,compound_name_2,sep=';',na.rm=TRUE,remove=TRUE)%>%
     tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',remove=TRUE)%>%
     ungroup()
-  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'cellViabilityAssay\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
+  
+  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,experimentId,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
@@ -508,49 +509,57 @@ getMicroTissueDrugData <- function(syn, mtd) {
   library(tidyr)
 
   drugs<-unique(mtd$experimentalCondition)
-
-  res2<-do.call(rbind,lapply(drugs,function(y){
-    mt2<-subset(mtd,experimentalCondition==y)
+  res1<-mtd%>%dplyr::select(id,individualID,experimentId,experimentalCondition)%>%
+    apply(1,function(x){
+#  res2<-do.call(rbind,
+                #lapply(drugs,function(y){
+    
+    #mt2<-subset(mtd,experimentalCondition==y)
+    y=x[['experimentalCondition']]
     is_combo=length(grep(';',y))>0
     is_dmso=y=='DMSO'
     #ids is list of synapse ids
-    ids<-mt2$id
+    #ids<-mt2$id
     #indiv is list of patient IDs
-    indiv<-mt2$individualID
+    #indiv<-mt2$individualID
     #sets filenames to names of ids
-    names(indiv)<-ids
+    #names(indiv)<-ids
     #warning(y)
-    res=do.call(rbind,lapply(names(indiv),function(x) {
+    #res=do.call(rbind,lapply(names(indiv),function(x) {
       #warning(indiv[x])
       #print(x)
-      tab<-read.csv(syn$get(x)$path,fileEncoding = 'UTF-8-BOM')
+     tab<-read.csv(syn$get(x[['id']])$path,fileEncoding = 'UTF-8-BOM')
    # p  rint(head(tab))
     ##TO  DO get this to work for combo data
       if(is_combo){
-        tab%>%
+        ttab<-tab%>%
           dplyr::select('compound_name','compound_name_2', CellLine='model_system_name','dosage','dosage_2',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           rowwise()%>%
           mutate(DrugCol=paste(sort(c(compound_name,compound_name_2)),collapse=';'),Conc=mean(c(dosage,dosage_2),na.rm=TRUE))%>%
           dplyr::select(-c(compound_name,compound_name_2,dosage,dosage_2))%>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities='percent viability')%>%
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else if(is_dmso) {
-        tab%>%
+        ttab<-tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit',MeasID='measurement_id') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
           dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else{
-        tab%>%
+        ttab<-tab%>%
           dplyr::select(DrugCol='compound_name', CellLine='model_system_name', Conc='dosage',
                         Resp='response', RespType='response_type', ConcUnit='dosage_unit') %>%
           tidyr::pivot_wider(names_from=RespType, names_sep='.', values_from=Resp) %>%
-          dplyr::rename(Viabilities='percent viability')%>%unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities='percent viability')%>%
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       }
-    }))
-    return(res)
-  }))
+      ##override the cellLine in the file with the annotations from the table
+      ttab<-ttab%>%mutate(CellLine=x[['individualID']],experimentId=x[['experimentId']])
+    
+    return(ttab)})
+  res2=do.call(rbind,res1)
   return(res2)
 }
 

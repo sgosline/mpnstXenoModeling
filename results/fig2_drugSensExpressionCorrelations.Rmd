@@ -36,7 +36,25 @@ library(ggrepel)
 
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
-mpnstXenoModeling::loadPDXData()
+#mpnstXenoModeling::loadPDXData()
+
+#here we need mT drug sensitivyt and gene expression
+  #update to use `RNAseq` column
+  syn<-synapseLogin()
+
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+
+  clin.tab <<- data.tab%>%
+    dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
+    distinct()
+  
+  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
+    mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+    tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+ 
+  mtDrugData<<-syn$tableQuery('select * from syn26485995')$asDataFrame()
+  pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
 
 
 ```
@@ -53,8 +71,7 @@ The first thing we need to do is establish good metrics for evaluating drug sens
 
 
 ```{r MT drug plots, message=FALSE, warning=FALSE}
-syn = synapseLogin()
-mtStats <- syn$tableQuery("select * from syn26136282")$asDataFrame()%>%
+mtStats <- mtDrugData%>%
   mutate(maxKilling = 1-(MinViability/MaxViability))
 
 
@@ -81,8 +98,10 @@ DT::datatable(minDrugs)
 
 eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
                 'Olaparib','Olaparib;Trabectedin',
-                'SHP099;Ribociclib','Ribociclib',
+                'Ribociclib;SHP099','Ribociclib',
                 'SHP099','Trametinib','SHP099;Trametinib')
+
+eval.samps<-c()
 
 ```
 
@@ -97,13 +116,36 @@ auc.mat<-mtStats%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
 
-  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT.png')
-  pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data')
+  ##single treatments only
+  combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
+  singls<-setdiff(rownames(auc.mat),combos)
+  
+  #pheatmap(auc.mat[singls,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_single.png')
+  # pheatmap(auc.mat[combos,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_combo.png')
+  #pheatmap(auc.mat,cellwidth = 10,cellheight=10,main='AUC across MT data')
 
+  ##now let's try barplotss
+  mtStats%>%subset(Drug%in%singls)%>%
+    ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
+    geom_bar(stat='identity',position='dodge')+geom_errorbar()+facet_grid(CellLine~.)+
+    ggtitle("AUC of single agents")+guides(x =  guide_axis(angle = 90))
   
-   pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
-  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
-  
+  ggsave('mt_single_agent_auc_barplots.png')
+  ##combos
+  mtStats%>%subset(Drug%in%combos)%>%
+    ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
+    geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
+    ggtitle("AUC of drug combinations")+guides(x =  guide_axis(angle = 90))
+    ggsave('mt_combo_agent_auc_barplots.png')
+
+ #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
+#  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
+    mtStats%>%subset(Drug%in%eval.drugs)%>%
+    ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
+    geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
+    ggtitle("AUC of selected drugs")+guides(x =  guide_axis(angle = 90))
+    ggsave('mt_selectedDrugs_auc_barplots.png')
+
   
   ##now plot IC50
   mtStats$ic50[!is.finite(mtStats$ic50)]<-0.0
@@ -284,7 +326,7 @@ all.res<-lapply(unique(eval.drugs),function(x){
     geom_text_repel(data = ddf, aes(label = Sample))+
     ggtitle(paste0('Expression by ',x,' AUC'))
   p
-  ggsave(paste0('umapBy',x,'MT_AUC.png'),p)
+  #ggsave(paste0('umapBy',x,'MT_AUC.png'),p)
   
   
   sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
@@ -405,23 +447,24 @@ mmat<-merged.go%>%
   as.matrix()
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 
-pc<-prcomp(t(mmat),scale.=FALSE)
-
-library(ggrepel)
-
-##which are outliers? 
-df<-pc$x%>%
-  as.data.frame()%>%
-  tibble::rownames_to_column('Drug')
-
-p<-df%>%
-  ggplot(aes(x=PC1,y=PC2,col=Drug))+
-  geom_point()+
-  geom_text_repel(data =df, aes(label = Drug))+
-  ggtitle("Samples by GO terms")
-
-p
-ggsave('PCA_MT_byGO_AUC.png',p)
+# the PCA doesn't work...
+# pc<-prcomp(t(mmat),scale.=FALSE)
+# 
+# library(ggrepel)
+# 
+# ##which are outliers? 
+# df<-pc$x%>%
+#   as.data.frame()%>%
+#   tibble::rownames_to_column('Drug')
+# 
+# p<-df%>%
+#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
+#   geom_point()+
+#   geom_text_repel(data =df, aes(label = Drug))+
+#   ggtitle("Samples by GO terms")
+# 
+# p
+# ggsave('PCA_MT_byGO_AUC.png',p)
 
 
 ```
@@ -505,24 +548,25 @@ merged<-full.mk.res%>%
 mmat<-merged%>%tibble::column_to_rownames('GENENAME')%>%as.matrix()
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 
-pc<-prcomp(t(mmat),scale.=FALSE)
-
-library(ggrepel)
-
-##which are outliers? 
-df<-pc$x%>%
-  as.data.frame()%>%
-  tibble::rownames_to_column('Drug')
-
-p<-df%>%
-  ggplot(aes(x=PC1,y=PC2,col=Drug))+
-  geom_point()+
-  geom_text_repel(data = subset(df, abs(PC1)>50|abs(PC2)>25), aes(label = Drug))+
-  ggtitle("Samples by Diferential Expression")
-
-p
-
-ggsave('PCAbyDiffEx_MT_MK.png',p)
+# the PCA is not helpful...
+#pc<-prcomp(t(mmat),scale.=FALSE)
+#
+# library(ggrepel)
+# 
+# ##which are outliers? 
+# df<-pc$x%>%
+#   as.data.frame()%>%
+#   tibble::rownames_to_column('Drug')
+# 
+# p<-df%>%
+#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
+#   geom_point()+
+#   geom_text_repel(data = subset(df, abs(PC1)>50|abs(PC2)>25), aes(label = Drug))+
+#   ggtitle("Samples by Diferential Expression")
+# 
+# p
+# 
+# ggsave('PCAbyDiffEx_MT_MK.png',p)
 
 ```
 
@@ -534,9 +578,9 @@ Next we do the GO term enrichment of those genes
 mk.go.res<-lapply(mk.all.res,function(drug.res){
   if(is.null(drug.res))
     return(NULL)
-    x=drug.res$Drug[1]
-    genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
-    dplyr::select(Gene='GENENAME',value='log2FoldChange')
+  x=drug.res$Drug[1]
+  genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
+  dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
   res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('MaxKilling',x),useEns=FALSE)
   #drug.res
@@ -565,20 +609,23 @@ mmat<-merged.go%>%
 
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 
-pc<-prcomp(t(mmat),scale.=FALSE)
-
-library(ggrepel)
-
-##which are outliers? 
-df<-pc$x%>%
-  as.data.frame()%>%
-  tibble::rownames_to_column('Drug')
-
-p<-df%>%
-  ggplot(aes(x=PC1,y=PC2,col=Drug))+
-  geom_point()+
-  geom_text_repel(data = subset(df, abs(PC1)>5|abs(PC2)>5), aes(label = Drug))+ggtitle("Samples by GO terms")
-
-p
-ggsave('PCAplotbyGo_MT_MK.png',p)
+#  PCA is not helpful
+# pc<-prcomp(t(mmat),scale.=FALSE)
+# 
+# library(ggrepel)
+# 
+# ##which are outliers? 
+# df<-pc$x%>%
+#   as.data.frame()%>%
+#   tibble::rownames_to_column('Drug')
+# 
+# p<-df%>%
+#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
+#   geom_point()+
+#   geom_text_repel(data = subset(df, abs(PC1)>5|abs(PC2)>5), aes(label = Drug))+ggtitle("Samples by GO terms")
+# 
+# p
+# ggsave('PCAplotbyGo_MT_MK.png',p)
 ```
+
+There is not a lot of enrichment here from the GSEA persecptive. 

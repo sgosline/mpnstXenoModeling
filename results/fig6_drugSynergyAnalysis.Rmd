@@ -8,7 +8,7 @@ output:
     toc_depth: 2
 ---
 
-This markdown assesses gene expression changes the correlate with drug sensitivity.
+This markdown evaluates the behavior of pairs of drugs across samples via correlation and then computes the expression changes that occur upon synergistic activity.
 
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -36,7 +36,12 @@ library(ggrepel)
 
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
-mpnstXenoModeling::loadPDXData()
+
+if(!exists("dataLoaded")){
+  dataLoaded=TRUE
+  mpnstXenoModeling::loadPDXData()
+
+}
 
 
 ```
@@ -44,32 +49,25 @@ mpnstXenoModeling::loadPDXData()
 
 ## Synergy detection in Microtissues
 
-For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. 
+For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. So we filter out the combinations and label them as synergistic as such.
 
 
-```{r MT drug plots, message=FALSE, warning=FALSE}
+```{r MT combination stats by AUC, message=FALSE, warning=FALSE}
 mtStats <- mtDrugData
 
 good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
 
-print(paste('Looking at ',nrow(good.mt),'micro tisues'))
+#print(paste('Looking at ',nrow(good.mt),'micro tisues'))
 
-#mtStats <- mtStats%>%
-#  subset(CellLine%in%good.mt$Sample)
-
+#i think this is done?
 sh<-grep("99.00",mtStats$Drug)
-mtStats$Drug[sh]<-rep("SHP099",length(sh))
+if(length(sh)>0)
+  mtStats$Drug[sh]<-rep("SHP099",length(sh))
 
-#minDrugs <- mtStats%>%
-#   mutate(hasRNASeq=(CellLine%in%rnaSeq$Sample))%>%
-#  group_by(Drug)%>%
-#  summarise(samps=n_distinct(CellLine),samplesWithRNA=count(hasRNASeq==TRUE))%>%
-#  subset(samps>3)
-
-#DT::datatable(minDrugs)
 
 ##these are the drugs we want to evaluate!!!
 combos=mtStats$Drug[grep(';',mtStats$Drug)]
+singles<-setdiff(mtStats$Drug,combos)
 
 cdrugs<-lapply(combos,function(x) unlist(stringr::str_split(x,';')))
 names(cdrugs)<-combos
@@ -94,9 +92,126 @@ write.csv(comb.stats,file='drugCombinationStats.csv')
 
 ```
 
-Now we have a list of which samples were synergistic and why.
+Can we do the same for max killing? Or is it pointless? 
 
-### RNA Expression
+```{r MT MK synergy stats, message=FALSE, warning=FALSE}
+
+mtStats<-mtStats%>%
+  mutate(maxKilling=(MaxViability-MinViability))
+
+comboStats<-mtStats%>%
+  subset(Drug%in%combos)%>%
+  dplyr::select(Drug,CellLine,maxKilling)%>%
+  tidyr::separate(Drug,into=c("Drug1","Drug2"),sep=';')
+
+singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%
+  dplyr::select(Drug,CellLine,maxKilling)
+
+combined<-comboStats%>%
+  left_join(dplyr::rename(singleStats,Drug1='Drug',mk1='maxKilling'))%>%
+  left_join(dplyr::rename(singleStats,Drug2='Drug',mk2='maxKilling'))%>%
+  mutate(mksynergistic=(maxKilling>mk1&maxKilling>mk2))%>%
+  arrange(mksynergistic)
+
+mk.comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+  mutate(nSynMK=count(mksynergistic))
+
+DT::datatable(mk.comb.stats)
+
+write.csv(mk.comb.stats,file='drugMKCombinationStats.csv')
+
+```
+
+Max killing doesn't really identify any synergistic compounds
+
+### Drug correlation
+
+We now want to evaluate the behavior of single drugs to determine which ones were anti-correlated. Are drugs that are correlated or anti-correlated more likely to be synergystic? 
+
+
+```{r correlation analysiss,message=FALSE,warning=FALSE}
+auc.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,auc)%>%
+  tidyr::pivot_wider(values_from=auc,names_from=CellLine,
+                     values_fn=list(auc=mean),values_fill=0.0)%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+
+  ##single treatments only
+  combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
+  singls<-setdiff(rownames(auc.mat),combos)
+
+  ##can we plot correlation between AUC values? 
+  pheatmap(cor(t(auc.mat[singls,]),method='spearman'),cellheight = 10,cellwidth = 10,filename='auc_corHeatmap.pdf')
+
+  cortab<-cor(t(auc.mat[singls,]))%>%as.data.frame()%>%
+    tibble::rownames_to_column('firstDrug')%>%
+    pivot_longer(cols=c(-firstDrug),values_to='corVal',names_to='otherDrug')%>%
+    arrange(corVal)%>%
+    unite(c(firstDrug,otherDrug),col='combo',sep=';')%>%
+    rowwise()%>%
+    mutate(combo=paste(sort(unlist(strsplit(combo,split=';'))),collapse=';'))%>%
+    dplyr::select(combo,corVal)%>%distinct()%>%
+    arrange(corVal)%>%
+    subset(corVal!=1.0)
+  
+  #cortab$combo<-as.factor(cortab$combo)
+  
+  mt.combs<-comb.stats%>%
+    unite(Drug1,Drug2,sep=';',col='combo')%>%dplyr::select(combo,nSyn)%>%distinct()%>%
+    mutate(label=combo)
+
+  cortab%>%
+    inner_join(mt.combs)%>%mutate(combo=as.factor(combo))%>%
+    ggplot(aes(x=nSyn,y=corVal,col=nSyn))+
+    geom_point()+geom_text(aes(label=label))
+  ggsave('correlationDotPlot.pdf',width=12)
+  cortab%>%
+    left_join(mt.combs)%>%    
+    mutate(combo=as.factor(combo))%>%
+    ggplot(aes(x=combo,y=corVal,fill=nSyn))+geom_bar(stat='identity')+
+    geom_text(aes(label=label),position='dodge')
+  ggsave('correlationBarplot.pdf',width=12)
+  
+  cortab%>%subset(abs(corVal)>0.6)%>%DT::datatable()
+```
+
+Also, how does this correlation in MTs perform in the PDXs?
+
+## Synergy detection in PDXs
+
+For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. 
+
+
+```{r PDX drug plots, message=FALSE, warning=FALSE}
+
+##these are the drugs we want to evaluate!!!
+combos=pdxDrugStats$drug[grep('+',pdxDrugStats$drug,fixed=TRUE)]
+
+cdrugs<-lapply(combos,function(x) unlist(stringr::str_split_fixed(x,'\\+',n=2)))
+names(cdrugs)<-combos
+
+pcomboStats<-pdxDrugStats%>%subset(drug%in%combos)%>%dplyr::select(drug,individualID,AUC)%>%
+  tidyr::separate(drug,into=c("Drug1","Drug2"),sep='\\+')
+
+psingleStats<-pdxDrugStats%>%subset(drug%in%unlist(cdrugs))%>%dplyr::select(drug,individualID,AUC)
+
+combined<-pcomboStats%>%
+  left_join(dplyr::rename(psingleStats,Drug1='drug',auc1='AUC'))%>%
+  left_join(dplyr::rename(psingleStats,Drug2='drug',auc2='AUC'))%>%
+  mutate(synergistic=(AUC<auc1&AUC<auc2))%>%
+  arrange(synergistic)
+
+pcomb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+  mutate(nSyn=count(synergistic))
+
+DT::datatable(pcomb.stats)
+
+write.csv(pcomb.stats,file='drugCombinationStatsInPDX.csv')
+
+```
+
+## RNA Expression
  We can now collect gene expression values by each sample to identify gene signatures in the drugs of interest.
 
 ```{r rnaseq,message=FALSE,warning=FALSE}
@@ -203,35 +318,4 @@ full.go%>%
   DT::datatable()  
 ```
 
-## Synergy detection in PDXs
 
-For each combination and each sample, we want to see if the AUC is lower than what we see in the individual drugs. 
-
-
-```{r PDX drug plots, message=FALSE, warning=FALSE}
-
-##these are the drugs we want to evaluate!!!
-combos=pdxDrugStats$drug[grep('+',pdxDrugStats$drug,fixed=TRUE)]
-
-cdrugs<-lapply(combos,function(x) unlist(stringr::str_split_fixed(x,'\\+',n=2)))
-names(cdrugs)<-combos
-
-pcomboStats<-pdxDrugStats%>%subset(drug%in%combos)%>%dplyr::select(drug,individualID,AUC)%>%
-  tidyr::separate(drug,into=c("Drug1","Drug2"),sep='\\+')
-
-psingleStats<-pdxDrugStats%>%subset(drug%in%unlist(cdrugs))%>%dplyr::select(drug,individualID,AUC)
-
-combined<-pcomboStats%>%
-  left_join(dplyr::rename(psingleStats,Drug1='drug',auc1='AUC'))%>%
-  left_join(dplyr::rename(psingleStats,Drug2='drug',auc2='AUC'))%>%
-  mutate(synergistic=(AUC<auc1&AUC<auc2))%>%
-  arrange(synergistic)
-
-pcomb.stats<-combined%>%group_by(Drug1,Drug2)%>%
-  mutate(nSyn=count(synergistic))
-
-DT::datatable(pcomb.stats)
-
-write.csv(pcomb.stats,file='drugCombinationStatsInPDX.csv')
-
-```

@@ -4,7 +4,7 @@
 \alias{loadPDXData}
 \title{loadPDXData gets data from synapse and stores them as global variables}
 \usage{
-loadPDXData()
+loadPDXData(reticulate_python = NULL)
 }
 \description{
 loadPDXData gets data from synapse and stores them as global variables

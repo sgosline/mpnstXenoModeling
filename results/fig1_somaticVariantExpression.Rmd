@@ -120,13 +120,13 @@ pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annot
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
 
 ```{r}
-"""
-emutMat <- mutMat
-emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
-emutMat <- emutMat[emutMat$count_na > 2,] %>%
+
+#emutMat <- mutMat
+#emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
+#emutMat <- emutMat[emutMat$count_na > 2,] %>%
             dplyr::select(-matches('count_na'))
-genelist=rownames(emutMat)
-"""
+#genelist=rownames(emutMat)
+
 ```
 
 ```{r recurrent mutations, results="asis"}
