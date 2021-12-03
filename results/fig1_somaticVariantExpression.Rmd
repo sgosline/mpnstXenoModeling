@@ -61,9 +61,17 @@ mutMat<-varData%>%
   tidyr::pivot_wider(names_from=Sample,values_from=AD,values_fn=list(AD=mean),
                      values_fill=list(AD=0.0))#%>%
   #  tibble::column_to_rownames('Symbol')
+```
 
-mutMat$SymbolUnique<-make.names(mutMat$Symbol,unique=TRUE)
-mutMat<-mutMat%>%tibble::column_to_rownames('SymbolUnique')%>%dplyr::select(-Symbol)
+```{r}
+# Averaging all occurrences for non-unique Symbol
+mutMat <- setDT(mutMat)[,lapply(.SD, mean), by=.(Symbol)]
+```
+
+```{r}
+#mutMat$SymbolUnique<-make.names(mutMat$Symbol,unique=TRUE)
+#mutMat<-mutMat%>%tibble::column_to_rownames('SymbolUnique')%>%dplyr::select(-Symbol)
+mutMat<-mutMat%>%tibble::column_to_rownames('Symbol')
 
 library(pheatmap)
 annotes<-varData%>%
@@ -76,12 +84,15 @@ annotes<-varData%>%
     distinct()%>%tibble::remove_rownames()%>%
     tibble::column_to_rownames('Sample')#%>%
 #    dplyr::filter(sample!='normal')
+```
 
+```{r}
 mutMat<-mutMat[,rownames(annotes)]
   
 pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
    
 pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
+
 
 ```
 
