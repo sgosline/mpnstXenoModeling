@@ -12,17 +12,17 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 
 require(remotes)
-if(!require(mpnstXenoModeling)){
-  remotes::install_github('sgosline/mpnstXenoModeling')
+if (!require(mpnstXenoModeling)) {
+  remotes::install_github("sgosline/mpnstXenoModeling")
   library(mpnstXenoModeling)
 }
 
-if(!require('leapr')){
-  remotes::install_github('biodataganache/leapR')
+if (!require("leapr")) {
+  remotes::install_github("biodataganache/leapR")
   library(leapr)
 }
 
-if(!require('DT')){
+if (!require("DT")) {
   install.packages("DT")
   library(DT)
 }
@@ -134,10 +134,10 @@ pcaData <- plotPCA(vsd, intgroup=c("Sex", "MicroTissueQuality"), returnData=TRUE
 
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
-ggplot(pcaData, aes(PC1, PC2, shape=Sex, color=as.character(MicroTissueQuality))) +
-  geom_point(size=3) +
-  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
-  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+ggplot(pcaData, aes(PC1, PC2, shape = Sex, color = as.character(MicroTissueQuality))) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) + 
   coord_fixed()+ggtitle('Samples by normalized expression')+ scale_color_viridis_d()
 
 ```
