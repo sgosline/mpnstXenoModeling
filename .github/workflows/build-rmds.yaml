@@ -4,7 +4,7 @@ on:
       - results/*Rmd
       - .github/workfows/*
 
-name: Render RMDs
+name: render-RMDs
 
 jobs:
   render-rmd:
