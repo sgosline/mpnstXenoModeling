@@ -2,7 +2,7 @@
 MPNST Xenograft Modeling Framework defined by the `mpnstXenoModeling` R package inside.
  <!-- badges: start -->
   [![R-CMD-check](https://github.com/sgosline/mpnstXenoModeling/workflows/R-CMD-check/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
-  [![Render-RMDs](https://github.com/sgosline/mpnstXenoModeling/workflows/Render RMDs/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
+  [![Render-RMDs](https://github.com/sgosline/mpnstXenoModeling/workflows/render/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
 
   <!-- badges: end -->
   
