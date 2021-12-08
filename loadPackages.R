@@ -5,7 +5,7 @@ install.packages("gridExtra")
 install.packages("BiocManager")
 install.packages("ggfortify")
 install.packages("ggrepel")
-install.package("umap")
+install.packages("umap")
 
 library(BiocManager)
 BiocManager::install("EnsDb.Hsapiens.v86")
