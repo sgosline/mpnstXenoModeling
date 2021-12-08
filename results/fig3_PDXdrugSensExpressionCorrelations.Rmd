@@ -193,8 +193,9 @@ We now grab the gene expression data and determine expressio-based signatures of
 ```{r rnaseq}
 
 
-    library(ensembldb)
-  
+  library(ensembldb)
+  library(EnsDb.Hsapiens.v86)
+
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
       columns = c("GENENAME"))%>%
