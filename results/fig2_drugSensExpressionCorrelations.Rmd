@@ -26,7 +26,7 @@ if(!require('leapr')){
 
 if(!require('DT')){
   install.packages("DT")
-  library(leapr)
+  library(DT)
 }
 
 library(dplyr)
@@ -36,7 +36,6 @@ library(ggrepel)
 
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
-#mpnstXenoModeling::loadPDXData()
 
 #here we need mT drug sensitivyt and gene expression
   #update to use `RNAseq` column
