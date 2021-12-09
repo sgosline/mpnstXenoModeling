@@ -97,11 +97,11 @@ DT::datatable(minDrugs)
 ##these are the drugs we want to evaluate!!!
 
 eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
-                'Olaparib','Olaparib;Trabectedin',
-                'Ribociclib;SHP099','Ribociclib',
-                'SHP099','Trametinib','SHP099;Trametinib')
+                'Olaparib','Olaparib;Trabectedin')#,
+#                'Ribociclib;SHP099','Ribociclib',
+#                'SHP099','Trametinib','SHP099;Trametinib')
 
-eval.samps<-c()
+eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
 
 ```
 
@@ -141,6 +141,7 @@ auc.mat<-mtStats%>%
  #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
     mtStats%>%subset(Drug%in%eval.drugs)%>%
+      subset(CellLine%in%eval.samps)%>%
     ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
     geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
     ggtitle("AUC of selected drugs")+guides(x =  guide_axis(angle = 90))

@@ -279,11 +279,14 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 #' @param identifiers data table of identifiers
 #' @export
 geneIdToSymbolMatrix<-function(gene.mat,identifiers){
+  identifiers<-identifiers%>%
+    tibble::rownames_to_column('GENEID')
   count.mat<-gene.mat%>%
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
     tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
-    left_join(identifiers)%>%#tibble::rownames_to_column(identifiers,'GENEID'))%>% cHANGED, hope it doesn't break
+    left_join(identifiers)%>%#tibble::rownames_to_column(identifiers,'GENEID'))
+    #%>% cHANGED, hope it doesn't break
     group_by(GENENAME)%>%
     dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
     subset(GENENAME!="")%>%
@@ -340,7 +343,7 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   
   de.out <- de.out%>%
     tibble::rownames_to_column('GENEID')%>%
-    separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
+    tidyr::separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
     subset(!is.na(GENENAME))%>%
     subset(GENENAME!='')
   

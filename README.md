@@ -2,6 +2,8 @@
 MPNST Xenograft Modeling Framework defined by the `mpnstXenoModeling` R package inside.
  <!-- badges: start -->
   [![R-CMD-check](https://github.com/sgosline/mpnstXenoModeling/workflows/R-CMD-check/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
+  [![Render-RMDs](https://github.com/sgosline/mpnstXenoModeling/workflows/render-RMDs/badge.svg)](https://github.com/sgosline/mpnstXenoModeling/actions)
+
   <!-- badges: end -->
   
 The goals are to collect data from the NF1 MPNST pre-clinical modeling project and analyze. To use this package:
