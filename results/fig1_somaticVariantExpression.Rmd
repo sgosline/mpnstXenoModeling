@@ -21,7 +21,19 @@ if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
   library(leapr)
 }
-library(dplyr)
+if(!require('dplyr')){
+  BiocManager::install('dplyr')
+  library(dplyr)
+}
+if(!require('data.table')){
+  BiocManager::install('data.table')
+  library(data.table)
+}
+if(!require('pheatmap')){
+  install.packages('pheatmap')
+  library(pheatmap)
+}
+
 ```
 
 
@@ -73,7 +85,7 @@ mutMat <- setDT(mutMat)[,lapply(.SD, mean), by=.(Symbol)]
 #mutMat<-mutMat%>%tibble::column_to_rownames('SymbolUnique')%>%dplyr::select(-Symbol)
 mutMat<-mutMat%>%tibble::column_to_rownames('Symbol')
 
-library(pheatmap)
+
 annotes<-varData%>%
     dplyr::filter(specimenID%in%pdx.samps)%>%
     dplyr::select(c(Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
@@ -99,28 +111,20 @@ pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth =
 Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
 
 ```{r}
-library(data.table)
-```
-
-```{r}
 #Curated, keep this gene list of interest
 genelist = c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
            'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
 allgenes = rownames(mutMat)
-
-Pattern = paste(genelist, collapse="|")
-
+Pattern = paste(paste0('^',genelist,'$'), collapse="|")
 DT_result <- data.table(allgenes, result=grepl(Pattern, allgenes))
 
 ```
 
 ```{r selected muts, warning=FALSE, results="asis"}
-
 missed.genes<-DT_result[result==FALSE,]$allgenes
-print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
+#print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
 
 smutMat<-mutMat[DT_result[result==TRUE,]$allgenes,rownames(annotes)]
-  
  
 pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
  
@@ -135,7 +139,7 @@ Lastly we want to add any recurrent mutations that could be of interest to our a
 #emutMat <- mutMat
 #emutMat$count_na <- mutMat %>%apply(., 1, function(x) sum(x != 0))
 #emutMat <- emutMat[emutMat$count_na > 2,] %>%
-            dplyr::select(-matches('count_na'))
+#            dplyr::select(-matches('count_na'))
 #genelist=rownames(emutMat)
 
 ```
