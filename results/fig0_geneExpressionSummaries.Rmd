@@ -12,17 +12,17 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 
 require(remotes)
-if(!require(mpnstXenoModeling)){
-  remotes::install_github('sgosline/mpnstXenoModeling')
+if (!require(mpnstXenoModeling)) {
+  remotes::install_github("sgosline/mpnstXenoModeling")
   library(mpnstXenoModeling)
 }
 
-if(!require('leapr')){
-  remotes::install_github('biodataganache/leapR')
+if (!require("leapr")) {
+  remotes::install_github("biodataganache/leapR")
   library(leapr)
 }
 
-if(!require('DT')){
+if (!require("DT")) {
   install.packages("DT")
   library(DT)
 }
@@ -134,10 +134,10 @@ pcaData <- plotPCA(vsd, intgroup=c("Sex", "MicroTissueQuality"), returnData=TRUE
 
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
-ggplot(pcaData, aes(PC1, PC2, shape=Sex, color=as.character(MicroTissueQuality))) +
-  geom_point(size=3) +
-  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
-  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+ggplot(pcaData, aes(PC1, PC2, shape = Sex, color = as.character(MicroTissueQuality))) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) + 
   coord_fixed()+ggtitle('Samples by normalized expression')+ scale_color_viridis_d()
 
 ```
@@ -222,11 +222,11 @@ There seem to be many genes differentially expressed between MT samples
 good <-rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust','Usable')))%>%unique()
 bad <-rownames(subset(var.ID,MicroTissueQuality=='Unusable'))%>%unique()
 
-qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                     good, 
-                                     bad,'MTQuality')
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds, good,  bad,'MTQuality')
+plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',
+                    patients=c(good,bad),newVar='',adjpval=0.0001, upload=FALSE, parentID='syn25323411')
 
-plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',patients=c(good,bad),newVar='',adjpval=0.0001, upload=FALSE, parentID='syn25323411')res<-pmap%>%subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
+res<-pmap%>%subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
 
 res<-doRegularGo(res$GENENAME,prefix='MTqualGO')
 plot(res)
@@ -243,8 +243,7 @@ plot(res2)
 ## Compare with shrinkage
 ```{r shrinkage}
 
-qual_res <- mpnstXenoModeling::ds2FactorDE(dds, 
-                                     good, 
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds,  good, 
                                      bad,'MTQuality',doShrinkage=TRUE)
 
 plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')

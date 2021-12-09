@@ -216,11 +216,11 @@ fixDrugData<-function(drugData){
 #' @import dplyr
 #' @import tidyr
 loadPDXData<-function(reticulate_python=NULL){
-  if(!is.null(reticulate_python)) Sys.setenv(RETICULATE_PYTHON = reticulate_python)
   library(reticulate)
   library(dplyr)
   syn<-reticulate::import('synapseclient')$login()
-
+  if(!is.null(reticulate_python)) Sys.setenv(RETICULATE_PYTHON = reticulate_python)
+  
   ##updated to use harmonized data table
   data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 

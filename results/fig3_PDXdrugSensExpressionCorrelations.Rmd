@@ -193,8 +193,9 @@ We now grab the gene expression data and determine expressio-based signatures of
 ```{r rnaseq}
 
 
-    library(ensembldb)
-  
+  library(ensembldb)
+  library(EnsDb.Hsapiens.v86)
+
   database <- EnsDb.Hsapiens.v86
   pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
       columns = c("GENENAME"))%>%
@@ -223,7 +224,9 @@ all.res<-lapply(unique(sens.classes$drug),function(x){
   res.pats <- subset(sens.classes,drug==x)%>%subset(aucSens==FALSE)
 
   ##add col data to dds
-    
+  #print(x)
+  #print(sens.pats)
+  #print(res.pats)
   drug.res <- mpnstXenoModeling::ds2FactorDE(dds, ids1=sens.pats$individualID,
                                     ids2=res.pats$individualID,name=x, doShrinkage = TRUE)
   
@@ -232,7 +235,7 @@ all.res<-lapply(unique(sens.classes$drug),function(x){
   if(nrow(sigs>2)){
     mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
                                          pmap,x,patients=c(sens.pats$individualID,res.pats$individualID),
-                                         adjpval=0.01, upload=TRUE, parentID='syn25323411')
+                                         adjpval=0.01, upload=FALSE, parentID='syn25323411')
   
     #goTerms<-pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0('GO_',x))
   }

@@ -4,10 +4,10 @@ on:
       - results/*Rmd
       - .github/workfows/*
 
-name: Render RMDs
+name: render-RMDs
 
 jobs:
-  render:
+  render-rmd:
     runs-on: ubuntu-latest
     env:
       SYNAPSE_AUTH_TOKEN: ${{ secrets.SYNAPSE_AUTH_TOKEN }}
