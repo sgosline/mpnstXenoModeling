@@ -39,22 +39,18 @@ library(ggrepel)
 
 #here we need mT drug sensitivyt and gene expression
   #update to use `RNAseq` column
-  syn<-synapseLogin()
+  syn<-mpnstXenoModeling::loadPDXData()
 
   ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+ # data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 
   clin.tab <<- data.tab%>%
     dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
     distinct()
   
-  rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
-    mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
-    tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+  rnaSeq<<-mpnstXenoModeling::loadRNASeqData(syn)
+  mtDrugData<-loadMicrotissueDrugData(syn)
  
-  mtDrugData<<-syn$tableQuery('select * from syn26485995')$asDataFrame()
-  pdxDrugStats<<-syn$tableQuery('select * from syn25955439')$asDataFrame()
-
 
 ```
 

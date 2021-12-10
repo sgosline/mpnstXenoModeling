@@ -23,16 +23,13 @@ library(pROC)
 ```
 
 ```{r}
-mpnstXenoModeling::loadPDXData()
+syn<-mpnstXenoModeling::loadPDXData()
+icyteData<-mpnstXenoModeling::loadIncucyteData(syn)
 ```
 
 ```{r}
 ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
 geom_point()
-```
-
-```{r}
-icyteData
 ```
 
 ```{r}

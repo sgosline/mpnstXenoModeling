@@ -7,6 +7,7 @@
 #' @param tvThreshold - thresholl at which to measure
 #' @param treatedTab - table of treated values
 #' @param contTab - table of control values
+#' @export
 computeSPI<-function(treatedTab,contTab,tvThreshold){
   ttime=subset(treatedTab,volume<=tvThreshold)%>%
     subset(time>0)%>%
