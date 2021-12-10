@@ -78,8 +78,8 @@ comboStats<-mtStats%>%subset(Drug%in%combos)%>%dplyr::select(Drug,CellLine,auc)%
 singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%dplyr::select(Drug,CellLine,auc)
 
 combined<-comboStats%>%
-  left_join(rename(singleStats,Drug='Drug1',auc='auc1'))%>%
-  left_join(rename(singleStats,Drug='Drug2',auc='auc2'))%>%
+  left_join(dplyr::rename(singleStats,Drug1='Drug',auc1='auc'))%>%
+  left_join(dplyr::rename(singleStats,Drug2='Drug',auc2='auc'))%>%
   mutate(synergistic=(auc<auc1&auc<auc2))%>%
   arrange(synergistic)
 
@@ -124,12 +124,52 @@ write.csv(mk.comb.stats,file='drugMKCombinationStats.csv')
 
 Max killing doesn't really identify any synergistic compounds
 
+
+```{r MT combination stats by IC50, message=FALSE, warning=FALSE}
+mtStats <- mtDrugData
+
+good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
+
+#print(paste('Looking at ',nrow(good.mt),'micro tisues'))
+
+#i think this is done?
+sh<-grep("99.00",mtStats$Drug)
+if(length(sh)>0)
+  mtStats$Drug[sh]<-rep("SHP099",length(sh))
+
+
+##these are the drugs we want to evaluate!!!
+combos=mtStats$Drug[grep(';',mtStats$Drug)]
+singles<-setdiff(mtStats$Drug,combos)
+
+cdrugs<-lapply(combos,function(x) unlist(stringr::str_split(x,';')))
+names(cdrugs)<-combos
+
+comboStats<-mtStats%>%subset(Drug%in%combos)%>%dplyr::select(Drug,CellLine,ic50)%>%
+  tidyr::separate(Drug,into=c("Drug1","Drug2"),sep=';')
+
+singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%
+  dplyr::select(Drug,CellLine,ic50)
+combined<-comboStats%>%
+  left_join(rename(singleStats,Drug1='Drug',ic1='ic50'))%>%
+  left_join(rename(singleStats,Drug2='Drug',ic2='ic50'))%>%
+  mutate(icSyn=(ic50>ic1&ic50>ic2))%>%
+  arrange(icSyn)
+
+comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+  mutate(nSyn=count(icSyn))
+
+DT::datatable(comb.stats)
+
+write.csv(comb.stats,file='drugCombinationIC50Stats.csv')
+
+```
 ### Drug correlation
 
 We now want to evaluate the behavior of single drugs to determine which ones were anti-correlated. Are drugs that are correlated or anti-correlated more likely to be synergystic? 
+First we check by AUC
 
-
-```{r correlation analysiss,message=FALSE,warning=FALSE}
+```{r correlation analysis by AUC,message=FALSE,warning=FALSE}
 auc.mat<-mtStats%>%
   dplyr::select(Drug,CellLine,auc)%>%
   tidyr::pivot_wider(values_from=auc,names_from=CellLine,
@@ -146,9 +186,9 @@ auc.mat<-mtStats%>%
 
   cortab<-cor(t(auc.mat[singls,]))%>%as.data.frame()%>%
     tibble::rownames_to_column('firstDrug')%>%
-    pivot_longer(cols=c(-firstDrug),values_to='corVal',names_to='otherDrug')%>%
+    tidyr::pivot_longer(cols=c(-firstDrug),values_to='corVal',names_to='otherDrug')%>%
     arrange(corVal)%>%
-    unite(c(firstDrug,otherDrug),col='combo',sep=';')%>%
+    tidyr::unite(c(firstDrug,otherDrug),col='combo',sep=';')%>%
     rowwise()%>%
     mutate(combo=paste(sort(unlist(strsplit(combo,split=';'))),collapse=';'))%>%
     dplyr::select(combo,corVal)%>%distinct()%>%
@@ -158,25 +198,77 @@ auc.mat<-mtStats%>%
   #cortab$combo<-as.factor(cortab$combo)
   
   mt.combs<-comb.stats%>%
-    unite(Drug1,Drug2,sep=';',col='combo')%>%dplyr::select(combo,nSyn)%>%distinct()%>%
+    tidyr::unite(Drug1,Drug2,sep=';',col='combo')%>%
+    dplyr::select(combo,nSyn)%>%distinct()%>%
     mutate(label=combo)
 
   cortab%>%
     inner_join(mt.combs)%>%mutate(combo=as.factor(combo))%>%
     ggplot(aes(x=nSyn,y=corVal,col=nSyn))+
     geom_point()+geom_text(aes(label=label))
-  ggsave('correlationDotPlot.pdf',width=12)
+  ggsave('aucCorrelationDotPlot.pdf',width=12)
   cortab%>%
     left_join(mt.combs)%>%    
     mutate(combo=as.factor(combo))%>%
     ggplot(aes(x=combo,y=corVal,fill=nSyn))+geom_bar(stat='identity')+
     geom_text(aes(label=label),position='dodge')
-  ggsave('correlationBarplot.pdf',width=12)
+  ggsave('aucCorrelationBarplot.pdf',width=12)
   
   cortab%>%subset(abs(corVal)>0.6)%>%DT::datatable()
 ```
 
+Then we check by IC50
+
+
+```{r correlation analysis by IC50,message=FALSE,warning=FALSE}
+auc.mat<-mtStats%>%
+  dplyr::select(Drug,CellLine,ic50)%>%
+  tidyr::pivot_wider(values_from=ic50,names_from=CellLine,
+                     values_fn=list(ic50=mean),values_fill=0.0)%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+
+  ##single treatments only
+  combos<-rownames(auc.mat)[grep(';',rownames(auc.mat))]
+  singls<-setdiff(rownames(auc.mat),combos)
+
+  ##can we plot correlation between AUC values? 
+  pheatmap(cor(t(auc.mat[singls,]),method='spearman'),cellheight = 10,cellwidth = 10,filename='ic50_corHeatmap.pdf')
+
+  cortab<-cor(t(auc.mat[singls,]))%>%as.data.frame()%>%
+    tibble::rownames_to_column('firstDrug')%>%
+    tidyr::pivot_longer(cols=c(-firstDrug),values_to='corVal',names_to='otherDrug')%>%
+    arrange(corVal)%>%
+    tidyr::unite(c(firstDrug,otherDrug),col='combo',sep=';')%>%
+    rowwise()%>%
+    mutate(combo=paste(sort(unlist(strsplit(combo,split=';'))),collapse=';'))%>%
+    dplyr::select(combo,corVal)%>%distinct()%>%
+    arrange(corVal)%>%
+    subset(corVal!=1.0)
+  
+  #cortab$combo<-as.factor(cortab$combo)
+  
+  mt.combs<-comb.stats%>%
+    tidyr::unite(Drug1,Drug2,sep=';',col='combo')%>%dplyr::select(combo,nSyn)%>%distinct()%>%
+    mutate(label=combo)
+
+  cortab%>%
+    inner_join(mt.combs)%>%mutate(combo=as.factor(combo))%>%
+    ggplot(aes(x=nSyn,y=corVal,col=nSyn))+
+    geom_point()+geom_text(aes(label=label))
+  ggsave('ic50CorrelationDotPlot.pdf',width=12)
+  cortab%>%
+    left_join(mt.combs)%>%    
+    mutate(combo=as.factor(combo))%>%
+    ggplot(aes(x=combo,y=corVal,fill=nSyn))+geom_bar(stat='identity')+
+    geom_text(aes(label=label),position='dodge')
+  ggsave('ic50CorrelationBarplot.pdf',width=12)
+  
+  cortab%>%subset(abs(corVal)>0.6)%>%DT::datatable()
+```
 Also, how does this correlation in MTs perform in the PDXs?
+
+
 
 ## Synergy detection in PDXs
 
