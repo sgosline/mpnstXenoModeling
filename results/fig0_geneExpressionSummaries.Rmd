@@ -43,11 +43,12 @@ We have all the data in count.sf files so can read them in using the `tximport` 
 #this function simply loads all the data into memory
 
 
-syn<-reticulate::import('synapseclient')$login()
-data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-rnaSeq<<-mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
-  mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
-  tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+syn<-loadPDXData()#reticulate::import('synapseclient')$login()
+#data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+rnaSeq<<-mpnstXenoModeling::loadRNASeqData(syn)
+  #mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
+  #mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+  #tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
 
 ##this is the mapping data - it is neeeded to filter out protein coding genes
  if(!require('EnsDb.Hsapiens.v86')){
@@ -205,7 +206,8 @@ term.2.gene <- as.data.frame(keggpaths$matrix) %>%
   dplyr::select(term, gene)
 term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
   
-res=mpnstXenoModeling::plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, fdr.cutoff = 0.05, 
+res=mpnstXenoModeling::plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, 
+                                                 fdr.cutoff = 0.05, 
                                     corr.cutoff = 0.25, prefix='allSamps', width = 11, 
                                       height = 8.5, order.by = "Ingroup mean", 
                                       clean.names = FALSE, pathway.plot.size = 3)
@@ -224,12 +226,13 @@ bad <-rownames(subset(var.ID,MicroTissueQuality=='Unusable'))%>%unique()
 
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds, good,  bad,'MTQuality')
 plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',
-                    patients=c(good,bad),newVar='',adjpval=0.0001, upload=FALSE, parentID='syn25323411')
+                    patients=c(good,bad),newVar='',adjpval=0.0001, upload=TRUE, parentID='syn25323411')
 
-res<-pmap%>%subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
+res<-pmap%>%
+  subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
 
 res<-doRegularGo(res$GENENAME,prefix='MTqualGO')
-plot(res)
+#plot(res)
 ```
 
 ```{r analysis qual gsea, message=FALSE, warning=FALSE}
@@ -238,7 +241,7 @@ genes.with.values<-qual_res%>%
   dplyr::select(Gene='GENENAME',value='log2FoldChange')
                    
 res2<-doGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
-plot(res2)
+#plot(res2)
 ```
 ## Compare with shrinkage
 ```{r shrinkage}
@@ -246,7 +249,7 @@ plot(res2)
 qual_res <- mpnstXenoModeling::ds2FactorDE(dds,  good, 
                                      bad,'MTQuality',doShrinkage=TRUE)
 
-plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=FALSE, parentID='syn25323411')
+plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=TRUE, parentID='syn25323411')
 
 
 

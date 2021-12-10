@@ -2,19 +2,22 @@
 % Please edit documentation in R/data.R
 \name{deseq2NormFilter}
 \alias{deseq2NormFilter}
-\title{deseq2NormFilter
-Utilizes the geometric mean to normalize the entire table to generate a normalized
-list of RNAseq counts filtered for low abundance
-Only does column normalization and returns DESeq2 object}
+\title{getAllNF1Expression
+collects all data from NF1 processed data in synapse}
 \usage{
 deseq2NormFilter(data.table, newVar = NULL)
 }
 \arguments{
 \item{data.table}{#' @import BiocManager}
-}
-\description{
+
+\item{syn}{object
 deseq2NormFilter
 Utilizes the geometric mean to normalize the entire table to generate a normalized
 list of RNAseq counts filtered for low abundance
-Only does column normalization and returns DESeq2 object
+Only does column normalization and returns DESeq2 object}
+}
+\description{
+getPdxRNAseqData gets all rna seq counts for xenografts
+#'@export
+DEPRACATED
 }
