@@ -286,7 +286,7 @@ loadIncucyteData<-function(syn){
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')%>%
     rowwise()%>%
     tidyr::unite(experimentalCondition,compound_name,compound_name_2,sep=';',na.rm=TRUE,remove=TRUE)%>%
-    tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',remove=TRUE)%>%
+    tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',na.rm=TRUE,remove=TRUE)%>%
     ungroup()
   return(icyteData)
 }

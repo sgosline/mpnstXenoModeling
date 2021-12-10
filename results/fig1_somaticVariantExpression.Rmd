@@ -16,12 +16,30 @@ if(!require(mpnstXenoModeling)){
     remotes::install_github('sgosline/mpnstXenoModeling')
     library(mpnstXenoModeling)
 }
-
 if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
   library(leapr)
 }
-library(dplyr)
+if(!require('dplyr')){
+  BiocManager::install('dplyr')
+  library(dplyr)
+}
+if(!require('data.table')){
+  BiocManager::install('data.table')
+  library(data.table)
+}
+if(!require('pheatmap')){
+  install.packages('pheatmap')
+  library(pheatmap)
+}
+if(!require('ensembldb')){
+  BiocManager::install("ensembldb")
+  library(ensembldb)
+}
+if(!require('EnsDb.Hsapiens.v86')){
+  BiocManager::install("EnsDb.Hsapiens.v86")
+  library(EnsDb.Hsapiens.v86)
+}
 ```
 
 
@@ -65,11 +83,19 @@ mutMat<-varData%>%
   tidyr::pivot_wider(names_from=Sample,values_from=AD,values_fn=list(AD=mean),
                      values_fill=list(AD=0.0))#%>%
   #  tibble::column_to_rownames('Symbol')
+```
 
-mutMat$SymbolUnique<-make.names(mutMat$Symbol,unique=TRUE)
-mutMat<-mutMat%>%tibble::column_to_rownames('SymbolUnique')%>%dplyr::select(-Symbol)
+```{r}
+# Averaging all occurrences for non-unique Symbol
+mutMat <- setDT(mutMat)[,lapply(.SD, mean), by=.(Symbol)]
+```
 
-library(pheatmap)
+```{r}
+#mutMat$SymbolUnique<-make.names(mutMat$Symbol,unique=TRUE)
+#mutMat<-mutMat%>%tibble::column_to_rownames('SymbolUnique')%>%dplyr::select(-Symbol)
+mutMat<-mutMat%>%tibble::column_to_rownames('Symbol')
+
+
 annotes<-varData%>%
     dplyr::filter(specimenID%in%pdx.samps)%>%
     dplyr::select(c(Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
@@ -80,63 +106,54 @@ annotes<-varData%>%
     distinct()%>%tibble::remove_rownames()%>%
     tibble::column_to_rownames('Sample')#%>%
 #    dplyr::filter(sample!='normal')
-
-mutMat<-mutMat[,rownames(annotes)]
-  
-pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
-   
-pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
-
 ```
-
-Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations. 
 
 ```{r}
-library(data.table)
+mutMat<-mutMat[,rownames(annotes)]
+
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
+
+pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
 ```
+
+Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations.
 
 ```{r}
 #Curated, keep this gene list of interest
 genelist = c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
            'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
 allgenes = rownames(mutMat)
-
-Pattern = paste(genelist, collapse="|")
-
+Pattern = paste(paste0('^',genelist,'$'), collapse="|")
 DT_result <- data.table(allgenes, result=grepl(Pattern, allgenes))
-
 ```
 
 ```{r selected muts, warning=FALSE, results="asis"}
-
 missed.genes<-DT_result[result==FALSE,]$allgenes
-print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
+#print(paste('Missing mutations in genes',paste(missed.genes,collapse=',')))
 
 smutMat<-mutMat[DT_result[result==TRUE,]$allgenes,rownames(annotes)]
-  
- 
+
 pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
- 
+
 pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedMutations.png')
 ```
 
 
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
 
-```{r recurrent mutations, results="asis"}
 
+```{r recurrent mutations, results="asis"}
 topMuts=dplyr::filter(varData,AD>0)%>%
   subset(!is.na(Symbol))%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     dplyr::filter(nSamps>2)%>%
     dplyr::select(Symbol)
- 
+
 rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
 
 pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
 pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedAndRecMutations.png')
-
 ```
 
 These results show the mutations of interest that we want to compare below.
@@ -164,8 +181,6 @@ trmutMat[trmutMat == 0] <- FALSE
 #### Do ensembl search for protein_coding genes, generate pmap objects
 
 ```{r diffex by gene, warning=FALSE}
-library(ensembldb)
-library(EnsDb.Hsapiens.v86)
 database <- EnsDb.Hsapiens.v86
 ls('package:EnsDb.Hsapiens.v86')
 pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENEID2), TxBiotypeFilter("protein_coding")),
@@ -271,7 +286,6 @@ filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
 ```
 
 ```{r}
-
 #filtered.res <- filtered.res[filtered.res$GENENAME %in% rownames(rmutMat),]
 #filtered.res
 ```
