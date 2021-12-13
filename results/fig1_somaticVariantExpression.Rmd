@@ -127,6 +127,7 @@ Lastly we want to add any recurrent mutations that could be of interest to our a
 
 topMuts=dplyr::filter(varData,AD>0)%>%
   subset(!is.na(Symbol))%>%
+  subset(Symbol!="")%>%
     group_by(Symbol)%>%
     summarize(nSamps=n_distinct(individualID))%>%
     dplyr::filter(nSamps>2)%>%
@@ -153,39 +154,59 @@ For each mutation in the `rmutMat` matrix shown above, we  can separate out pati
 
 #### trim GENEIDs to work in ensembl search, make boolean matrix for variables in plots downstream
 
-```{r}
-rnaSeq$GENEID2 <- gsub("\\..*","",rnaSeq$GENEID)
-trmutMat <- rmutMat%>%as.data.frame()%>%t()
-trmutMat[trmutMat != 0] <- TRUE
-trmutMat[trmutMat == 0] <- FALSE
+```{r, warning=FALSE, message=FALSE}
+    library(ensembldb)
+ library("EnsDb.Hsapiens.v86")
+  library(ggrepel)
+  database <- EnsDb.Hsapiens.v86
+  pmap <- ensembldb::select(database, 
+                              keys=list(GeneIdFilter(rnaSeq$GENE),
+                                        TxBiotypeFilter("protein_coding")),
+        columns = c("GENENAME"))%>%
+      dplyr::rename(GENE='GENEID')%>%
+      right_join(rnaSeq)%>%
+      subset(TXBIOTYPE=='protein_coding')%>%
+      dplyr::select(GENE,GENENAME,GENEID)%>%distinct()
+  
+  dds<-rnaSeq%>%
+    subset(GENE%in%pmap$GENE)%>%
+    mpnstXenoModeling::deseq2NormFilter()
+  
+
+
+#rnaSeq$GENEID2 <- gsub("\\..*","",rnaSeq$GENEID)
+#trmutMat <- rmutMat%>%as.data.frame()%>%t()
+#trmutMat[trmutMat != 0] <- TRUE
+#trmutMat[trmutMat == 0] <- FALSE
 #var.ID <- merge(var.ID, trmutMat,by.x=0,by.y=0)
 ```
 
 #### Do ensembl search for protein_coding genes, generate pmap objects
 
 ```{r diffex by gene, warning=FALSE}
-library(ensembldb)
-library(EnsDb.Hsapiens.v86)
-database <- EnsDb.Hsapiens.v86
-ls('package:EnsDb.Hsapiens.v86')
-pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENEID2), TxBiotypeFilter("protein_coding")),
-        columns = c("GENENAME"))%>%
-        dplyr::rename(GENEID2=GENEID)%>%
-        right_join(rnaSeq)%>%
-        subset(TXBIOTYPE=='protein_coding')%>%
-        dplyr::select(GENENAME,GENEID2,GENEID)%>%distinct()#%>%
-
-pmapalt <- pmap%>%
-           dplyr::select(GENENAME,GENEID)%>%
-           group_by(GENENAME)
-rownames(pmapalt) <- make.names(pmapalt$GENENAME,unique=TRUE)
-pmap <- pmap%>%tibble::column_to_rownames('GENEID2')
+# library(ensembldb)
+# library(EnsDb.Hsapiens.v86)
+# database <- EnsDb.Hsapiens.v86
+# ls('package:EnsDb.Hsapiens.v86')
+# pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENEID2), TxBiotypeFilter("protein_coding")),
+#         columns = c("GENENAME"))%>%
+#         dplyr::rename(GENEID2=GENEID)%>%
+#         right_join(rnaSeq)%>%
+#         subset(TXBIOTYPE=='protein_coding')%>%
+#         dplyr::select(GENENAME,GENEID2,GENEID)%>%distinct()#%>%
+# 
+# pmapalt <- pmap%>%
+#            dplyr::select(GENENAME,GENEID)%>%
+#            group_by(GENENAME)
+# rownames(pmapalt) <- make.names(pmapalt$GENENAME,unique=TRUE)
+# pmap <- pmap%>%tibble::column_to_rownames('GENEID2')
 
 ```
 #### Mege trmutMat with rnaSeq, subset by GENEIDs meeting criteria mutation in >2 samples
 
 ```{r}
-rnaSeqm<-merge(trmutMat%>%as.data.frame()%>%tibble::rownames_to_column('Sample'),rnaSeq,by='Sample')
+rnaSeqm<-merge(trmutMat%>%as.data.frame()%>%
+                 tibble::rownames_to_column('Sample'),rnaSeq,by='Sample')
 ddata <- rnaSeqm%>%subset(GENEID%in%pmap$GENEID)
 counts <- ddata%>%
           dplyr::select(GENEID,counts,Sample)%>%
@@ -202,15 +223,15 @@ coldata<-ddata%>%
 #### modified deseq2NormFilter
 
 ```{r}
-mod_deseq2NormFilter <- function(counts, coldata, expVar) {
-    library(DESeq2)
-    dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
-                                          colData = coldata,
-                                          design = as.formula(expVar))# + Clinical.Status)
-    dds <- dds[rowSums(counts(dds)) >= 10,]
-    dds<-DESeq2::DESeq(dds)
-    return(dds)
-}
+#mod_deseq2NormFilter <- function(counts, coldata, expVar) {
+#    library(DESeq2)
+#    dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
+#                                          colData = coldata,
+#                                          design = as.formula(expVar))# + Clinical.Status)
+#    dds <- dds[rowSums(counts(dds)) >= 10,]
+#    dds<-DESeq2::DESeq(dds)
+#    return(dds)
+#}
 ```
 
 #### Optional function to visualize hypothesis testing
@@ -234,18 +255,18 @@ hypothesisTestPlotsDE <- function(dds) {
 #### Modified geneIdToSymbolMatrix function
 
 ```{r}
-mod_geneIdToSymbolMatrix<-function(gene.mat,identifiers){
-    count.mat<-gene.mat%>%
-        as.data.frame()%>%
-        tibble::rownames_to_column("GENEID")%>%
-        tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
-        left_join(identifiers)%>%
-        group_by(GENENAME)%>%
-        dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
-        subset(GENENAME!="")%>%
-        tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
-        tibble::column_to_rownames('GENENAME')%>%data.matrix()
-return(count.mat)
+# mod_geneIdToSymbolMatrix<-function(gene.mat,identifiers){
+#     count.mat<-gene.mat%>%
+#         as.data.frame()%>%
+#         tibble::rownames_to_column("GENEID")%>%
+#         tidyr::pivot_longer(cols=c(-GENEID),names_to='Sample',values_to='counts')%>%
+#         left_join(identifiers)%>%
+#         group_by(GENENAME)%>%
+#         dplyr::select(Sample,counts,GENENAME)%>%distinct()%>%
+#         subset(GENENAME!="")%>%
+#         tidyr::pivot_wider(names_from=Sample,values_from=counts,values_fn=list(counts=mean))%>%
+#         tibble::column_to_rownames('GENENAME')%>%data.matrix()
+# return(count.mat)
 }
 ```
 
@@ -266,7 +287,7 @@ filterDDS <- function(dds, pmap, adjPVal=0.1, shrink=FALSE, alg="apeglm"){
 ### DE Sex Variable of Genes w/ Mutations in >2 Samples
 
 ```{r}
-dds <- mod_deseq2NormFilter(counts, coldata, "~Sex")
+dds <- deseq2NormFilter(counts, coldata, "~Sex")
 filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
 ```
 
@@ -289,7 +310,8 @@ patients <- rownames(colData(dds))
 
 print(paste0('plotting expression across ',length(patients),' samples'))
 
-sigs <-filtered.res%>%dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
+sigs <-filtered.res%>%
+  dplyr::select(GENEID,GENENAME)%>%tibble::column_to_rownames('GENEID')
 
 all.vars <-c('Sex','MicroTissueQuality','Clinical.Status','Age',colnames(trmutMat))
 colData(dds)
@@ -320,7 +342,7 @@ heatmap <- pheatmap(log10(0.01+count.mat),
 #### DE Clinica.Status Variable of Genes w/ Mutations in >2 Samples
 
 ```{r}
-dds <- mod_deseq2NormFilter(counts, coldata, "~Clinical.Status")
+dds <- deseq2NormFilter(counts, coldata, "~Clinical.Status")
 filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
 ```
 
@@ -368,7 +390,7 @@ heatmap <- pheatmap(log10(0.01+count.mat),
 #### DE Age Variable of Genes w/ Mutations in >2 Samples
 
 ```{r}
-dds <- mod_deseq2NormFilter(counts, coldata, "~Age")
+dds <- deseq2NormFilter(counts, coldata, "~Age")
 filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
 ```
 
@@ -417,7 +439,7 @@ heatmap <- pheatmap(log10(0.01+count.mat),
 #### DE MicroTissueQuality Variable of Genes w/ Mutations in >2 Samples
 
 ```{r}
-dds <- mod_deseq2NormFilter(counts, coldata, "~MicroTissueQuality")
+dds <- deseq2NormFilter(counts, coldata, "~MicroTissueQuality")
 filtered.res <- filterDDS(dds,pmap,adjPVal=0.05)
 ```
 
