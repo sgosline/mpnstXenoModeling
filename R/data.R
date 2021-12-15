@@ -224,7 +224,7 @@ loadPDXData<-function(reticulate_python=NULL){
   if(!is.null(reticulate_python)) Sys.setenv(RETICULATE_PYTHON = reticulate_python)
   
   ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
 
   clin.tab <<- data.tab%>%
     dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
@@ -246,7 +246,8 @@ loadPDXData<-function(reticulate_python=NULL){
 loadVariantData<-function(syn){
   
   ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   varData<<-dataFromSynTable(data.tab,syn,'Somatic Mutations')
   return(varData)
 }
@@ -262,7 +263,8 @@ loadVariantData<-function(syn){
 loadRNASeqData<-function(syn){
   
   ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   #now get RNA-Seq
   #update to use `RNAseq` column
   rnaSeq<<-dataFromSynTable(data.tab,syn,'RNASeq')%>%
@@ -281,6 +283,8 @@ loadRNASeqData<-function(syn){
 #'
 #' @examples
 loadIncucyteData<-function(syn){
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   
   #get incucyte data
   icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')%>%
@@ -302,7 +306,9 @@ loadIncucyteData<-function(syn){
 loadPDXDrugData<-function(syn){
   
   ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+  
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   
   drugData<<-dataFromSynTable(data.tab,syn,'PDX Drug Data')%>%
     dplyr::rename(drug=compound_name, time=experimental_time_point, volume=assay_value) %>%
@@ -323,8 +329,11 @@ loadPDXDrugData<-function(syn){
 #'
 #' @examples
 loadMicrotissueDrugData<-function(syn){
-
-    mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()
+  ##updated to use harmonized data table
+    data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
+  
+    mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()%>%
+      subset(CellLine%in%c(data.tab$Sample,'MN-3'))
     return(mtDrugData)
 }
 
@@ -338,9 +347,12 @@ loadMicrotissueDrugData<-function(syn){
 #'
 #' @examples
 loadMicrotissueMetadata<-function(syn){
+  ##updated to use harmonized data table
+  data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   
   ##mt data
-  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,experimentId,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()
+  mt.meta <- syn$tableQuery('SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,experimentId,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')')$asDataFrame()%>%
+    subset(c(individualID%in%data.tab$Sample,'MN-3'))
   ##fix CUDC annotations
   cudc<-grep("CUDC",mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc]<-rep("CUDC-907",length(cudc))
@@ -357,54 +369,7 @@ loadMicrotissueMetadata<-function(syn){
   
 }
 
-#' getPdxRNAseqData gets all rna seq counts for xenografts
-#' #'@export
-#' DEPRACATED
-#' @param syn synapse item from
-# getPdxRNAseqData<-function(syn){
-# #  wu.rnaSeq = syn$tableQuery("SELECT * FROM syn21054125 where transplantationType='xenograft'")$asDataFrame()
-#   jh.rnaSeq = syn$tableQuery("SELECT * FROM syn20812185 where transplantationType='xenograft'")$asDataFrame()%>%
-#     subset(individualID=='2-002')
-#   jh.rnaSeq$individualID<-'JHU 2-002'
-#   #updated 6/8
-#   new.rnaSeq = syn$tableQuery("SELECT * from syn23667380 where transplantationType='xenograft'")$asDataFrame()
-# 
-#   com.cols=intersect(colnames(new.rnaSeq),colnames(jh.rnaSeq))%>%
-#     setdiff(c("ROW_ID","ROW_VERSION"))
-#   count.tab=rbind(jh.rnaSeq[,com.cols],new.rnaSeq[,com.cols])
-#  # count.tab$individualID<-sapply(count.tab$individualID,function(x) gsub('2-','JHU',x))
-# #  count.tab$specimenID<-sapply(count.tab$specimenID,function(x) gsub('2-','JHU',x))
-# 
-# 
-#   return(count.tab)
-# }
 
-
-
-#' getAllNF1Expression
-#' @title getAllNF1Expression
-#' collects all data from NF1 processed data in synapse
-#' @export
-#' @param syn object
-# getAllNF1Expression<-function(syn){
-#   tabs<-syn$tableQuery('select * from syn21221980')$asDataFrame()
-# 
-#   allDat<-lapply(tabs$tableId,function(y){
-#     syn$tableQuery(paste('select Symbol,totalCounts,zScore,specimenID,diagnosis,tumorType,studyName,species,isCellLine,transplantationType from ',y))$asDataFrame()
-#   })
-#   full.dat<-do.call(rbind,allDat)
-#   full.dat$tumorType<-sapply(full.dat$tumorType,function(x) gsub('Malignant peripheral nerve sheath tumor','Malignant Peripheral Nerve Sheath Tumor',x))
-#   return(full.dat)
-# }
-# 
-# # #germline CSV calls
-# #are we using thesee?
-# getGermlineCsv<-function(syn,fileid,specimen){
-#   tab<- read.csv2(syn$get(fileid)$path,sep='\t')%>%
-#     dplyr::select(gene_name,Tumor_VAF)%>%
-#     mutate(specimenID=specimen)
-#   return(tab)
-# }
 
 
 

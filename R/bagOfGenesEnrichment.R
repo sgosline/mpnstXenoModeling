@@ -282,6 +282,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
   if(!'GENEID'%in%colnames(identifiers))
     identifiers<-identifiers%>%
       tibble::rownames_to_column('GENEID')
+  
   count.mat<-gene.mat%>%
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
