@@ -333,7 +333,7 @@ loadMicrotissueDrugData<-function(syn){
     data.tab<<-syn$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
   
     mtDrugData<<-syn$tableQuery('select * from syn26136282')$asDataFrame()%>%
-      subset(c(individualID%in%data.tab$Sample,'MN-3'))
+      subset(CellLine%in%c(data.tab$Sample,'MN-3'))
     return(mtDrugData)
 }
 

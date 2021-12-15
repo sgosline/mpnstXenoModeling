@@ -92,6 +92,12 @@ eval.drugs<-c('Mirdametinib','Mirdametinib;Trabectedin','Trabectedin',
 #                'Ribociclib;SHP099','Ribociclib',
 #                'SHP099','Trametinib','SHP099;Trametinib')
 
+drug.colors<-list(Mirdametinib='#4e8e00',
+                  Olaparib='#9437ff',
+                  Trabectedin='#0a33ff',`Olaparib;Trabectedin`='#73fdff',
+                  `Mirdametinib;Trabectedin`='plum3')
+
+
 eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
 
 ```
@@ -135,8 +141,9 @@ auc.mat<-mtStats%>%
       subset(CellLine%in%eval.samps)%>%
     ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
     geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
-    ggtitle("AUC of selected drugs")+guides(x =  guide_axis(angle = 90))
-    ggsave('mt_selectedDrugs_auc_barplots.png')
+    ggtitle("AUC of selected drugs")+guides(x =  guide_axis(n.dodge=2))+
+      scale_fill_manual(values=drug.colors)
+    ggsave('mt_selectedDrugs_auc_barplots.pdf')
 
   
   ##now plot IC50
@@ -198,40 +205,6 @@ library(ggplot2)
  
 DT::datatable(sens.class)
 
-# 
-# diff.drugs=sens.class%>%
-#   group_by(Drug)%>%
-#   summarize(res=count(!sens),sens=count(sens))%>%
-#   subset(sens>1)%>%
-#   subset(res>1)
-# 
-# diff.drugs
-# 
-# p<-ggplot(subset(mtStats,Drug%in%diff.drugs$Drug),aes(x=Drug,y=auc,fill=CellLine))+
-#     geom_bar(stat='identity',position='dodge')+
-#   scale_x_discrete(guide = guide_axis(angle=90))+ggtitle("AUC of drugs with sufficient samples at 0.6")
-# #ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
-# p
-# ggsave(paste0('drugsWith2SensAt',auc.thresh,'AUC.png'),p)
-# 
-# mk.thresh=0.8
-# mk.sens.class <- mtStats%>%
-#   mutate(sens=(maxKilling>mk.thresh))
-# 
-# mk.diff.drugs=mk.sens.class%>%
-#   group_by(Drug)%>%
-#   summarize(res=count(!sens),sens=count(sens))%>%
-#   subset(sens>1)%>%
-#   subset(res>1)
-# 
-# mk.diff.drugs
-# 
-# p<-ggplot(subset(mtStats,Drug%in%mk.diff.drugs$Drug),aes(x=Drug,y=maxKilling,fill=CellLine))+
-#     geom_bar(stat='identity',position='dodge')+
-#   scale_x_discrete(guide = guide_axis(angle=90))+ggtitle("Max Killing of drugs with sufficient samples at 0.8")
-# ggsave(paste0('drugsWith2SensAt',mk.thresh,'MK.png'),p)
-# 
-# p
 ```
 
 
@@ -283,18 +256,52 @@ DT::datatable(sens.class)
     tibble::rownames_to_column('Sample')%>%
     left_join(clin.tab)
     
-p<-ex.df%>%
-  ggplot(aes(x=V1,y=V2,col=Age,shape=MicroTissueQuality))+
-  geom_point()+
-  geom_text_repel(data = ex.df, aes(label = Sample))
+  p<-ex.df%>%
+    ggplot(aes(x=V1,y=V2,col=Age,shape=MicroTissueQuality))+
+    geom_point()+
+    geom_text_repel(data = ex.df, aes(label = Sample))
 
-p
+  p
 
-ggsave("UMAP_mt_qual_GeneExpression.png",p)
+  ggsave("UMAP_mt_qual_GeneExpression.pdf",p)
+
   pmap<-pmap%>%
       tibble::column_to_rownames('GENEID')
+  
+  
+  
 ```
+There is clear separation between most microtissues that are 'good/usable' (aside from 225) and those that are not. Are there any biological pathways enriched?
 
+```{r Pathway enrichment by MT, warning=FALSE,message=FALSE}
+
+goodsamps <- clin.tab%>%subset(MicroTissueQuality%in%c('Good','Robust'))
+badsamps <- clin.tab%>%subset(MicroTissueQuality%in%c('Unusable'))
+   
+drug.res <- ds2FactorDE(dds, ids1=goodsamps$Sample,
+                                    ids2=badsamps$Sample,name='MTqual',doShrinkage=TRUE)
+  
+if(nrow(drug.res)>0)
+    try(mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
+                                           pmap,                                        
+                                           paste0('MTqual'),
+                                        patients=c(goodsamps$Sample,badsamps$Sample),
+                                           adjpval=0.01, 
+                                           upload=FALSE, 
+                                           parentID='syn25323411'))
+  
+  gs.res<-drug.res%>%
+    tibble::rownames_to_column('GENEID')%>%
+    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    dplyr::select(Gene='GENENAME',value='log2FoldChange')%>%doGSEA(.,prefix=paste0('GSEA_MTqual'))
+  
+  sig.genes<-drug.res%>%    
+    tibble::rownames_to_column('GENEID')%>%
+    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    subset(padj<0.01)%>%select(GENENAME)
+  go.res<-doRegularGo(sig.genes$GENENAME,prefix=paste0('GO_MTqual'))
+
+```
 
 ### Genes correlated with MT hits by AUC
 
@@ -438,9 +445,6 @@ What go terms are unique to specific drugs? which are enriched? Can we plot a he
 
 ```{r go term overlap}
 merged.go<-full.go%>%
-  # tibble::rownames_to_column('goid')%>%
-#  tidyr::separate(geneid,into=c('GENE','Version'),sep='\\.')%>%
-#    left_join(pmap)%>%
     dplyr::select(Description,pvalue,Drug)%>%
   subset(!is.na(Description))%>%
   tidyr::pivot_wider(values_from=pvalue,names_from=Drug,values_fill=list(pvalue=0.0),values_fn=list(pvalue=mean))
@@ -449,25 +453,6 @@ mmat<-merged.go%>%
   tibble::column_to_rownames('Description')%>%
   as.matrix()
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
-
-# the PCA doesn't work...
-# pc<-prcomp(t(mmat),scale.=FALSE)
-# 
-# library(ggrepel)
-# 
-# ##which are outliers? 
-# df<-pc$x%>%
-#   as.data.frame()%>%
-#   tibble::rownames_to_column('Drug')
-# 
-# p<-df%>%
-#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
-#   geom_point()+
-#   geom_text_repel(data =df, aes(label = Drug))+
-#   ggtitle("Samples by GO terms")
-# 
-# p
-# ggsave('PCA_MT_byGO_AUC.png',p)
 
 
 ```
@@ -491,6 +476,7 @@ mk.all.res<-lapply(eval.drugs,function(x){
     right_join(ex.df)%>%
     tidyr::replace_na(list(maxKilling=0))%>%
     mutate(maxKilling=as.numeric(maxKilling))
+    
   p<-ddf%>%
     ggplot(aes(x=V1,y=V2,color=maxKilling,shape=MicroTissueQuality))+
     geom_point()+
@@ -551,26 +537,6 @@ merged<-full.mk.res%>%
 mmat<-merged%>%tibble::column_to_rownames('GENENAME')%>%as.matrix()
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 
-# the PCA is not helpful...
-#pc<-prcomp(t(mmat),scale.=FALSE)
-#
-# library(ggrepel)
-# 
-# ##which are outliers? 
-# df<-pc$x%>%
-#   as.data.frame()%>%
-#   tibble::rownames_to_column('Drug')
-# 
-# p<-df%>%
-#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
-#   geom_point()+
-#   geom_text_repel(data = subset(df, abs(PC1)>50|abs(PC2)>25), aes(label = Drug))+
-#   ggtitle("Samples by Diferential Expression")
-# 
-# p
-# 
-# ggsave('PCAbyDiffEx_MT_MK.png',p)
-
 ```
 
 Next we do the GO term enrichment of those genes
@@ -612,23 +578,6 @@ mmat<-merged.go%>%
 
 mmat[which(is.na(mmat),arr.ind=T)]<-0.0
 
-#  PCA is not helpful
-# pc<-prcomp(t(mmat),scale.=FALSE)
-# 
-# library(ggrepel)
-# 
-# ##which are outliers? 
-# df<-pc$x%>%
-#   as.data.frame()%>%
-#   tibble::rownames_to_column('Drug')
-# 
-# p<-df%>%
-#   ggplot(aes(x=PC1,y=PC2,col=Drug))+
-#   geom_point()+
-#   geom_text_repel(data = subset(df, abs(PC1)>5|abs(PC2)>5), aes(label = Drug))+ggtitle("Samples by GO terms")
-# 
-# p
-# ggsave('PCAplotbyGo_MT_MK.png',p)
 ```
 
 There is not a lot of enrichment here from the GSEA persecptive. 
