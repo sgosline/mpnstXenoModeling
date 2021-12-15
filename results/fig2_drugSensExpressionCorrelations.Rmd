@@ -37,12 +37,9 @@ library(ggrepel)
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
 
-#here we need mT drug sensitivyt and gene expression
+  #here we need mT drug sensitivyt and gene expression
   #update to use `RNAseq` column
   syn<-mpnstXenoModeling::loadPDXData()
-
-  ##updated to use harmonized data table
- # data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 
   clin.tab <<- data.tab%>%
     dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
@@ -68,7 +65,6 @@ The first thing we need to do is establish good metrics for evaluating drug sens
 ```{r MT drug plots, message=FALSE, warning=FALSE}
 mtStats <- mtDrugData%>%
   mutate(maxKilling = 1-(MinViability/MaxViability))
-
 
 
 good.mt <- subset(clin.tab,MicroTissueQuality%in%c('Good','Robust','Usable'))%>%distinct()
