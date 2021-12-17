@@ -29,40 +29,49 @@ if (!require("DT")) {
 
 library(dplyr)
 
+
 ```
 
 Here we bring in the RNASeq data and the `leapR` package to measure and identify correlated pathways across the samples.
 
-
 ## Load data from synapse query
 
-We have all the data in count.sf files so can read them in using the `tximport` package. Here is the data for which we have gene expression. 
+We have all the data in count.sf files so can read them in using the `tximport` package. Here is the data for which we have gene expression.
 
-
-```{r loadData, echo=FALSE, warning=FALSE, message=FALSE}
+```{r loadData, echo=FALSE, message=FALSE, warning=FALSE}
 #this function simply loads all the data into memory
 
 
-syn<-loadPDXData()#reticulate::import('synapseclient')$login()
+
+pdx_data <-
+  mpnstXenoModeling::loadPDXData()#reticulate::import('synapseclient')$login()
 #data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-rnaSeq<<-mpnstXenoModeling::loadRNASeqData(syn)
-  #mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
-  #mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
-  #tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
+rnaSeq <<- mpnstXenoModeling::loadRNASeqData()
+#mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
+#mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
+#tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
 
 ##this is the mapping data - it is neeeded to filter out protein coding genes
- if(!require('EnsDb.Hsapiens.v86')){
-    BiocManager::install('EnsDb.Hsapiens.v86')
-    library(EnsDb.Hsapiens.v86)
-  }else{
-    library('EnsDb.Hsapiens.v86')
-  }
-    library(ensembldb)
+# if (!require('EnsDb.Hsapiens.v86')) {
+#   BiocManager::install('EnsDb.Hsapiens.v86')
+#   library(EnsDb.Hsapiens.v86)
+# } else{
+#   library('EnsDb.Hsapiens.v86')
+# }
 
+library('EnsDb.Hsapiens.v86')
+library(ensembldb)
 #select clinical variables
-var.ID<-rnaSeq%>%
-  dplyr::select(Sample,synid,Age,Sex,MicroTissueQuality,Location,Size,`Clinical Status`)%>%
-  distinct()%>%
+var.ID <- rnaSeq %>%
+  dplyr::select(Sample,
+                synid,
+                Age,
+                Sex,
+                MicroTissueQuality,
+                Location,
+                Size,
+                `Clinical Status`) %>%
+  distinct() %>%
   tibble::column_to_rownames('Sample')
 
 DT::datatable(var.ID)
@@ -73,24 +82,34 @@ We want to filter for only those patients that we have MT data for.
 
 ```{r filter data}
 
-var.ID<-subset(var.ID,unlist(MicroTissueQuality)%in%c('Unusable','Usable','Robust','Good'))
+
+var.ID <-
+  subset(var.ID,
+         unlist(MicroTissueQuality) %in% c('Unusable', 'Usable', 'Robust', 'Good'))
 
 DT::datatable(var.ID)
 
-  
-  database <- EnsDb.Hsapiens.v86
-  pmap <- ensembldb::select(database, keys=list(GeneIdFilter(rnaSeq$GENE), TxBiotypeFilter("protein_coding")),
-      columns = c("GENENAME"))%>%
-    dplyr::rename(GENE='GENEID')%>%
-    right_join(rnaSeq)%>%
-    subset(TXBIOTYPE=='protein_coding')%>%
-    dplyr::select(GENE,GENENAME,GENEID)%>%distinct()#%>%
-   # tibble::column_to_rownames('GENEID')
-  
-  dds<-rnaSeq%>%
-    subset(Sample%in%rownames(var.ID))%>%
-    subset(GENE%in%pmap$GENE)%>% ## this is important as we filter for protein coding genes
-    mpnstXenoModeling::deseq2NormFilter()
+
+database <- EnsDb.Hsapiens.v86
+pmap <-
+  ensembldb::select(
+    database,
+    keys = list(
+      GeneIdFilter(rnaSeq$GENE),
+      TxBiotypeFilter("protein_coding")
+    ),
+    columns = c("GENENAME")
+  ) %>%
+  dplyr::rename(GENE = 'GENEID') %>%
+  right_join(rnaSeq) %>%
+  subset(TXBIOTYPE == 'protein_coding') %>%
+  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()#%>%
+# tibble::column_to_rownames('GENEID')
+
+dds <- rnaSeq %>%
+  subset(Sample %in% rownames(var.ID)) %>%
+  subset(GENE %in% pmap$GENE) %>% ## this is important as we filter for protein coding genes
+  mpnstXenoModeling::deseq2NormFilter()
 
 
 ```
@@ -99,19 +118,15 @@ DT::datatable(var.ID)
 
 We have now implemented DESeq2 column normalization to enable the visualization of RNASeq Data for the 10 samples. Let's plot them, after normalization, via PCA to see how they cluster and group independently. Then we can interrogate the genes themselves.
 
-
 ```{r filtering, warning=FALSE, message=FALSE}
 library(DESeq2)
 
 vsd <- DESeq2::vst(dds)
-
-
 ```
 
 ### How do samples cluster by clinical outcome?
 
 We want to plot the variable genes in a heatmap and also the PCA. First we carry out the variance stabilizing transformation and then do the PCA.
-
 
 ```{r Pca plot}
 library(ggplot2)
@@ -121,28 +136,30 @@ percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 ggplot(pcaData, aes(PC1, PC2, shape=Sex, color=`Clinical.Status`)) +
   geom_point(size=3) +
-  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
-  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
-  coord_fixed()+ggtitle('Samples by normalized expression') + scale_color_viridis_d()
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed()+
+  ggtitle('Samples by normalized expression') +
+  scale_color_viridis_d()
 ```
 
 ### How do samples cluster by MT status?
 
+```{r PCA plot MT}
 
-```{r Pca plot MT}
-library(ggplot2)
 pcaData <- plotPCA(vsd, intgroup=c("Sex", "MicroTissueQuality"), returnData=TRUE)
 
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
-ggplot(pcaData, aes(PC1, PC2, shape = Sex, color = as.character(MicroTissueQuality))) +
+ggplot(pcaData, aes(PC1, PC2, shape = Sex, color = MicroTissueQuality)) +
   geom_point(size = 3) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
-  ylab(paste0("PC2: ", percentVar[2], "% variance")) + 
-  coord_fixed()+ggtitle('Samples by normalized expression')+ scale_color_viridis_d()
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  ggtitle('Samples by normalized expression') +
+  scale_color_viridis_d()
 
 ```
-
 
 ## Most variable genes
 
@@ -152,23 +169,33 @@ Then we can get the annotations and counts using the variance stabilizing transf
 library(pheatmap)
 
 pat.annote <- rnaSeq %>%
-    dplyr::select(Sample, MicroTissueQuality, `Clinical Status`, Sex) %>%
-    distinct()%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
+  dplyr::select(Sample, MicroTissueQuality, `Clinical Status`, Sex) %>%
+  distinct() %>%
+  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
   tibble::column_to_rownames('Sample')
 
-count.mat<-assay(vsd)#counts(dds,normalized=TRUE)#[symbs,]
+count.mat <- assay(vsd)#counts(dds,normalized=TRUE)#[symbs,]
 
-keep <- which(rowMin(counts(dds,normalized=TRUE))>9)
-pat.var <- apply(count.mat[keep,],1,var)%>%sort()#apply(counts(dds[keep,],normalized=TRUE),1,var)%>%sort()
+keep <- which(rowMin(counts(dds, normalized = TRUE)) > 9)
+pat.var <-
+  apply(count.mat[keep, ], 1, var) %>% sort()#apply(counts(dds[keep,],normalized=TRUE),1,var)%>%sort()
 
-symbs<-names(pat.var)[1:100]
+symbs <- names(pat.var)[1:100]
 
 
-
-library(pheatmap)
-pheatmap(geneIdToSymbolMatrix(count.mat[symbs,],pmap),cellwidth = 10,cellheight=10,annotation_col = pat.annote,filename='mostVarTrans.pdf')
-pheatmap(geneIdToSymbolMatrix(count.mat[symbs,],pmap),cellwidth = 10,cellheight=10,annotation_col = pat.annote)
+pheatmap(
+  geneIdToSymbolMatrix(count.mat[symbs, ], pmap),
+  cellwidth = 10,
+  cellheight = 10,
+  annotation_col = pat.annote,
+  filename = 'mostVarTrans.pdf'
+)
+pheatmap(
+  geneIdToSymbolMatrix(count.mat[symbs, ], pmap),
+  cellwidth = 10,
+  cellheight = 10,
+  annotation_col = pat.annote
+)
 
 ```
 
@@ -186,83 +213,120 @@ idx.kegg <- grepl("^KEGG_", krbpaths$names)
 names.kegg <- krbpaths$names[idx.kegg]
 names.kegg <- sub("KEGG_", "", names.kegg)
 names.kegg <- gsub("_", " ", names.kegg)
-names.kegg <- sapply(names.kegg, function(y) paste(strwrap(y, 45), 
-                                          collapse = "\n"), 
+
+names.kegg <- sapply(names.kegg,
+                     function(y)
+                       paste(strwrap(y, 45), collapse = "\n"),
                      USE.NAMES = FALSE)
+
 desc.kegg <- krbpaths$desc[idx.kegg]
 sizes.kegg <- krbpaths$sizes[idx.kegg]
 Max <- max(sizes.kegg)
 matrix.kegg <- krbpaths$matrix[idx.kegg, 1:Max]
-keggpaths <- list(names = names.kegg,
-                 desc = desc.kegg,
-                 sizes = sizes.kegg,
-                 matrix = matrix.kegg)
+keggpaths <- list(
+  names = names.kegg,
+  desc = desc.kegg,
+  sizes = sizes.kegg,
+  matrix = matrix.kegg
+)
 
-data.mat <-geneIdToSymbolMatrix(count.mat,pmap)
+data.mat <- geneIdToSymbolMatrix(count.mat, pmap)
 term.2.gene <- as.data.frame(keggpaths$matrix) %>%
   mutate(term = keggpaths$names) %>%
   tidyr::pivot_longer(!term, names_to = "Column", values_to = "gene") %>%
   dplyr::filter(!(gene == "null")) %>%
   dplyr::select(term, gene)
-term.2.name <- data.frame(term = keggpaths$names, name = keggpaths$names)
-  
-res=mpnstXenoModeling::plotCorrelationEnrichment(as.matrix(data.mat), keggpaths, 
-                                                 fdr.cutoff = 0.05, 
-                                    corr.cutoff = 0.25, prefix='allSamps', width = 11, 
-                                      height = 8.5, order.by = "Ingroup mean", 
-                                      clean.names = FALSE, pathway.plot.size = 3)
+term.2.name <-
+  data.frame(term = keggpaths$names, name = keggpaths$names)
+
+res = mpnstXenoModeling::plotCorrelationEnrichment(
+  as.matrix(data.mat),
+  keggpaths,
+  fdr.cutoff = 0.05,
+  corr.cutoff = 0.25,
+  prefix = 'allSamps',
+  width = 11,
+  height = 8.5,
+  order.by = "Ingroup mean",
+  clean.names = FALSE,
+  pathway.plot.size = 3
+)
 
 
 ```
 
 ## MT Differential expression
 
-There seem to be many genes differentially expressed between MT samples
-
+There seem to be many genes deferentially expressed between MT samples
 
 ```{r analysingQual, echp=FALSE, warning=FALSE, message=FALSE}
-good <-rownames(subset(var.ID,MicroTissueQuality%in%c('Good','Robust','Usable')))%>%unique()
-bad <-rownames(subset(var.ID,MicroTissueQuality=='Unusable'))%>%unique()
+good <-
+  rownames(subset(var.ID, MicroTissueQuality %in% c('Good', 'Robust', 'Usable'))) %>%
+  unique()
+bad <-
+  rownames(subset(var.ID, MicroTissueQuality == 'Unusable')) %>% unique()
 
-qual_res <- mpnstXenoModeling::ds2FactorDE(dds, good,  bad,'MTQuality')
-plotTopGenesHeatmap(qual_res, dds, pmap,'MTqual',
-                    patients=c(good,bad),newVar='',adjpval=0.0001, upload=TRUE, parentID='syn25323411')
+qual_res <-
+  mpnstXenoModeling::ds2FactorDE(dds, good,  bad, 'MTQuality')
+plotTopGenesHeatmap(
+  qual_res,
+  dds,
+  pmap,
+  'MTqual',
+  patients = c(good, bad),
+  newVar = '',
+  adjpval = 0.0001,
+  upload = FALSE,
+  parentID = 'syn25323411'
+)
 
-res<-pmap%>%
-  subset(GENEID%in%rownames(subset(qual_res,padj<0.0001)))
+res <- pmap %>%
+  subset(GENEID %in% rownames(subset(qual_res, padj < 0.0001)))
 
-res<-doRegularGo(res$GENENAME,prefix='MTqualGO')
+res <- doRegularGo(res$GENENAME, prefix = 'MTqualGO')
 #plot(res)
 ```
 
 ```{r analysis qual gsea, message=FALSE, warning=FALSE}
-genes.with.values<-qual_res%>%
-  rownames_to_column('GENEID')%>%left_join(pmap)%>%
-  dplyr::select(Gene='GENENAME',value='log2FoldChange')
-                   
-res2<-doGSEA(genes.with.values,NULL,'MTquality',useEns=FALSE)
-#plot(res2)
+genes.with.values <- qual_res %>%
+  rownames_to_column('GENEID') %>% left_join(pmap) %>%
+  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange')
+
+res2 <- doGSEA(genes.with.values, NULL, 'MTquality', useEns = FALSE)
+#plot(res2)plot()
 ```
+
 ## Compare with shrinkage
+
 ```{r shrinkage}
 
-qual_res <- mpnstXenoModeling::ds2FactorDE(dds,  good, 
-                                     bad,'MTQuality',doShrinkage=TRUE)
+qual_res <- mpnstXenoModeling::ds2FactorDE(dds,  good,
+                                           bad, 'MTQuality', doShrinkage = TRUE)
 
-plotTopGenesHeatmap(qual_res, dds, pmap,'MTqualShrink',patients=c(good,bad),adjpval=0.0001, upload=TRUE, parentID='syn25323411')
+plotTopGenesHeatmap(
+  qual_res,
+  dds,
+  pmap,
+  'MTqualShrink',
+  patients = c(good, bad),
+  adjpval = 0.0001,
+  upload = FALSE,
+  parentID = 'syn25323411'
+)
 
 
 
-res<-qual_res%>%
-  tibble::rownames_to_column('GENEID')%>%
-  subset(padj<0.0001)%>%
+res <- qual_res %>%
+  tibble::rownames_to_column('GENEID') %>%
+  subset(padj < 0.0001) %>%
   left_join(pmap)
 #pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
-  p<-doRegularGo(res$GENENAME,prefix='MTqualGOShrink')
+p <- doRegularGo(res$GENENAME, prefix = 'MTqualGOShrink')
 #plot(res)
 
-genes.with.values<-tibble::rownames_to_column(qual_res,'GENEID')%>%left_join(pmap)%>%
-  dplyr::select(Gene='GENENAME',value='log2FoldChange')
-                   
-res2<-doGSEA(genes.with.values,NULL,'MTqualityShrink',useEns=FALSE)
+genes.with.values <-
+  tibble::rownames_to_column(qual_res, 'GENEID') %>% left_join(pmap) %>%
+  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange')
+
+res2 <- doGSEA(genes.with.values, NULL, 'MTqualityShrink', useEns = FALSE)
 ```

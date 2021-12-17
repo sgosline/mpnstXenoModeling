@@ -23,8 +23,8 @@ library(pROC)
 ```
 
 ```{r}
-syn<-mpnstXenoModeling::loadPDXData()
-icyteData<-mpnstXenoModeling::loadIncucyteData(syn)
+pdx_data <- mpnstXenoModeling::loadPDXData()
+icyteData <- mpnstXenoModeling::loadIncucyteData()
 ```
 
 ```{r}

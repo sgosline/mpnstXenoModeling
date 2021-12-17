@@ -30,8 +30,8 @@ library(dplyr)
 library(ggrepel)
 ```
 
-
 ## Load drug data and expression data
+
 ```{r mutation data,message=FALSE,warning=FALSE,echo=FALSE}
 mpnstXenoModeling::loadPDXData()
 
@@ -55,28 +55,32 @@ eval.drugs.pdx<-c('mirdametinib','mirdametinib+trabectedin','olaparib','trabecte
 eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031','MN1','WU-368')
 
 ```
+
 ### Microtissue Metrics
 
-The first thing we need to do is establish good metrics for evaluating drug sensitivity.  We experiment with a few here. 
-
-
+The first thing we need to do is establish good metrics for evaluating drug sensitivity. We experiment with a few here.
 
 We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/MT/cell line combinations.
 
-
 ### Microtissue Dose Response
+
 ```{r plot MT dose response, warning=FALSE, message=FALSE}
 library(cowplot)
 
-lapply(names(drug.list),function(drugGroup){
-  mt.subs<-subset(mtDrugData,CellLine%in%eval.samps)%>%
-  subset(DrugCol%in%drug.list[[drugGroup]])
 
-  samp.plots<-lapply(eval.samps,function(samp) 
-    plotMTTreatmentByDrug(mt.subs,samp))
-
-  ggsave(paste0('SampleMT',drugGroup,'plots.png'),
-         cowplot::plot_grid(plotlist = samp.plots,ncol=2),height=12,width=12)
+lapply(names(drug.list), function(drugGroup) {
+  mt.subs <- subset(mtDrugData, CellLine %in% eval.samps) %>%
+    subset(DrugCol %in% drug.list[[drugGroup]])
+  
+  samp.plots <- lapply(eval.samps, function(samp)
+    plotMTTreatmentByDrug(mt.subs, samp))
+  
+  ggsave(
+    paste0('SampleMT', drugGroup, 'plots.png'),
+    cowplot::plot_grid(plotlist = samp.plots, ncol = 2),
+    height = 12,
+    width = 12
+  )
 
 
 #  drug.plots<-lapply(intersect(drug.list[[drugGroup]],mtDrugData$DrugCol),
@@ -90,18 +94,20 @@ lapply(names(drug.list),function(drugGroup){
 
 ```
 
-
 ### PDX Dose Response
+
 ```{r plot PDX dose response, warning=FALSE, message=FALSE}
 
 
-plots <-drugData%>%
-  subset(Sample%in%eval.samps)%>%
-  subset(drug%in%eval.drugs.pdx)%>%
-  group_by(Sample,batch,.drop=F)%>%
-  group_map(~plotPDXTreatmentBySample(.x),.keep=TRUE)
 
-ggsave('SamplePDXplots.png',cowplot::plot_grid(plotlist = plots,ncol=2))
+plots <- drugData %>%
+  subset(Sample %in% eval.samps) %>%
+  subset(drug %in% eval.drugs.pdx) %>%
+  group_by(Sample, batch, .drop = F) %>%
+  group_map( ~ plotPDXTreatmentBySample(.x), .keep = TRUE)
+
+ggsave('SamplePDXplots.png',
+       cowplot::plot_grid(plotlist = plots, ncol = 2))
 
 ```
 

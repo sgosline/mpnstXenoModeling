@@ -416,9 +416,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   return(heatmap)
 }
 
-#' Plot using correlation enrichment from leapR package. 
-#' A single plot is saved to the working directory
-#' @export 
+#' Plot using correlation enrichment from leapR package. A single plot is saved to the working directory
+#' @export
 #' @import ggplot2
 #' @import gridExtra
 #' @import scales
@@ -426,7 +425,8 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
 #' @import remotes
 #' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
 #' @param prefix string, used for naming the saved plots.
-#' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.
+#' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but
+#'   can also use "BH_pvalue" to sort by significance of the pathways.
 #' @param geneset Pathway/Kinase database, eg ncipid, msigdb, both of which are included in leapr.
 #' @param clean.names Boolean, if TRUE removes the "_pathway" ending in pathway names, making the plot easier to read.
 plotCorrelationEnrichment <- function(exprs, geneset, fdr.cutoff = 0.05, 
