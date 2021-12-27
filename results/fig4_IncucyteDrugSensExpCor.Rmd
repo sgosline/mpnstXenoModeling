@@ -57,7 +57,7 @@ spi.mat<-icStats0%>%
   tidyr::pivot_wider(values_from=maxKilling,names_from=model_system_name)%>%#,values_fill=list(maxKilling=0))%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-
+spi.mat
 pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
 #pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
 
@@ -93,16 +93,9 @@ tgi.mat<-icStats%>%
   tidyr::pivot_wider(values_from=ic50,names_from=model_system_name)%>%#,values_fill=list(ic50=0))#%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-
-```
-
-```{r}
-skip <- which(rowMeans(tgi.mat)%in%c(1,0))
-if(length(skip)>0)
-  tgi.mat <-tgi.mat[-skip,]
 tgi.mat
-pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
-#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
+#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
+pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
 ```
 
 ```{r}
