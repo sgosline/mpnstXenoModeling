@@ -5,18 +5,14 @@ date: "11/15/2021"
 output: html_document
 ---
 
-
-For each of the drugs and models of interest we would like to plot all of the dose response curves in the same cformat so that they can be combined.
-
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
-#Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
-#if(!require(mpnstXenoModeling)){
-  remotes::install_github('jessbade/mpnstXenoModeling', ref='release',force=TRUE)
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
-#}
+}
 #remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
 
 library(data.table)
@@ -30,52 +26,13 @@ library(tidyr)
 ```
 
 ```{r}
-mpnstXenoModeling::loadPDXData(reticulate_python='/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+mpnstXenoModeling::loadPDXData()
 ```
 
 ```{r}
-myloadPDXData<-function(reticulate_python=NULL){
-  if(!is.null(reticulate_python)) Sys.setenv(RETICULATE_PYTHON = reticulate_python)
-  library(reticulate)
-  library(dplyr)
-  syn<-reticulate::import('synapseclient')$login()
-
-  ##updated to use harmonized data table
-  data.tab<<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-
-  #get incucyte data
-  icyteData<<-dataFromSynTable(data.tab, syn, 'Incucyte drug Data')%>%
-    rowwise()%>%
-    tidyr::unite(experimentalCondition,compound_name,compound_name_2,sep=';',na.rm=TRUE,remove=TRUE)%>%
-    tidyr::unite(dosage,dosage,`dosage_2...10`,sep=';',na.rm=TRUE,remove=TRUE)%>%
-    ungroup()
-  
-}
-```
-
-```{r}
-#ticyte <- icyteData[grepl("DMSO",icyteData[["compound_name"]]),]
-sample <- 'JHU 2-002'
-ticyte <- icyteData[icyteData$model_system_name==sample,]
-ticyte <- ticyte[ticyte$synid=='syn26296886',]
-ticyte$replicate <- as.factor(ticyte$replicate)
-#ticyte <- ticyte[ticyte$replicate==1,]
-ticyte
-```
-
-```{r}
-pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
-
-tt<-ticyte%>%dplyr::select(experimental_time_point,dosage,response,experimentalCondition)%>%distinct()
-tm <-tt%>%group_by(experimental_time_point,dosage,experimentalCondition)%>%summarize(Confluency=median(response,na.rm=T),
-                                        minRes=median(response,na.rm=T)-sd(response,na.rm=T),
-                                        maxRes=median(response,na.rm=T)+sd(response,na.rm=T))%>%distinct()
-tm<-tm%>%unite("Condition",c(experimentalCondition,dosage))
-p<-ggplot(tm,aes(x=experimental_time_point,y=Confluency,ymin=minRes,ymax=maxRes,col=Condition,fill=Condition))+
-geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)
-print(p)
-#ggplot(data=tm, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
-#geom_point()#+ theme(legend.position="none")
+icyteData<-tidyr::unite(icyteData, "compound_name", c(experimentalCondition,dosage,synid,replicate),na.rm=TRUE,remove=FALSE)
+treatTab <- icyteData[icyteData$experimentalCondition != 'DMSO',]
+contTab <- icyteData[icyteData$experimentalCondition == 'DMSO',]
 ```
 
 ### Analysis of IncuCyte % confluence
@@ -100,9 +57,9 @@ spi.mat<-icStats0%>%
   tidyr::pivot_wider(values_from=maxKilling,names_from=model_system_name)%>%#,values_fill=list(maxKilling=0))%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-spi.mat
-#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
-pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
+
+pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
+#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
 
 
 
@@ -116,7 +73,6 @@ icStats<-merge(meta.dt,icyteData%>%
                by=c('compound_name','model_system_name', 'dosage'))
 icStats<-tidyr::unite(icStats,'Drug',c(experimentalCondition,dosage))
 icStats%>%dplyr::select(Drug)%>%distinct()
-head(icStats)
 ```
 
 ```{r}
@@ -137,8 +93,6 @@ tgi.mat<-icStats%>%
   tidyr::pivot_wider(values_from=ic50,names_from=model_system_name)%>%#,values_fill=list(ic50=0))#%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-tgi.mat
-
 
 ```
 
