@@ -26,7 +26,7 @@ if(!require('leapr')){
 
 if(!require('DT')){
   install.packages("DT")
-  library(leapr)
+  library(DT)
 }
 
 library(dplyr)
@@ -36,7 +36,6 @@ library(ggrepel)
 
 ## Load drug data and expression data
 ```{r mutation data,message=FALSE,warning=FALSE}
-#mpnstXenoModeling::loadPDXData()
 
 #here we need mT drug sensitivyt and gene expression
   #update to use `RNAseq` column
@@ -321,6 +320,7 @@ all.res<-lapply(unique(eval.drugs),function(x){
     right_join(ex.df)%>%
     tidyr::replace_na(list(auc=1.0))%>%
     mutate(auc=as.numeric(auc))
+  
   p<-ddf%>%
     ggplot(aes(x=V1,y=V2,color=auc,shape=MicroTissueQuality))+
     geom_point()+
@@ -347,6 +347,16 @@ all.res<-lapply(unique(eval.drugs),function(x){
                                            upload=FALSE, 
                                            parentID='syn25323411'))
   
+  gs.res<-drug.res%>%
+    tibble::rownames_to_column('GENEID')%>%
+    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    dplyr::select(Gene='GENENAME',value='log2FoldChange')%>%doGSEA(.,prefix=paste0('GSEA',x))
+  
+  sig.genes<-drug.res%>%    
+    tibble::rownames_to_column('GENEID')%>%
+    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    subset(padj<0.01)%>%select(GENENAME)
+  go.res<-doRegularGo(sig.genes$GENENAME,prefix=paste0('GO',x))
   #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
   return(drug.res%>%mutate(Drug=x))
   

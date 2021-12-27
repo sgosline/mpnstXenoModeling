@@ -10,7 +10,7 @@ For each of the drugs and models of interest we would like to plot all of the do
 
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
-Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+#Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
 #if(!require(mpnstXenoModeling)){

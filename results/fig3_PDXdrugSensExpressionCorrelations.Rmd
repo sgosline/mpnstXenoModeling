@@ -26,7 +26,7 @@ if(!require('leapr')){
 
 if(!require('DT')){
   install.packages("DT")
-  library(leapr)
+  library(DT)
 }
 
 library(dplyr)
