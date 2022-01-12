@@ -1,10 +1,3 @@
----
-title: "Plot Incucyte Drug Curves"
-author: "Jessica Bade"
-date: "11/15/2021"
-output: html_document
----
-
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 require(remotes)
@@ -13,9 +6,20 @@ if(!require(mpnstXenoModeling)){
   remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
 }
-
 #remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
 
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+if(!require('Xeva')){
+  BiocManager::install('Xeva')
+  library(Xeva)
+}
+if(!require('foreach')){
+    install.packages('foreach')
+    library(foreach)
+}
 library(data.table)
 library(dplyr)
 library(repr)
@@ -26,12 +30,45 @@ library(pROC)
 library(tidyr)
 ```
 
-```{r}
-syn<-mpnstXenoModeling::loadPDXData()
-icyteData<-mpnstXenoModeling::loadIncucyteData(syn)
+## Load all data from Synapse
 
-ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
-geom_point()
+Let's load all the data using the `mpnstXenoModeling` package function. This will pull the data from synapse and format it accordingly.
+
+```{r}
+mpnstXenoModeling::loadPDXData()
+```
+
+```{r}
+icyteData<-tidyr::unite(icyteData, "compound_name", c(experimentalCondition,dosage,synid,replicate),na.rm=TRUE,remove=FALSE)
+```
+
+```{r}
+treatTab <- icyteData[icyteData$experimentalCondition != 'DMSO',]
+contTab <- icyteData[icyteData$experimentalCondition == 'DMSO',]
+```
+
+```{r}
+### function taken from xenoResponseMetrics, calculating AUC with Xeva package
+computeAUC<-function(treatedTab,contTab){
+  #https://link.springer.com/article/10.1208/s12248-018-0284-8
+  tauc=treatedTab%>%mutate(volume=as.numeric(response),time=experimental_time_point)%>%
+        group_by(compound_name)%>%
+        group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
+  tauc.list <- as.numeric(tauc)
+  names(tauc.list) <- unique(treatedTab$compound_name)
+  cauc=contTab%>%mutate(volume=as.numeric(response),time=experimental_time_point)%>%
+    group_by(compound_name)%>%
+    dplyr::select(compound_name,time,volume)%>%
+    group_map(~ unlist(Xeva::AUC(.x$time,.x$volume))[['value']],.keep=TRUE)
+  caucval <- mean(as.numeric(unlist(cauc)),na.rm=T)
+  aucfunc = function(x){1-((caucval-x)/caucval)}
+  ret <- lapply(tauc.list,aucfunc)
+  return(ret)
+}
+```
+
+```{r}
+auc.all <- computeAUC(treatTab,contTab)
 ```
 
 ```{r}
@@ -83,7 +120,7 @@ generate_TR_plots <- function(res, drugID) {
   tr.dt <- data.table(tr.df)
   dt2 <- data.table()
   dat.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),
-                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric())
   # factor by CellLine
   tr.dt[,model_system_name:=as.factor(model_system_name)]
   scale.num <- nlevels(tr.dt$model_system_name)
@@ -117,9 +154,9 @@ generate_TR_plots <- function(res, drugID) {
     cells <- unique(df$model_system_name)
     dose <- unique(df$dosage)
     # pROC::auc() https://cran.r-project.org/web/packages/pROC/pROC.pdf
-    auc <- auc(df$response,df$experimental_time_point)
+    #auc <- auc(df$response,df$experimental_time_point)
     meta2 <- data.table(compound_name=drugID,model_system_name=cells,dosage=dose,Hill=coefs['hill'],ec50=coefs['ec_50'],
-                       MinViability=min_value, MaxViability=max_value,ic50=ic_50,auc=as.numeric(auc))
+                       MinViability=min_value, MaxViability=max_value,ic50=ic_50)
     dat.dt <- rbind(dat.dt,meta2)
     dt = merge(dt,sd.lst)
     dt2 <- rbind(dt2, dt)
@@ -142,18 +179,15 @@ tr_plot<-function(dt2) {
 ```
 
 ```{r}
-process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', parentID=NULL){
-  test=master.table%>%dplyr::select(compound_name,dosage)%>%distinct()
-  print(test)
-  master.table$compound_name <- as.factor(master.table$compound_name)
-  #master.table$dosage <- as.factor(master.table$dosage)
-  drugIDs <- levels(master.table$compound_name)
-  drugIDs <- drugIDs[!drugIDs == 'DMSO']
-  meta.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+process_IncucyteDrugData <- function(treatTab, upload=FALSE, path='.', parentID=NULL){
+  test=treatTab%>%dplyr::select(compound_name,dosage, synid)%>%distinct()
+  drugIDs <- test$compound_name
+  synIDs <- unique(test$synid)
+  meta.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),MinViability=numeric(),MaxViability=numeric(),ic50=numeric())
   plt.list <- list()
   pi=1
   for (drug in drugIDs) {
-    dres <- filter_byDrug(master.table, drug)
+    dres <- subset(treatTab, compound_name == drug)
     dres <- split(dres,dres$dosage)
     for (res in dres){
       dose <- unique(res$dosage)
@@ -165,10 +199,9 @@ process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', paren
     }
   }
   meta.dt<-meta.dt%>%tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
-  #fwrite(meta.dt,file="doseResponse_table.csv")
-  pdf("doseResponsePlots.pdf")#, onefile = TRUE
+  #fwrite(meta.dt,file="incucyteDoseResponse_table.csv")
+  pdf("incucyteDoseResponsePlots.pdf")#, onefile = TRUE
   master.plot<-lapply(plt.list, tr_plot)
-  print(master.plot)
   #invisible(lapply(master.plot, print))
   dev.off()
   #if (isTRUE(upload)) {
@@ -178,23 +211,33 @@ process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', paren
   #}
   return(meta.dt)
 }
-
-
-
-#res  = syn$tableQuery('select * from syn26136282')
-#syn$delete(res)
-#res  = syn$tableQuery('select * from syn26136282')
-#synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
-#pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
-#syn$store(pd)
 ```
 
 ```{r}
-meta.dt<-process_IncucyteDrugData(icyteData, upload=FALSE)
+meta.dt<-process_IncucyteDrugData(treatTab,contTab, upload=FALSE)
 ```
 
 ```{r}
-meta.dt
+auc.df <- as.data.frame(t(as.data.frame(do.call(cbind, auc.all))))%>%tibble::rownames_to_column()
+colnames(auc.df) <- c("compound_name", "auc")
+meta.dt <- merge(meta.dt,auc.df,by='compound_name')
+out.dt <- merge(meta.dt,icyteData%>%
+               dplyr::select(model_system_name, experimentalCondition, compound_name, dosage)%>%
+               distinct(),
+               by=c('compound_name','model_system_name', 'dosage'))
+
+```
+
+```{r}
+#fwrite(out.dt,file="incucyteDoseResponse_table.csv")
+```
+
+```{r}
+res  = syn$tableQuery('select * from syn26608026')
+syn$delete(res)
+#pd <- sync$build_table('Incucyte Response Value','syn21984813','incucyteDoseResponse_table.csv')
+pd <- sync$build_table('Incucyte Response Value','syn21984813',out.dt)
+syn$store(pd)
 ```
 
 ### Analysis of IncuCyte % confluence
@@ -219,9 +262,8 @@ spi.mat<-icStats0%>%
   tidyr::pivot_wider(values_from=maxKilling,names_from=model_system_name)%>%#,values_fill=list(maxKilling=0))%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-spi.mat
-pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
-#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
+#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
+pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
 ```
 
 ```{r}
@@ -231,7 +273,6 @@ icStats<-merge(meta.dt,icyteData%>%
                distinct(),
                by=c('compound_name','model_system_name', 'dosage'))
 icStats<-tidyr::unite(icStats,'Drug',c(experimentalCondition,dosage))
-icStats%>%dplyr::select(Drug)%>%distinct()
 ```
 
 ```{r}
@@ -241,7 +282,7 @@ auc.mat<-icStats%>%
   tidyr::pivot_wider(values_from=auc,names_from=model_system_name)%>%#,values_fill=list(auc=0))#%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
-auc.mat
+
 pheatmap(auc.mat, cellwidth = 10,cellheight=10,main='AUC across Incucyte data')
 ```
 
@@ -252,7 +293,14 @@ tgi.mat<-icStats%>%
   tidyr::pivot_wider(values_from=ic50,names_from=model_system_name)%>%#,values_fill=list(ic50=0))#%>%
   tibble::column_to_rownames('Drug')%>%
   as.matrix()
+skip <- which(rowMeans(tgi.mat)%in%c(1,0))
+if(length(skip)>0)
+  tgi.mat <-tgi.mat[-skip,]
 tgi.mat
-#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
-pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
+pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
+#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
+```
+
+```{r}
+
 ```

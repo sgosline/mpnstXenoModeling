@@ -1,6 +1,6 @@
 ---
 title: "Replot Drug Curves"
-author: "Sara Gosline"
+author: "Sara Gosline, Jessica Bade"
 date: "10/19/2021"
 output: html_document
 ---
@@ -27,15 +27,14 @@ if(!require('DT')){
 }
 
 library(dplyr)
+library(tidyr)
 library(ggrepel)
 ```
 
 
 ## Load drug data and expression data
-```{r mutation data,message=FALSE,warning=FALSE,echo=FALSE}
+```{r mutation data, echo=FALSE, message=FALSE, warning=FALSE}
 mpnstXenoModeling::loadPDXData()
-
-
 ```
 
 ## Plot drugs
@@ -49,11 +48,11 @@ drug.list<-list(MirdaTrab=c('Mirdametinib','Mirdametinib;Trabectedin','Trabected
                 OlaTrab=c('Olaparib','Olaparib;Trabectedin','Trabectedin'),
                 ShpRibo=c('SHP099','Ribociclib;SHP099','Ribociclib'),
                 ShpTram=c('SHP099','Trametinib','SHP099;Trametinib'))
-
+drug.list.inc<-lapply(drug.list,tolower)
 eval.drugs.pdx<-c('mirdametinib','mirdametinib+trabectedin','olaparib','trabectedin','ribociclib','trametinib','trametinib+ribociclib')
 
 eval.samps<-c('MN2','WU-225','JHU 2-079','JHU 2-031','MN1','WU-368')
-
+eval.samps.inc <- c('MN-2', 'JH-2-079') #other samples available: JHU 2-002, JHU 2-103
 ```
 ### Microtissue Metrics
 
@@ -106,5 +105,26 @@ ggsave('SamplePDXplots.png',cowplot::plot_grid(plotlist = plots,ncol=2))
 ```
 
 ### Incucyte Dose Response
+
+```{r}
+lapply(names(drug.list.inc),function(drugGroup){
+  inc.subs<-subset(icyteData,model_system_name%in%eval.samps.inc)%>%
+  subset(experimentalCondition%in%drug.list.inc[[drugGroup]])
+  inc.subs
+  samp.plots<-lapply(eval.samps.inc,function(samp) 
+    plotIncTreatmentByDrug(inc.subs,samp))
+
+  ggsave(paste0('SampleInc',drugGroup,'plots.png'),
+         cowplot::plot_grid(plotlist = samp.plots,ncol=2),height=6,width=12)
+
+#  drug.plots<-lapply(intersect(drug.list[[drugGroup]],mtDrugData$DrugCol),
+  #                   function(drug) plotMTTreatmentBySample(mt.subs,drug))
+
+ # ggsave(paste0('DrugMT',drugGroup,'plots.png'),
+  #       cowplot::plot_grid(plotlist = drug.plots,ncol=2),height=12,width=12)
+})
+
+
+```
 
 ### Cell Line Dose Response
