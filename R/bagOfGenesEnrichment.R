@@ -279,8 +279,10 @@ limmaTwoFactorDEAnalysis <- function(dat, sampleIDs.group1, sampleIDs.group2) {
 #' @param identifiers data table of identifiers
 #' @export
 geneIdToSymbolMatrix<-function(gene.mat,identifiers){
-  identifiers<-identifiers%>%
-    tibble::rownames_to_column('GENEID')
+  if(!'GENEID'%in%colnames(identifiers))
+    identifiers<-identifiers%>%
+      tibble::rownames_to_column('GENEID')
+  
   count.mat<-gene.mat%>%
     as.data.frame()%>%
     tibble::rownames_to_column("GENEID")%>%
