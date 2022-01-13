@@ -21,3 +21,4 @@ Collate:
     'xenoResponseMetrics.R'
     'xevaProcessing.R'
     'mtResponseMetrics.R'
+    'incucyteMetrics.R'

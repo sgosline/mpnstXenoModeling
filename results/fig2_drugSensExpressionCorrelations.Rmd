@@ -97,7 +97,9 @@ drug.colors<-list(Mirdametinib='#4e8e00',
                   Trabectedin='#0a33ff',`Olaparib;Trabectedin`='#73fdff',
                   `Mirdametinib;Trabectedin`='plum3')
 
-
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+drug.colors<-cbPalette[c(2,3,4,5,8)]
+names(drug.colors)<-c('Mirdametinib','Olaparib','Trabectedin','Olaparib;Trabectedin','Mirdametinib;Trabectedin')
 eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
 
 ```
@@ -137,14 +139,14 @@ auc.mat<-mtStats%>%
 
  #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
-    mtStats%>%subset(Drug%in%eval.drugs)%>%
+    p<-mtStats%>%subset(Drug%in%eval.drugs)%>%
       subset(CellLine%in%eval.samps)%>%
     ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
     geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
     ggtitle("AUC of selected drugs")+guides(x =  guide_axis(n.dodge=2))+
       scale_fill_manual(values=drug.colors)
-    ggsave('mt_selectedDrugs_auc_barplots.pdf')
-
+    p
+    ggsave('mt_selectedDrugs_auc_barplots.pdf',width=8)
   
   ##now plot IC50
   mtStats$ic50[!is.finite(mtStats$ic50)]<-0.0
@@ -251,13 +253,18 @@ DT::datatable(sens.class)
   #df<-#pc$x%>%
   
   ##CREATE dataframe of gene expression manifold mapping
-  ex.df<-umap::umap(t(genemat),method='naive',preserve.seed=FALSE)$layout%>%
-    as.data.frame()%>%
+ # ex.df<-umap::umap(t(genemat),method='naive',preserve.seed=FALSE)$layout%>%
+#    as.data.frame()%>%
+#    tibble::rownames_to_column('Sample')%>%
+#    left_join(clin.tab)
+  
+  ex.df<-as.data.frame(pc$x)%>%
     tibble::rownames_to_column('Sample')%>%
+    dplyr::select('Sample','PC1','PC2')%>%
     left_join(clin.tab)
-    
+  
   p<-ex.df%>%
-    ggplot(aes(x=V1,y=V2,col=Age,shape=MicroTissueQuality))+
+    ggplot(aes(x=PC1,y=PC2,col=Age,shape=MicroTissueQuality))+
     geom_point()+
     geom_text_repel(data = ex.df, aes(label = Sample))
 
@@ -287,6 +294,7 @@ if(nrow(drug.res)>0)
                                            paste0('MTqual'),
                                         patients=c(goodsamps$Sample,badsamps$Sample),
                                            adjpval=0.01, 
+                                        showgenes=FALSE,
                                            upload=FALSE, 
                                            parentID='syn25323411'))
   
@@ -297,7 +305,9 @@ if(nrow(drug.res)>0)
   
   sig.genes<-drug.res%>%    
     tibble::rownames_to_column('GENEID')%>%
-    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    left_join(tibble::rownames_to_column(pmap,'GENEID'))
+  write.csv(sig.genes,'suppTabDiffExGenes.csv')
+  sig.genes<-sig.genes%>%
     subset(padj<0.01)%>%select(GENENAME)
   go.res<-doRegularGo(sig.genes$GENENAME,prefix=paste0('GO_MTqual'))
 
@@ -478,7 +488,7 @@ mk.all.res<-lapply(eval.drugs,function(x){
     mutate(maxKilling=as.numeric(maxKilling))
     
   p<-ddf%>%
-    ggplot(aes(x=V1,y=V2,color=maxKilling,shape=MicroTissueQuality))+
+    ggplot(aes(x=PC1,y=PC2,color=maxKilling,shape=MicroTissueQuality))+
     geom_point()+
     geom_text_repel(data = ddf, aes(label = Sample))+
     ggtitle(paste0('Expression by ',x,' MaxKilling'))

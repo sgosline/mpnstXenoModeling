@@ -310,7 +310,7 @@ geneIdToSymbolMatrix<-function(gene.mat,identifiers){
 #' @param dds, DESEq object
 #' @param identifiers mapping to gene name
 #' @param myvar is name of variable
-plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, 
+plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, showgenes=TRUE,
                                 upload=FALSE, path='.', parentID=NULL, newVar="", plotheight=20, genelist=identifiers$GENENAME) {
   # Downfilter DE expression table by Adjusted P Value and generate pheatmap
   #
@@ -404,11 +404,18 @@ plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, 
   count.mat<-count.mat[,patients]
   var.ID <- var.ID[patients,]
   options(repr.plot.width=6,repr.plot.height=plotheight)
-  heatmap <- pheatmap(log10(0.01+count.mat),
+  if(showgenes)
+    heatmap <- pheatmap(log10(0.01+count.mat),
                       cellheight=10,
                       annotation_col=var.ID,
                       annotation_colors=annote.colors,
                       filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
+  else
+    heatmap <- pheatmap(log10(0.01+count.mat),
+                        annotation_col=var.ID,
+                        show_rownames = FALSE,
+                        annotation_colors=annote.colors,
+                        filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
   
   if (isTRUE(upload)) {
     synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
