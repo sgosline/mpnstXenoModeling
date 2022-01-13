@@ -33,7 +33,8 @@ process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', paren
        pi = pi+1
        
      }
-   }
+    }
+    
    meta.dt<-meta.dt%>%
      tidyr::replace_na(list(ic50=0.0))%>%as.data.frame()
    #fwrite(meta.dt,file="doseResponse_table.csv")
@@ -61,25 +62,26 @@ process_IncucyteDrugData <- function(master.table, upload=FALSE, path='.', paren
 #'
 #' @examples
 generate_TR_plots <- function(res, drugID) {
-   require(data.table)
+ #  require(data.table)
    require(dplyr)
    require(tidyr)
    tr.df <- res %>% dplyr::select(experimental_time_point, response, model_system_name, dosage) #%>% setDT()
    tr.df <- tidyr::unnest(tr.df, response)
    tr.df$response<- na_if(tr.df$response, "NA")
    tr.df <- tr.df[complete.cases(tr.df), ]
-   tr.dt <- as.data.table(tr.df)
-   dt2 <- data.table()
-   dat.dt <- data.table(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),
+   tr.dt <- tr.df
+   #tr.dt <- as.data.table(tr.df)
+   #dt2 <- data.table()
+   dat.dt <- data.frame(compound_name=character(),model_system_name=character(),dosage=numeric(),Hill=numeric(),ec50=numeric(),
                         MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
    # factor by CellLine
-   tr.dt[,model_system_name:=as.factor(model_system_name)]
-   scale.num <- nlevels(tr.dt$model_system_name)
+  # tr.dt<-tr.dt%>%mutate(model_system_name=as.factor(tr.dt$model_system_name))
+   scale.num <- length(unique(tr.dt$model_system_name))#nlevels(tr.dt$model_system_name)
    # iterate over CellLine: Conc, Viabilities
-   for (i in 1:nlevels(tr.dt$model_system_name)) {
+   for (i in unique(tr.dt$model_system_name)){#1:nlevels(tr.dt$model_system_name)) {
      # subset data.table by CellLine level
-     dt <- tr.dt[model_system_name %in% levels(model_system_name)[i]]
-     dt[, model_system_name := as.character(model_system_name)]
+     dt <- tr.dt%>%subset(model_system_name==i)
+     #dt<-mutate(model_system_name=as.character(dt$model_system_name))# model_system_name := as.character(model_system_name)]
      # TryFit of subsetted data.table
      #dft <- dt[,.(Viabilities = unlist(Viabilities)), by = setdiff(names(dt), 'Viabilities')]
      df <- as.data.frame(dt)
@@ -99,7 +101,7 @@ generate_TR_plots <- function(res, drugID) {
      )
      #cbind(auc,ED(fit.LL4,50))
      #rbindlist(dt.dat,auc)
-     dt[, Pred := predict(object=fit.LL4)]
+     dt<-mutate(Pred=predict(object=fit.LL4))
      sd.lst = dt[, list(SD=sd(response)/4),by=experimental_time_point]
      df <- as.data.frame(dt)
      cells <- unique(df$model_system_name)

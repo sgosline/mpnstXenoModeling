@@ -1,12 +1,22 @@
+---
+title: "Experiment 4 Incycyte data plotting"
+author: "Jess Bade, Sara Gosline"
+date: "9112/2022"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 #Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
 require(remotes)
 
-#if(!require(mpnstXenoModeling)){
-  remotes::install_github('jessbade/mpnstXenoModeling', ref='release')
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
   library(mpnstXenoModeling)
-#}
+}
 #remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
 
 if(!require('leapr')){
