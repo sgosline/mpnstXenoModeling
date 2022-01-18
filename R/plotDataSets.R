@@ -1,9 +1,9 @@
 #these are a few helper functions that should help with data visualization
 #the goal is to visualize expression of various genes
 
-#'@export
-#'@import ggplot2
-#'@import cowplot
+#' @export
+#' @import ggplot2
+#' @import cowplot
 plotSingleGene<-function(gene='CD274'){
   all.dat<-getAllNF1Expression()
   dotplot<-subset(all.dat,Symbol==gene)%>%ggplot()+geom_point(aes(x=totalCounts,y=zScore,col=tumorType,shape=studyName))
@@ -56,9 +56,9 @@ plotPDXTreatmentBySample<-function(dt){
 }
 
 
-#'plotMTTreatmentByDrug
-#'@param dt mt data table
-#'@export
+#' plotMTTreatmentByDrug
+#' @param dt mt data table
+#' @export
 plotMTTreatmentByDrug<-function(dt,sample){
   
   pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
@@ -76,12 +76,12 @@ plotMTTreatmentByDrug<-function(dt,sample){
   print(p)
   
   return(p)
-  
+
 }
 
-#'plotMTTreatmentBySample
-#'@param dt mt data table
-#'@export
+#' plotMTTreatmentBySample
+#' @param dt mt data table
+#' @export
 plotMTTreatmentBySample<-function(dt,drug){
   
   pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
@@ -109,7 +109,7 @@ plotMTTreatmentBySample<-function(dt,drug){
 #' @export
 #' @import ggplot2
 #' @import ggridges
-#' 
+#'
 plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
   library(ggplot2)
   library(ggridges)
@@ -135,6 +135,27 @@ plotTumorGrowthCorrelations<-function(drugGeneCors,minCor=0.8){
 
 
 plotWaterfall<-function(drug.tab,mut.tab,gene,drug){
- 
-  
+
+
+}
+
+#' plotIncTreatmentByDrug
+#' @param dt mt data table
+#' @export
+
+plotIncTreatmentByDrug<-function(dt,sample){  
+  pal<-c(nationalparkcolors::park_palette('GeneralGrant'),nationalparkcolors::park_palette('CraterLake'))
+  dt<-subset(dt,model_system_name==sample)
+  if (dim(dt)[1]==0){
+      return(NULL)
+  }
+  tt<-dt%>%dplyr::select(experimental_time_point,dosage,response,experimentalCondition)%>%distinct()
+  tm <-tt%>%group_by(experimental_time_point,dosage,experimentalCondition)%>%summarize(Confluency=median(response,na.rm=T),
+                                        minRes=median(response,na.rm=T)-sd(response,na.rm=T),
+                                        maxRes=median(response,na.rm=T)+sd(response,na.rm=T))%>%distinct()
+  tm<-tm%>%tidyr::unite("Condition",c(experimentalCondition,dosage))
+  p<-ggplot(tm,aes(x=experimental_time_point,y=Confluency,ymin=minRes,ymax=maxRes,col=Condition,fill=Condition))+
+  geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)#ggsave(paste0(sample,'PDXmodeling.png'),p)
+  print(p)
+  return(p)
 }
