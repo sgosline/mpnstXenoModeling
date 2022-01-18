@@ -7,6 +7,10 @@ syn_client <- NULL
 
 .onLoad <- function(libname, pkgname) {
   library(reticulate)
+  have_synapse <- py_module_available("synapseclient ")
+  if (!have_synapse)
+    reticulate::py_install("synapseclient")
+  
   syn_client <<-
     reticulate::import("synapseclient", delay_load = TRUE)$login()
 }
@@ -122,10 +126,10 @@ dataFromSynTable <- function(tab, colname) {
       path <- syn_client$get(x)$path
       
       # if (is.null(path)){
-      #   print(paste("No access to :", x))
-      #   return(NULL)
+      #  print(paste("No access to :", x))
+      #  return(NULL)
       # }
-        
+      
       fend <-
         unlist(strsplit(basename(path), split = '.', fixed = T))
       fend <- fend[length(fend)]
