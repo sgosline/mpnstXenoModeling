@@ -41,15 +41,7 @@ library(ggrepel)
 #update to use `RNAseq` column
 pdx_data <- mpnstXenoModeling::loadPDXData()
 
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
-  clin.tab <<- data.tab%>%
-    dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
-    distinct()
-  
-  rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
-  mtDrugData<-loadMicrotissueDrugData()
- 
-=======
+
 clin.tab <<- data.tab %>%
   dplyr::select(Sample,
                 Age,
@@ -60,7 +52,6 @@ clin.tab <<- data.tab %>%
                 `Clinical Status`,
                 Size) %>%
   distinct()
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
 
 rnaSeq <<- mpnstXenoModeling::loadRNASeqData()
 mtDrugData <- loadMicrotissueDrugData()
@@ -122,15 +113,10 @@ drug.colors <- list(
   `Mirdametinib;Trabectedin` = 'plum3'
 )
 
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 drug.colors<-cbPalette[c(2,3,4,5,8)]
 names(drug.colors)<-c('Mirdametinib','Olaparib','Trabectedin','Olaparib;Trabectedin','Mirdametinib;Trabectedin')
 eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
-=======
-
-eval.samps <- c('MN-2', 'JH-2-079', 'JH-2-002', 'WU-225')
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
 
 ```
 
@@ -189,47 +175,7 @@ ggsave('mt_combo_agent_auc_barplots.png')
 
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
-    p<-mtStats%>%subset(Drug%in%eval.drugs)%>%
-      subset(CellLine%in%eval.samps)%>%
-    ggplot(aes(x=Drug,y=auc,ymin=auc_low,ymax=auc_hi,fill=Drug))+
-    geom_bar(stat='identity',position='dodge')+geom_errorbar(width=0.2)+facet_grid(CellLine~.)+
-    ggtitle("AUC of selected drugs")+guides(x =  guide_axis(n.dodge=2))+
-      scale_fill_manual(values=drug.colors)
-    p
-    ggsave('mt_selectedDrugs_auc_barplots.pdf',width=8)
-  
-  ##now plot IC50
-  mtStats$ic50[!is.finite(mtStats$ic50)]<-0.0
-  
-tgi.mat<-mtStats%>%
-  dplyr::select(Drug,CellLine,ic50)%>%
-  tidyr::pivot_wider(values_from=ic50,names_from=CellLine,
-                     values_fn=list(ic50=mean),values_fill=0.0)%>%
-  tibble::column_to_rownames('Drug')%>%
-   as.matrix()
 
-skip <- which(rowMeans(tgi.mat)%in%c(1,0))
-if(length(skip)>0)
-  tgi.mat <-tgi.mat[-skip,]
-
-  try(pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across MT data',filename='ic50_mt.png'))
-
-  try(pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across MT data'))
-
-spi.mat<-mtStats%>%
-  dplyr::select(Drug,CellLine,maxKilling)%>%
-  tidyr::pivot_wider(values_from=maxKilling,names_from=CellLine,
-                     values_fn=list(maxKilling=mean),values_fill=0)%>%
-  tibble::column_to_rownames('Drug')%>%
-   as.matrix()
-
-  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across mT data')
-  pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across mT data',filename='MK_mt.png')
-  
-    pheatmap(spi.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='max killing across mT data')
-  pheatmap(spi.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='max killing across mT data',filename='MK_mt_selDrugs.png')
-=======
 mtStats %>% subset(Drug %in% eval.drugs) %>%
   subset(CellLine %in% eval.samps) %>%
   ggplot(aes(
@@ -312,8 +258,6 @@ pheatmap(
   main = 'max killing across mT data',
   filename = 'MK_mt_selDrugs.png'
 )
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
-
 
 ```
 
@@ -383,15 +327,7 @@ genemat <- counts(dds, normalize = TRUE) %>%
   tibble::column_to_rownames('GENENAME') %>%
   as.matrix()
 
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
-  #df<-#pc$x%>%
-  
-  ##CREATE dataframe of gene expression manifold mapping
- # ex.df<-umap::umap(t(genemat),method='naive',preserve.seed=FALSE)$layout%>%
-#    as.data.frame()%>%
-#    tibble::rownames_to_column('Sample')%>%
-#    left_join(clin.tab)
-  
+
   ex.df<-as.data.frame(pc$x)%>%
     tibble::rownames_to_column('Sample')%>%
     dplyr::select('Sample','PC1','PC2')%>%
@@ -401,13 +337,11 @@ genemat <- counts(dds, normalize = TRUE) %>%
     ggplot(aes(x=PC1,y=PC2,col=Age,shape=MicroTissueQuality))+
     geom_point()+
     geom_text_repel(data = ex.df, aes(label = Sample))
-=======
-clin.tab <- clin.tab %>%
+
+  clin.tab <- clin.tab %>%
   mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'NaN', 'ND')) %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'Usable', 'Good'))
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
-
 
 pc <- prcomp(t(genemat), scale. = TRUE)
 
@@ -443,36 +377,6 @@ There is clear separation between most microtissues that are 'good/usable' (asid
 
 ```{r Pathway enrichment by MT, warning=FALSE,message=FALSE}
 
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
-goodsamps <- clin.tab%>%subset(MicroTissueQuality%in%c('Good','Robust'))
-badsamps <- clin.tab%>%subset(MicroTissueQuality%in%c('Unusable'))
-   
-drug.res <- ds2FactorDE(dds, ids1=goodsamps$Sample,
-                                    ids2=badsamps$Sample,name='MTqual',doShrinkage=TRUE)
-  
-if(nrow(drug.res)>0)
-    try(mpnstXenoModeling::plotTopGenesHeatmap(drug.res, dds,
-                                           pmap,                                        
-                                           paste0('MTqual'),
-                                        patients=c(goodsamps$Sample,badsamps$Sample),
-                                           adjpval=0.01, 
-                                        showgenes=FALSE,
-                                           upload=FALSE, 
-                                           parentID='syn25323411'))
-  
-  gs.res<-drug.res%>%
-    tibble::rownames_to_column('GENEID')%>%
-    left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
-    dplyr::select(Gene='GENENAME',value='log2FoldChange')%>%doGSEA(.,prefix=paste0('GSEA_MTqual'))
-  
-  sig.genes<-drug.res%>%    
-    tibble::rownames_to_column('GENEID')%>%
-    left_join(tibble::rownames_to_column(pmap,'GENEID'))
-  write.csv(sig.genes,'suppTabDiffExGenes.csv')
-  sig.genes<-sig.genes%>%
-    subset(padj<0.01)%>%select(GENENAME)
-  go.res<-doRegularGo(sig.genes$GENENAME,prefix=paste0('GO_MTqual'))
-=======
 
 goodsamps <-
   clin.tab %>% subset(MicroTissueQuality %in% c('Good', 'Robust'))
@@ -509,7 +413,6 @@ sig.genes <- drug.res %>%
   left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
   subset(padj < 0.01) %>% select(GENENAME)
 go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO_MTqual'))
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
 
 ```
 
