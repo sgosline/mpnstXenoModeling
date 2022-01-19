@@ -190,7 +190,7 @@ doGSEA <-
     
     res <- filter(as.data.frame(gr), p.adjust < gsea_FDR)
     if (compress_output)
-      res <- res[res$ID %in% IDcompress_enrichment(res)]
+      res <- res[res$ID %in% compress_enrichment(res)]
     plotGenesetResults(
       res,
       prefix = prefix,
