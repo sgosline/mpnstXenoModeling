@@ -11,7 +11,6 @@ plotTopGenesHeatmap(
   myvar,
   patients = NULL,
   adjpval = 0.5,
-  showgenes = TRUE,
   upload = FALSE,
   path = ".",
   parentID = NULL,

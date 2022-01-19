@@ -335,8 +335,8 @@ DT::datatable(sumtab)
 ```
 
 ```{r}
-x = "SUZ12"
-modSamps = subset(varData, Symbol == x) %>%
+x = c("SUZ12",'EED')
+modSamps = subset(varData, Symbol %in% x) %>%
   dplyr::select(individualID) %>%
   distinct()
 
@@ -361,7 +361,7 @@ if (nrow(mut.res) > 0)
     mut.res,
     dds,
     pmap,
-    paste0('mutated_', x),
+    paste0('mutated_', paste(x,collapse='_')),
     patients = c(modSamps, wtSamps),
     adjpval = 0.05,
     upload = FALSE,
@@ -372,14 +372,14 @@ gs.res <- mut.res %>%
   left_join(pmap) %>%
   #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
   dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
-  doGSEA(., prefix = paste0('GSEA_mutated_compressed', x), compress_output = TRUE)
+  doGSEA(., prefix = paste0('GSEA_mutated_compressed', paste(x,collapse='_')), compress_output = TRUE)
 
 gs.res <- mut.res %>%
   tibble::rownames_to_column('GENEID') %>%
   left_join(pmap) %>%
   #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
   dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
-  doGSEA(., prefix = paste0('GSEA_mutated', x), compress_output = FALSE)
+  doGSEA(., prefix = paste0('GSEA_mutated', paste(x,collapse='_')), compress_output = FALSE)
 
 sig.genes <- mut.res %>%
   tibble::rownames_to_column('GENEID') %>%

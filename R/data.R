@@ -23,7 +23,7 @@ syn_client <- NULL
 
 .onLoad <- function(libname, pkgname) {
   library(reticulate)
-  have_synapse <- py_module_available("synapseclient ")
+  have_synapse <- reticulate::py_module_available("synapseclient")
   if (!have_synapse)
     reticulate::py_install("synapseclient")
   

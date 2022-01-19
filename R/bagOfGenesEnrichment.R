@@ -248,26 +248,29 @@ doRegularGo <-
         ont = 'BP',
         qvalueCutoff = 0.2
       )
-    # compress output using MAGINEs algorithm
-    if (compress_output)
-      res <- res[res$ID %in% compress_enrichment(res)]
     
     #sprint(res)
     ret = as.data.frame(res) %>%
       dplyr::select(ID, Description, pvalue, p.adjust, Count)
     
-    res <- filter(as.data.frame(res), p.adjust < gsea_FDR)
+    if(nrow(res)>0){
+      # compress output using MAGINEs algorithm
+      if (compress_output)
+        res <- res[res$ID %in% compress_enrichment(res)]
+    
+      res <- filter(as.data.frame(res), p.adjust < gsea_FDR)
 
-    plotGenesetResults(
-      res,
-      prefix = prefix,
-      pathway.plot.size = pathway.plot.size,
-      order.by = 'Count',
-      clean.names = F,
-      width = width,
-      height = height
-    )
-    return(res)
+      plotGenesetResults(
+        res,
+        prefix = prefix,
+        pathway.plot.size = pathway.plot.size,
+        order.by = 'Count',
+        clean.names = F,
+        width = width,
+        height = height
+      )
+    }
+    return(ret)
     
   }
 
@@ -441,116 +444,6 @@ geneIdToSymbolMatrix <- function(gene.mat, identifiers) {
 #' @param dds, DESEq object
 #' @param identifiers mapping to gene name
 #' @param myvar is name of variable
-<<<<<<< HEAD
-plotTopGenesHeatmap <- function(de.out, dds, identifiers, myvar, patients=NULL, adjpval=0.5, showgenes=TRUE,
-                                upload=FALSE, path='.', parentID=NULL, newVar="", plotheight=20, genelist=identifiers$GENENAME) {
-  # Downfilter DE expression table by Adjusted P Value and generate pheatmap
-  #
-  # Args:
-  #   de.out: Expression data matrix, rows are genes, columns are samples
-  #   counts: Count data matrix, columns are sampleID.Count or sampleID.TPM, rows are TXID
-  #   identifiers: Dataframe, columns include 'TXID', 'GENENAME', merged output from do_ensembl_match
-  #   myvar: Str, variable tested for differential expression
-  #   var.ID: Dataframe, rows are sample IDs and columns are variables used in DE
-  #   upload: Bool, should filtered gene dataframe be written to file and uploaded to synapse
-  #   path: Str, path to filewrite location
-  # Returns:
-  #   pheatmap results.
-  library(reticulate)
-  if(!require('pheatmap')){
-    BiocManager::install('pheatmap')
-    library(pheatmap)
-  }
-  if(!require('tibble')){
-    BiocManager::install('tibble')
-    library(tibble)
-  }
-  
-  
-  if(!require('repr')){
-    BiocManager::install('repr')
-    library(repr)
-  }
-  
- # synapse=reticulate::import('synapseclient')
-#  sync=synapse$login()
-  
-  de.out <- de.out%>%
-    tibble::rownames_to_column('GENEID')%>%
-    tidyr::separate(GENEID,into=c('GENE','GVERSION'))%>%left_join(identifiers)%>%
-    subset(!is.na(GENENAME))%>%
-    subset(GENENAME!='')
-  
-  if(is.null(patients))
-    patients <- rownames(colData(dds))
-  else
-    patients <- intersect(patients,rownames(colData(dds)))
-  
-  #print(paste0('plotting expression across ',length(patients),' samples'))
-  if(length(patients)==0)
-    return(NULL)
-  #  names(de.out)[names(de.out) == "featureID"] <- "TXID"
-  
-  #combined differentially expressed txids, genenames, and normalized counts
-  # de.df <- left_join(de.out,identifiers,by="TXID")
-  #  de.df <- left_join(de.df,norm.counts,by="TXID")
-  #  de.df <- de.df[de.df$adj.P.Val < adjpval,]
-  if (isTRUE(upload)) {
-    synapse=reticulate::import('synapseclient')
-    sync=synapse$login()
-    write.csv(de.out, file.path(path, paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')))
-    synapseStore(file.path(path,paste0(myvar,'_topgenes_adjpval_',adjpval,'.csv')),parentId=parentID)
-  }
-  if (dim(de.out)[1] == 0) {
-    print("No top genes within specified adj.p.val threshold to make heatmap")
-    return(NULL)
-  }
-  
-  
-  sigs <-subset(de.out,padj<adjpval)%>%dplyr::select(GENENAME)
-  
-  if(nrow(sigs)<3)
-    return(NULL)
-  #print(sigs)
-  
-  if(newVar!="")
-    all.vars <- c('Sex','MicroTissueQuality','Clinical Status','Age',newVar)
-  else
-    all.vars <-c('Sex','MicroTissueQuality','Clinical Status','Age')
-  all.vars<-unique(all.vars)
-  var.ID<-colData(dds)[,all.vars]%>%
-    as.data.frame()%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
-    mutate(Clinical.Status=unlist(Clinical.Status))
-  if(newVar!="")
-    var.ID[newVar] <- lapply(var.ID[newVar],as.character)
-  
-  annote.colors<-lapply(all.vars, function(x) c(`0`='white',`1`='black'))
-  names(annote.colors)<-newVar
-  
-  ##TODO: fix this so it works with join
-  count.mat <- geneIdToSymbolMatrix(counts(dds,normalized=TRUE),identifiers)
-  count.mat<-count.mat[intersect(rownames(count.mat),sigs$GENENAME),]
-  
-  
-  count.mat<-count.mat[,patients]
-  var.ID <- var.ID[patients,]
-  options(repr.plot.width=6,repr.plot.height=plotheight)
-  if(showgenes)
-    heatmap <- pheatmap(log10(0.01+count.mat),
-                      cellheight=10,
-                      annotation_col=var.ID,
-                      annotation_colors=annote.colors,
-                      filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
-  else
-    heatmap <- pheatmap(log10(0.01+count.mat),
-                        annotation_col=var.ID,
-                        show_rownames = FALSE,
-                        annotation_colors=annote.colors,
-                        filename=file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')))
-  
-  if (isTRUE(upload)) {
-    synapseStore(file.path(path, paste0(myvar,'_DE_heatmap_adjpval',adjpval,'.png')),parentId=parentID)
 plotTopGenesHeatmap <-
   function(de.out,
            dds,
@@ -682,7 +575,6 @@ plotTopGenesHeatmap <-
       ), parentId = parentID)
     }
     return(heatmap)
->>>>>>> master
   }
 
 #' Plot using correlation enrichment from leapR package. A single plot is saved to the working directory
