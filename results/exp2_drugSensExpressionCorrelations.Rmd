@@ -710,20 +710,6 @@ The goal for this is to subset the patients by whether or not they are sensitive
 mk.all.res <- lapply(eval.drugs, function(x) {
   print(x)
   
-<<<<<<< HEAD:results/exp2_drugSensExpressionCorrelations.Rmd
-    ddf<-sens.class%>%
-    subset(Drug==x)%>%
-    dplyr::select(Sample='CellLine','maxKilling')%>%
-    right_join(ex.df)%>%
-    tidyr::replace_na(list(maxKilling=0))%>%
-    mutate(maxKilling=as.numeric(maxKilling))
-    
-  p<-ddf%>%
-    ggplot(aes(x=PC1,y=PC2,color=maxKilling,shape=MicroTissueQuality))+
-    geom_point()+
-    geom_text_repel(data = ddf, aes(label = Sample))+
-    ggtitle(paste0('Expression by ',x,' MaxKilling'))
-=======
   ddf <- sens.class %>%
     subset(Drug == x) %>%
     dplyr::select(Sample = 'CellLine', 'maxKilling') %>%
@@ -741,7 +727,6 @@ mk.all.res <- lapply(eval.drugs, function(x) {
     geom_point() +
     geom_text_repel(data = ddf, aes(label = Sample)) +
     ggtitle(paste0('Expression by ', x, ' MaxKilling'))
->>>>>>> master:results/fig2_drugSensExpressionCorrelations.Rmd
   p
   ggsave(paste0('umapBy', x, 'MT_MK.png'), p)
   

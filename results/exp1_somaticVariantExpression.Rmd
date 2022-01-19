@@ -52,12 +52,6 @@ pdx_data <- mpnstXenoModeling::loadPDXData()
 varData <- mpnstXenoModeling::loadVariantData()
 rnaSeq <- mpnstXenoModeling::loadRNASeqData()
 
-<<<<<<< HEAD:results/exp1_somaticVariantExpression.Rmd
-varData <- mpnstXenoModeling::loadVariantData()
-rnaSeq <- mpnstXenoModeling::loadRNASeqData()
-=======
->>>>>>> master:results/fig1_somaticVariantExpression.Rmd
-
 varData %>%
   subset(AD > 0) %>%
   group_by(specimenID) %>%
