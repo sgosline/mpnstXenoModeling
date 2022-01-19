@@ -1,0 +1,475 @@
+---
+title: "Fig3 PDX Drug Sensitivity Expression Correlation"
+author: "Sara Gosline"
+date: "9/13/2021"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+This markdown assesses gene expression changes the correlate with drug sensitivity.
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# require(remotes)
+# if(!require(mpnstXenoModeling)){
+#   remotes::install_github('sgosline/mpnstXenoModeling')
+#   library(mpnstXenoModeling)
+# }
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+
+if(!require('DT')){
+  install.packages("DT")
+  library(DT)
+}
+
+library(dplyr)
+
+```
+
+
+## Load drug data
+```{r mutation data,message=FALSE,warning=FALSE}
+mpnstXenoModeling::loadPDXData()
+
+```
+
+
+## Drug Plots
+
+We can now evaluate drugs that behave differently across samples. We are primarily focused on four samples and four drugs. However, we anticipate pooling the results for each drug to carry out differential expression.
+
+### PDX Plots
+
+For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
+
+```{r drug data,message=FALSE,warning=FALSE}
+syn = synapseLogin()
+drugStats <-
+  syn$tableQuery("select * from syn25955439")$asDataFrame()
+
+minDrugs <- drugStats %>%
+  mutate(hasRNASeq = (individualID %in% rnaSeq$Sample)) %>%
+  group_by(drug) %>% summarise(samples = n_distinct(individualID),
+                               samplesWithRNA = count(hasRNASeq ==
+                                                        TRUE)) %>%
+  subset(samples > 2)
+
+DT::datatable(minDrugs)
+
+##let's plot the stats for each drug
+library(pheatmap)
+
+auc.mat <- drugStats %>%
+  dplyr::select(drug, individualID, AUC) %>%
+  tidyr::pivot_wider(
+    values_from = AUC,
+    names_from = individualID,
+    values_fill = list(AUC = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix() %>%
+  pheatmap(cellwidth = 10, cellheight = 10)
+
+tgi.mat <- drugStats %>%
+  dplyr::select(drug, individualID, TGI) %>%
+  tidyr::pivot_wider(
+    values_from = TGI,
+    names_from = individualID,
+    values_fill = list(TGI = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix() %>%
+  pheatmap(cellwidth = 10, cellheight = 10)
+
+spi.mat <- drugStats %>%
+  dplyr::select(drug, individualID, SPI) %>%
+  tidyr::pivot_wider(
+    values_from = SPI,
+    names_from = individualID,
+    values_fill = list(SPI = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix() %>%
+  pheatmap(cellwidth = 10, cellheight = 10)
+```
+
+
+It appears there is an outlier, so we can remove it. 
+
+```{r outlier removed}
+#drugStats<-drugStats%>%
+#      subset(individualID!='WU-545')
+
+
+DT::datatable(drugStats)
+
+auc.mat <- drugStats %>%
+  dplyr::select(drug, individualID, AUC) %>%
+  tidyr::pivot_wider(
+    values_from = AUC,
+    names_from = individualID,
+    values_fill = list(AUC = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix()
+
+pheatmap(auc.mat,
+         cellwidth = 10,
+         cellheight = 10,
+         main = 'AUC across PDX data')
+pheatmap(
+  auc.mat,
+  cellwidth = 10,
+  cellheight = 10,
+  main = 'AUC across PDX data',
+  filename = 'AUC_pdx.png'
+)
+
+
+tgi.mat <- drugStats %>%
+  dplyr::select(drug, individualID, TGI) %>%
+  tidyr::pivot_wider(
+    values_from = TGI,
+    names_from = individualID,
+    values_fill = list(TGI = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix()
+
+pheatmap(tgi.mat,
+         cellwidth = 10,
+         cellheight = 10,
+         main = 'TGI across PDX data')
+pheatmap(
+  tgi.mat,
+  cellwidth = 10,
+  cellheight = 10,
+  main = 'TGI across PDX data',
+  filename = 'TGI_pdx.png'
+)
+
+spi.mat <- drugStats %>%
+  dplyr::select(drug, individualID, SPI) %>%
+  tidyr::pivot_wider(
+    values_from = SPI,
+    names_from = individualID,
+    values_fill = list(SPI = 0)
+  ) %>%
+  tibble::column_to_rownames('drug') %>%
+  as.matrix()
+pheatmap(spi.mat,
+         cellwidth = 10,
+         cellheight = 10,
+         main = 'SPI across PDX data')
+
+pheatmap(
+  spi.mat,
+  cellwidth = 10,
+  cellheight = 10,
+  main = 'SPI across PDX data',
+  filename = 'SPI_pdx.png'
+)
+```
+
+We are still missing a lot of data here!!!
+
+
+We apparently have a lot of variability here, which is a good thing. We can now distinguish cells that are sensitive by looking at the median value of each statistic.
+
+```{r PDX stats}
+drugMids <- drugStats %>%
+  group_by(drug) %>%
+  summarize(aucMid = median(AUC),
+            spiMid = median(SPI),
+            tgiMid = median(TGI))
+
+DT::datatable(drugMids)
+```
+
+Now we can use these customized mid points to assess sensitivty. 
+
+```{r PDX sens, warning=FALSE}
+library(ggplot2)
+sampCounts <- drugStats %>% group_by(drug) %>%
+  summarize(n_samps = n_distinct(individualID)) %>%
+  left_join(drugMids)
+
+sens.classes <- drugStats %>%
+  left_join(sampCounts) %>%
+  subset(n_samps > 2) %>%
+  mutate(
+    aucSens = (AUC < aucMid),
+    spiSens = (SPI < spiMid),
+    tgiSens = (TGI < tgiMid)
+  )
+
+
+#drugStats%>%left_join(sampCounts)%>%
+#  mutate(aucSens=(AUC<aucMid),spiSens=(SPI<spiMid),tgiSens=(TGI<tgiMid))
+
+pl <- lapply(c('AUC', 'SPI', 'TGI'), function(met) {
+  p <- drugStats %>%
+    subset(drug %in% sens.classes$drug) %>%
+    dplyr::rename(Metric = met) %>%
+    ggplot(aes(y = Metric, x = individualID, fill = drug)) + geom_bar(stat =
+                                                                        'identity', position = 'dodge') + ggtitle(met)
+  print(p)
+})
+
+# cowplot::plot_grid(plotlist=pl)
+# #diff.drugs=sens.classes%>%
+# #  group_by(drug)%>%
+# #  summarize(res=count(!sens),sens=count(sens))%>%
+# #  subset(sens>1)%>%
+# #  subset(res>1)
+#
+# library(ggplot2)
+#
+# p<-ggplot(subset(drugStats,drug%in%sampCounts$drug),aes(x=drug,y=AUC,fill=individualID))+
+#     geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+# #ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
+# p
+#
+# p<-ggplot(subset(drugStats,drug%in%sampCounts$drug),aes(x=drug,y=TGI,fill=individualID))+
+#     geom_bar(stat='identity',position='dodge')+scale_x_discrete(guide = guide_axis(angle=90))
+# #ggsave(paste0('drugsWith2SensAt',auc.thresh,'.png'),p)
+# p
+```
+
+
+## RNA Expression
+
+We now grab the gene expression data and determine expression-based signatures of drug response.
+
+```{r rnaseq}
+
+
+library(ensembldb)
+library(EnsDb.Hsapiens.v86)
+
+database <- EnsDb.Hsapiens.v86
+pmap <-
+  ensembldb::select(
+    database,
+    keys = list(
+      GeneIdFilter(rnaSeq$GENE),
+      TxBiotypeFilter("protein_coding")
+    ),
+    columns = c("GENENAME")
+  ) %>%
+  dplyr::rename(GENE = 'GENEID') %>%
+  right_join(rnaSeq) %>%
+  subset(TXBIOTYPE == 'protein_coding') %>%
+  dplyr::select(GENE, GENENAME, GENEID) %>% distinct() %>%
+  tibble::column_to_rownames('GENEID')
+
+dds <- rnaSeq %>% subset(GENE %in% pmap$GENE) %>%
+  mpnstXenoModeling::deseq2NormFilter()
+
+
+```
+
+### Genes correlated with PDX hits using AUC midpoint
+
+We take the midpoint of the AUC value for each drug and compare samples that are above vs. below that midpoint
+
+```{r diffex AUC tests,warning=FALSE,message=FALSE}
+
+
+##let's rename the samples a bit?
+
+all.res <- lapply(unique(sens.classes$drug), function(x) {
+  sens.pats <- subset(sens.classes, drug == x) %>% subset(aucSens == TRUE)
+  res.pats <- subset(sens.classes, drug == x) %>% subset(aucSens == FALSE)
+  
+  ##add col data to dds
+  #print(x)
+  #print(sens.pats)
+  #print(res.pats)
+  drug.res <-
+    mpnstXenoModeling::ds2FactorDE(
+      dds,
+      ids1 = sens.pats$individualID,
+      ids2 = res.pats$individualID,
+      name = x,
+      doShrinkage = TRUE
+    )
+  
+  sigs <- subset(drug.res, padj < 0.01)
+  goTerms = data.frame()
+  if (nrow(sigs > 2)) {
+    mpnstXenoModeling::plotTopGenesHeatmap(
+      drug.res,
+      dds,
+      pmap,
+      x,
+      patients = c(sens.pats$individualID, res.pats$individualID),
+      adjpval = 0.01,
+      upload = FALSE,
+      parentID = 'syn25323411'
+    )
+    
+    #goTerms<-pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=paste0('GO_',x))
+  }
+  return(mutate(drug.res, Drug = x))
+  
+  
+})
+
+full.genes <- do.call(rbind, all.res)
+#full.genes<-do.call(rbind,lapply(all.res,function(x) x$genes))
+#full.go<-do.call(rbind,lapply(all.res,function(x) x$goTerms))
+#full.gsea<-do.call(rbind,lapply(all.res,function(x) x$gseaTerms))
+
+write.table(full.genes, file = 'AUCPDXGenesAtmid.csv')
+full.genes %>% group_by(Drug) %>%
+  summarize(sigGenes = count(padj < 0.01, na.rm = T)) %>%
+  DT::datatable()
+
+```
+
+### Gene overlap
+
+How do we visualize the overlap between genes? 
+- We can plot the similarity of drugs by how similar their gene expression values are...
+- We can do massive venn diagrams
+
+```{r gene overlap,message=FALSE}
+
+##spread LFC values across a matrix, then make PCA of matrix
+
+
+merged <- full.genes %>%
+  tibble::rownames_to_column('geneid') %>%
+  tidyr::separate(geneid, into = c('GENE', 'Version'), sep = '\\.') %>%
+  left_join(pmap) %>%
+  dplyr::select(GENENAME, log2FoldChange, Drug) %>%
+  subset(!is.na(GENENAME)) %>%
+  tidyr::pivot_wider(
+    values_from = log2FoldChange,
+    names_from = Drug,
+    values_fill = list(log2FoldChange = 0.0),
+    values_fn = list(log2FoldChange = mean)
+  )
+
+mmat <- merged %>% column_to_rownames('GENENAME') %>% as.matrix()
+mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
+
+pc <- prcomp(t(mmat), scale. = FALSE)
+
+library(ggrepel)
+
+##which are outliers?
+df <- pc$x %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column('Drug')
+
+p <- df %>%
+  ggplot(aes(x = PC1, y = PC2, col = Drug)) +
+  geom_point() +
+  geom_text_repel(data = df, aes(label = Drug))
+
+p
+
+ggsave('PCA_PDX_byDiffExAUC.png', p)
+```
+
+
+Then we can do GSEA on the genes resulting from this
+
+```{r gsea analysis, message=F,warning=F}
+go.res <- lapply(all.res, function(drug.res) {
+  x = drug.res$Drug[1]
+  genes.with.values <- cbind(drug.res, pmap[rownames(drug.res), ]) %>%
+    dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange')
+  
+  res2 = doGSEA(
+    genes.with.values,
+    prot.univ = NULL,
+    prefix = paste0('PDX_AUC', x),
+    useEns = FALSE
+  )
+  #drug.res
+  res2 %>% mutate(Drug = x)
+})
+
+full.go <- do.call(rbind, go.res)
+
+full.go %>%
+  group_by(Drug) %>%
+  summarize(sigTerms = count(p.adjust < 0.05, na.rm = T)) %>%
+  DT::datatable()  
+
+```
+
+
+### Compare enrichmemnt
+
+Now we have the Genes, Go terms, and gene lists that are differentially expressed between PDX samples that respond vs. those that do not respond to a drug of interest. We can now ask two questions:
+
+#### Which genes/pathways are general across all drug responses?
+
+```{r overlapping stats}
+
+##first test for gene overlap
+#full.genes%>%
+#  subset(p.adj<0.01)%>%
+#  group_by(Gene)%>%
+#  summarize(n_distinct(Symbol))
+
+
+```
+
+
+#### Which genes/pathways are unique to specific drug responses?
+
+### GO Term Overlap
+
+What go terms are unique to specific drugs? which are enriched? Can we plot a heatmap perhaps?
+
+```{r go term overlap}
+merged.go <- full.go %>%
+  # tibble::rownames_to_column('goid')%>%
+  #  tidyr::separate(geneid,into=c('GENE','Version'),sep='\\.')%>%
+  #    left_join(pmap)%>%
+  dplyr::select(Description, NES, Drug) %>%
+  subset(!is.na(Description)) %>%
+  tidyr::pivot_wider(
+    values_from = NES,
+    names_from = Drug,
+    values_fill = list(NES = 0.0),
+    values_fn = list(NES = mean)
+  )
+
+mmat <- merged.go %>%
+  tibble::column_to_rownames('Description') %>%
+  as.matrix()
+mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
+
+pc <- prcomp(t(mmat), scale. = FALSE)
+
+library(ggrepel)
+
+##which are outliers?
+df <- pc$x %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column('Drug')
+
+p <- df %>%
+  ggplot(aes(x = PC1, y = PC2, col = Drug)) +
+  geom_point() +
+  geom_text_repel(data = df, aes(label = Drug)) +
+  ggtitle("Samples by GO terms")
+
+p
+ggsave('PCA_PDX_byGO_AUC.png', p)
+
+
+```

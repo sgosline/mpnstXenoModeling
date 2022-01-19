@@ -42,21 +42,26 @@ if(!require('EnsDb.Hsapiens.v86')){
 }
 ```
 
-
 ## Mutation data and gene expression data
 
 Load the data from the R package. We want to both evaluate the mutational profile and also the gene expression signatures that fall from this data.
 
 ```{r load data, warning=FALSE, message=FALSE}
-syn <- mpnstXenoModeling::loadPDXData()
+pdx_data <- mpnstXenoModeling::loadPDXData()
 
 varData <- mpnstXenoModeling::loadVariantData()
 rnaSeq <- mpnstXenoModeling::loadRNASeqData()
 
-varData%>%
-  subset(AD>0)%>%
-  group_by(specimenID)%>%
-  summarize(nMuts=n_distinct(Symbol))
+<<<<<<< HEAD:results/exp1_somaticVariantExpression.Rmd
+varData <- mpnstXenoModeling::loadVariantData()
+rnaSeq <- mpnstXenoModeling::loadRNASeqData()
+=======
+>>>>>>> master:results/fig1_somaticVariantExpression.Rmd
+
+varData %>%
+  subset(AD > 0) %>%
+  group_by(specimenID) %>%
+  summarize(nMuts = n_distinct(Symbol))
 ```
 
 These data comprise tumor, normal, and xenograft so we need to remove and keep only xenograft.
@@ -68,112 +73,191 @@ We now can select specific mutations of interest and put them in a heatmap
 ```{r mut data, results="asis", warning=FALSE}
 ##filter for only PDX samples
 
-samps <- unique(varData$specimenID)
-tums <- samps[grep('tumor',samps)]
-norms <-samps[grep('normal',samps)]
 
-pdx.samps<-setdiff(samps,union(tums,norms))
+samps <- unique(varData$specimenID)
+tums <- samps[grep('tumor', samps)]
+norms <- samps[grep('normal', samps)]
+
+pdx.samps <- setdiff(samps, union(tums, norms))
 
 ##spread mutational data to matrix...
-mutMat<-varData%>%
-  dplyr::filter(specimenID%in%pdx.samps)%>%
-  mutate(AD=as.numeric(AD))%>%
-  subset(Symbol!="")%>%
-  dplyr::select(-c(individualID,specimenID,synid,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status,AD))%>%
-  distinct()%>%
-  tidyr::pivot_wider(names_from=Sample,values_from=Tumor_AF,values_fn=list(Tumor_AF=max),
-                     values_fill=list(Tumor_AF=0.0))%>%
-    tibble::column_to_rownames('Symbol')
+mutMat <- varData %>%
+  dplyr::filter(specimenID %in% pdx.samps) %>%
+  mutate(AD = as.numeric(AD)) %>%
+  subset(Symbol != "") %>%
+  dplyr::select(
+    -c(
+      individualID,
+      specimenID,
+      synid,
+      Age,
+      Sex,
+      MicroTissueQuality,
+      Location,
+      Size,
+      Clinical.Status,
+      AD
+    )
+  ) %>%
+  distinct() %>%
+  tidyr::pivot_wider(
+    names_from = Sample,
+    values_from = Tumor_AF,
+    values_fn = list(Tumor_AF = max),
+    values_fill = list(Tumor_AF = 0.0)
+  ) %>%
+  tibble::column_to_rownames('Symbol')
 
-annotes<-varData%>%
-    dplyr::filter(specimenID%in%pdx.samps)%>%
-    dplyr::select(c(Sample,Age,Sex,MicroTissueQuality,Location,Size,Clinical.Status))%>%
-    mutate(MicroTissueQuality=unlist(MicroTissueQuality))%>%
-    mutate(`Clinical Status`=unlist(Clinical.Status))%>%
-    dplyr::select(-Clinical.Status)%>%
-    #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
-    distinct()%>%tibble::remove_rownames()%>%
-    tibble::column_to_rownames('Sample')#%>%
+annotes <- varData %>%
+  dplyr::filter(specimenID %in% pdx.samps) %>%
+  dplyr::select(c(
+    Sample,
+    Age,
+    Sex,
+    MicroTissueQuality,
+    Location,
+    Size,
+    Clinical.Status
+  )) %>%
+  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
+  mutate(`Clinical Status` = unlist(Clinical.Status)) %>%
+  dplyr::select(-Clinical.Status) %>%
+  #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
+  distinct() %>% tibble::remove_rownames() %>%
+  tibble::column_to_rownames('Sample')#%>%
 #    dplyr::filter(sample!='normal')
 ```
 
 ```{r}
-mutMat<-mutMat[,rownames(annotes)]
+mutMat <- mutMat[, rownames(annotes)]
 
-pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)))
+pheatmap(
+  log10(0.01 + mutMat),
+  clustering_distance_cols = 'correlation',
+  cellwidth = 10,
+  annotation_col = annotes,
+  labels_row = rep("", nrow(mutMat))
+)
 
-pheatmap(log10(0.01+mutMat),clustering_distance_cols = 'correlation',cellwidth = 10,annotation_col = annotes,labels_row = rep("",nrow(mutMat)),filename='allMutations.png')
+pheatmap(
+  log10(0.01 + mutMat),
+  clustering_distance_cols = 'correlation',
+  cellwidth = 10,
+  annotation_col = annotes,
+  labels_row = rep("", nrow(mutMat)),
+  filename = 'allMutations.png'
+)
 ```
-
 
 Here we see that some samples are more mutated than others. But really, we are only interested in a handful of mutations.
 
 ```{r}
 #Curated, keep this gene list of interest
-genelist = c('NF1','CDKN2A','TP53','EED','SUZ12','EGFR','PDGFRA','MET','BRAF',
-           'TYK2','PIK3CA','AURKA2','ATRX','TSC1','TSC2','NF2')
+genelist = c(
+  'NF1',
+  'CDKN2A',
+  'TP53',
+  'EED',
+  'SUZ12',
+  'EGFR',
+  'PDGFRA',
+  'MET',
+  'BRAF',
+  'TYK2',
+  'PIK3CA',
+  'AURKA2',
+  'ATRX',
+  'TSC1',
+  'TSC2',
+  'NF2'
+)
 allgenes = rownames(mutMat)
-smutMat<-mutMat[intersect(genelist,allgenes),]#DT_result[result==TRUE,]$allgenes,rownames(annotes)]
-  
+smutMat <-
+  mutMat[intersect(genelist, allgenes), ]#DT_result[result==TRUE,]$allgenes,rownames(annotes)]
 
-pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
 
-pheatmap(log10(0.01+smutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedMutations.png')
+pheatmap(
+  log10(0.01 + smutMat),
+  cellheight = 10,
+  cellwidth = 10,
+  annotation_col = annotes
+)
+
+pheatmap(
+  log10(0.01 + smutMat),
+  cellheight = 10,
+  cellwidth = 10,
+  annotation_col = annotes,
+  filename = 'selectedMutations.png'
+)
 ```
-
 
 Lastly we want to add any recurrent mutations that could be of interest to our analysis.
 
 ```{r recurrent mutations, results="asis"}
-topMuts=dplyr::filter(varData,AD>0)%>%
-  subset(!is.na(Symbol))%>%
-  subset(Symbol!="")%>%
-    group_by(Symbol)%>%
-    summarize(nSamps=n_distinct(individualID))%>%
-    dplyr::filter(nSamps>5)%>%
-    dplyr::select(Symbol)
+topMuts = dplyr::filter(varData, AD > 0) %>%
+  subset(!is.na(Symbol)) %>%
+  subset(Symbol != "") %>%
+  group_by(Symbol) %>%
+  summarize(nSamps = n_distinct(individualID)) %>%
+  dplyr::filter(nSamps > 5) %>%
+  dplyr::select(Symbol)
 
-rmutMat<-mutMat[intersect(union(topMuts$Symbol,genelist),rownames(mutMat)),rownames(annotes)]
+rmutMat <-
+  mutMat[intersect(union(topMuts$Symbol, genelist), rownames(mutMat)), rownames(annotes)]
 
-pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes)
-pheatmap(log10(0.01+rmutMat),cellheight=10,cellwidth = 10,annotation_col = annotes,filename='selectedAndRecMutations.png')
+pheatmap(
+  log10(0.01 + rmutMat),
+  cellheight = 10,
+  cellwidth = 10,
+  annotation_col = annotes
+)
+pheatmap(
+  log10(0.01 + rmutMat),
+  cellheight = 10,
+  cellwidth = 10,
+  annotation_col = annotes,
+  filename = 'selectedAndRecMutations.png'
+)
 ```
 
 These results show the mutations of interest that we want to compare below.
 
 ## RNA signatures of mutations
 
-For each mutation in the `rmutMat` matrix shown above, we  can separate out patients that have the mutation and do not. Then we can compare differential expression using the tools described previously (the third markdown):
+For each mutation in the `rmutMat` matrix shown above, we can separate out patients that have the mutation and do not. Then we can compare differential expression using the tools described previously (the third markdown):
 
-1. Group the samples into two groups, then compute the log2fold change and significance via the linear model
-2. Plot the significant gene in a heatmap
-3. Evaluate the functional enrichment of the significant genes only
-4. Evaluate the functional enrichment of the _ranking_ of all genes using GSEA. This is particularly useful when we have no significantly different genes.
-
+1.  Group the samples into two groups, then compute the log2fold change and significance via the linear model
+2.  Plot the significant gene in a heatmap
+3.  Evaluate the functional enrichment of the significant genes only
+4.  Evaluate the functional enrichment of the *ranking* of all genes using GSEA. This is particularly useful when we have no significantly different genes.
 
 ### Collect RNASeq data
 
 ```{r, warning=FALSE, message=FALSE, warning=FALSE}
-    library(ensembldb)
- library("EnsDb.Hsapiens.v86")
-  library(ggrepel)
-  database <- EnsDb.Hsapiens.v86
-  pmap <- ensembldb::select(database, 
-                              keys=list(GeneIdFilter(rnaSeq$GENE),
-                                        TxBiotypeFilter("protein_coding")),
-        columns = c("GENENAME"))%>%
-      dplyr::rename(GENE='GENEID')%>%
-      right_join(rnaSeq)%>%
-      subset(TXBIOTYPE=='protein_coding')%>%
-      dplyr::select(GENE,GENENAME,GENEID)%>%distinct()
-  
-  dds<-rnaSeq%>%
-    subset(GENE%in%pmap$GENE)%>%
-    mpnstXenoModeling::deseq2NormFilter()
+library(ensembldb)
+library("EnsDb.Hsapiens.v86")
+library(ggrepel)
+database <- EnsDb.Hsapiens.v86
+pmap <- ensembldb::select(
+  database,
+  keys = list(
+    GeneIdFilter(rnaSeq$GENE),
+    TxBiotypeFilter("protein_coding")
+  ),
+  columns = c("GENENAME")
+) %>%
+  dplyr::rename(GENE = 'GENEID') %>%
+  right_join(rnaSeq) %>%
+  subset(TXBIOTYPE == 'protein_coding') %>%
+  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()
+
+dds <- rnaSeq %>%
+  subset(GENE %in% pmap$GENE) %>%
+  mpnstXenoModeling::deseq2NormFilter()
   
 
 ```
-
 
 ### Loop through each gene and identify differential expression, Gene enrichment
 
@@ -182,56 +266,138 @@ Now we go through all the genes of interest and determine if there is a signatur
 ```{r diffex of genes, message=FALSE, warning=FALSE}
 
 
-#diffex.genes <- lapply(genelist,function(x){
-selgenes<-c("NF1","TSC2","NF2","SUZ12",'TSC1')
-all.res<-lapply(intersect(genelist,varData$Symbol),function(x){
-  
 
-  modSamps=subset(varData,Symbol==x)%>%
-    dplyr::select(individualID)%>%
+#diffex.genes <- lapply(genelist,function(x){
+selgenes <- c("NF1", "TSC2", "NF2", "SUZ12", 'TSC1')
+all.res <- lapply(intersect(genelist, varData$Symbol), function(x) {
+  modSamps = subset(varData, Symbol == x) %>%
+    dplyr::select(individualID) %>%
     distinct()
   
-  modSamps<-modSamps$individualID
+  modSamps <- modSamps$individualID
   
-  wtSamps=setdiff(varData$individualID,modSamps)
+  wtSamps = setdiff(varData$individualID, modSamps)
   
   #sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
   #res.pats <- subset(sens.class,Drug==x)%>%subset(sens==FALSE)
-
+  
   ##add col data to dds
-  mut.res <- ds2FactorDE(dds, ids1=modSamps,
-                                    ids2=wtSamps,name=x,doShrinkage=TRUE)
+  mut.res <- ds2FactorDE(
+    dds,
+    ids1 = modSamps,
+    ids2 = wtSamps,
+    name = x,
+    doShrinkage = TRUE
+  )
   
-  if(nrow(mut.res)>0)
-    try(mpnstXenoModeling::plotTopGenesHeatmap(mut.res, dds,
-                                           pmap,                                        
-                                           paste0('mutated_',x),
-                                        patients=c(modSamps,wtSamps),
-                                           adjpval=0.05, 
-                                           upload=FALSE, 
-                                           parentID='syn25323411'))
+  if (nrow(mut.res) > 0)
+    try(mpnstXenoModeling::plotTopGenesHeatmap(
+      mut.res,
+      dds,
+      pmap,
+      paste0('mutated_', x),
+      patients = c(modSamps, wtSamps),
+      adjpval = 0.05,
+      upload = FALSE,
+      parentID = 'syn25323411'
+    ))
   
-  gs.res<-mut.res%>%
-   tibble::rownames_to_column('GENEID')%>%
-    left_join(pmap)%>%
-  #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
-    dplyr::select(Gene='GENENAME',value='log2FoldChange')%>%doGSEA(.,prefix=paste0('GSEA_mutated',x))
+  gs.res <- mut.res %>%
+    tibble::rownames_to_column('GENEID') %>%
+    left_join(pmap) %>%
+    #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+    dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
+    doGSEA(., prefix = paste0('GSEA_mutated', x, compress_output=FALSE))
+    
+  gsea_compressed <- mut.res %>%
+    tibble::rownames_to_column('GENEID') %>%
+    left_join(pmap) %>%
+    dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
+    doGSEA(., prefix = paste0('GSEA_mutated_compressed', x, compress_output=TRUE))
   
-  sig.genes<-mut.res%>%    
-    tibble::rownames_to_column('GENEID')%>%
-    left_join(pmap)%>%
-    subset(padj<0.05)%>%select(GENENAME)
-  if(nrow(sig.genes)>0)
-    go.res<-doRegularGo(sig.genes$GENENAME,prefix=paste0('GO_mutated',x))
+  sig.genes <- mut.res %>%
+    tibble::rownames_to_column('GENEID') %>%
+    left_join(pmap) %>%
+    subset(padj < 0.05) %>% 
+    select(GENENAME)
+  
+  if (nrow(sig.genes) > 0)
+    go.res <- doRegularGo(sig.genes$GENENAME,
+                          prefix = paste0('GO_mutated', x))
+  
+    compressed_go <- doRegularGo(sig.genes$GENENAME,
+                          prefix = paste0('GO_mutate_compressed', x),
+                          compress_output=TRUE)
   #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
-  return(mut.res%>%mutate(Mutation=x))
+  return(mut.res %>% mutate(Mutation = x))
   
-  })
+})
 
-  full.res<-do.call(rbind,all.res)
-  
-  sumtab<-full.res%>%subset(padj<0.05)%>%group_by(Mutation)%>%summarize(count=n())
-  DT::datatable(sumtab)
+full.res <- do.call(rbind, all.res)
+
+sumtab <-
+  full.res %>% subset(padj < 0.05) %>% group_by(Mutation) %>% summarize(count =n())
+DT::datatable(sumtab)
 ```
 
-#
+```{r}
+x = "SUZ12"
+modSamps = subset(varData, Symbol == x) %>%
+  dplyr::select(individualID) %>%
+  distinct()
+
+modSamps <- modSamps$individualID
+
+wtSamps = setdiff(varData$individualID, modSamps)
+
+#sens.pats <- subset(sens.class,Drug==x)%>%subset(sens==TRUE)
+#res.pats <- subset(sens.class,Drug==x)%>%subset(sens==FALSE)
+
+##add col data to dds
+mut.res <- ds2FactorDE(
+  dds,
+  ids1 = modSamps,
+  ids2 = wtSamps,
+  name = x,
+  doShrinkage = TRUE
+)
+
+if (nrow(mut.res) > 0)
+  try(mpnstXenoModeling::plotTopGenesHeatmap(
+    mut.res,
+    dds,
+    pmap,
+    paste0('mutated_', x),
+    patients = c(modSamps, wtSamps),
+    adjpval = 0.05,
+    upload = FALSE,
+    parentID = 'syn25323411'
+  ))
+gs.res <- mut.res %>%
+  tibble::rownames_to_column('GENEID') %>%
+  left_join(pmap) %>%
+  #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
+  doGSEA(., prefix = paste0('GSEA_mutated_compressed', x), compress_output = TRUE)
+
+gs.res <- mut.res %>%
+  tibble::rownames_to_column('GENEID') %>%
+  left_join(pmap) %>%
+  #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
+  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
+  doGSEA(., prefix = paste0('GSEA_mutated', x), compress_output = FALSE)
+
+sig.genes <- mut.res %>%
+  tibble::rownames_to_column('GENEID') %>%
+  left_join(pmap) %>%
+  subset(padj < 0.05) %>% select(GENENAME)
+if (nrow(sig.genes) > 0)
+  go.res <- doRegularGo(
+    sig.genes$GENENAME,
+    prefix = paste0('GO_mutated_compressed', x),
+    compress_output=TRUE
+    )
+
+#pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+
+```
