@@ -36,12 +36,14 @@ jobs:
         run: |
           Rscript -e "remotes::install_github('rstudio/reticulate')"
           Rscript -e "reticulate::install_miniconda()"
+          
       - if: runner.os == 'macOS'
         run: echo "options(reticulate.conda_binary = reticulate:::miniconda_conda())" >> .Rprofile
+        
       - name: Install synapseclient
         run: |
           Rscript -e "reticulate::conda_create('r-reticulate', packages = c('python==3.7', 'synapseclient'))"
-        - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@v1
         with:
           r-version: ${{ matrix.config.r }}
 
