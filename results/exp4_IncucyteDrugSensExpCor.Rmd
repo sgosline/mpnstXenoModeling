@@ -34,7 +34,7 @@ library(pROC)
 
 ```{r, warning=FALSE, message=FALSE}
 syn<-mpnstXenoModeling::loadPDXData()
-icyteData<-mpnstXenoModeling::loadIncucyteData(syn)%>%
+icyteData<-mpnstXenoModeling::loadIncucyteData()%>%
   dplyr::rename(compound_name='experimentalCondition')
 ```
 

@@ -50,8 +50,8 @@ Load the data from the R package. We want to both evaluate the mutational profil
 ```{r load data, warning=FALSE, message=FALSE}
 syn <- mpnstXenoModeling::loadPDXData()
 
-varData <- mpnstXenoModeling::loadVariantData(syn)
-rnaSeq <- mpnstXenoModeling::loadRNASeqData(syn)
+varData <- mpnstXenoModeling::loadVariantData()
+rnaSeq <- mpnstXenoModeling::loadRNASeqData()
 
 varData%>%
   subset(AD>0)%>%
