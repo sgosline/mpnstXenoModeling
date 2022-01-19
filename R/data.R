@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage("Loading data.R")
@@ -17,7 +15,6 @@ syn_client <- NULL
     reticulate::import("synapseclient", delay_load = TRUE)$login()
 }
 
->>>>>>> Stashed changes
 ##get datasets from figshare and whatever drug screening data we have.
 
 #' parses a list of synapse ids, like form `syn24215021`
