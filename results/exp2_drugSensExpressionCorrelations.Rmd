@@ -45,8 +45,8 @@ library(ggrepel)
     dplyr::select(Sample,Age,Sex,MicroTissueQuality,MPNST,Location,`Clinical Status`,Size)%>%
     distinct()
   
-  rnaSeq<<-mpnstXenoModeling::loadRNASeqData(syn)
-  mtDrugData<-loadMicrotissueDrugData(syn)
+  rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
+  mtDrugData<-loadMicrotissueDrugData()
  
 
 ```
