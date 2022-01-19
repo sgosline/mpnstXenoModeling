@@ -27,8 +27,8 @@ library(tidyr)
 ```
 
 ```{r}
-syn<-mpnstXenoModeling::loadPDXData()
-icyteData<-mpnstXenoModeling::loadIncucyteData(syn)
+pdx_data <- mpnstXenoModeling::loadPDXData()
+icyteData <- mpnstXenoModeling::loadIncucyteData()
 
 ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
 geom_point()
