@@ -4,10 +4,7 @@
 \alias{loadMicrotissueDrugData}
 \title{loadMicrotissueDrugData}
 \usage{
-loadMicrotissueDrugData(syn)
-}
-\arguments{
-\item{syn}{}
+loadMicrotissueDrugData()
 }
 \value{
 

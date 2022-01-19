@@ -2,12 +2,12 @@
 % Please edit documentation in R/data.R
 \name{loadPDXData}
 \alias{loadPDXData}
-\title{loadPDXData 
+\title{loadPDXData
 gets data from synapse and stores them as global variables}
 \usage{
-loadPDXData(reticulate_python = NULL)
+loadPDXData()
 }
 \description{
-loadPDXData 
+loadPDXData
 gets data from synapse and stores them as global variables
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/bagOfGenesEnrichment.R
 \name{plotCorrelationEnrichment}
 \alias{plotCorrelationEnrichment}
-\title{Plot using correlation enrichment from leapR package. 
-A single plot is saved to the working directory}
+\title{Plot using correlation enrichment from leapR package. A single plot is saved to the working directory}
 \usage{
 plotCorrelationEnrichment(
   exprs,
@@ -25,11 +24,11 @@ plotCorrelationEnrichment(
 
 \item{prefix}{string, used for naming the saved plots.}
 
-\item{order.by}{This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but can also use "BH_pvalue" to sort by significance of the pathways.}
+\item{order.by}{This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but
+can also use "BH_pvalue" to sort by significance of the pathways.}
 
 \item{clean.names}{Boolean, if TRUE removes the "_pathway" ending in pathway names, making the plot easier to read.}
 }
 \description{
-Plot using correlation enrichment from leapR package. 
-A single plot is saved to the working directory
+Plot using correlation enrichment from leapR package. A single plot is saved to the working directory
 }

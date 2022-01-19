@@ -11,7 +11,8 @@ doRegularGo(
   gsea_FDR = 0.05,
   pathway.plot.size = 3,
   width = 11,
-  height = 8.5
+  height = 8.5,
+  compress_output = FALSE
 )
 }
 \description{

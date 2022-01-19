@@ -4,10 +4,7 @@
 \alias{loadPDXDrugData}
 \title{loadPDXDrugData}
 \usage{
-loadPDXDrugData(syn)
-}
-\arguments{
-\item{syn}{}
+loadPDXDrugData()
 }
 \value{
 

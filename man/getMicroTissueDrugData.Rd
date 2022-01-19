@@ -4,7 +4,7 @@
 \alias{getMicroTissueDrugData}
 \title{getMicroTissueDrugData}
 \usage{
-getMicroTissueDrugData(syn, mtd)
+getMicroTissueDrugData(mtd)
 }
 \description{
 getMicroTissueDrugData

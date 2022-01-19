@@ -14,7 +14,8 @@ doGSEA(
   clean.names = F,
   width = 11,
   height = 8.5,
-  gsea_FDR = 0.05
+  gsea_FDR = 0.05,
+  compress_output = FALSE
 )
 }
 \arguments{
