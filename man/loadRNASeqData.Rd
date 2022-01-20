@@ -4,10 +4,7 @@
 \alias{loadRNASeqData}
 \title{loadRNASeqData}
 \usage{
-loadRNASeqData(syn)
-}
-\arguments{
-\item{syn}{}
+loadRNASeqData()
 }
 \value{
 rnaSeq data frame

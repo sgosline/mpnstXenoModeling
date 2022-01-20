@@ -79,7 +79,7 @@ generate_DR_plots <- function(res, drugID) {
   dr.dt <- data.table::data.table(dr.df)
   dt2 <- data.table::data.table()
   dat.dt <- data.table::data.table(Drug=character(),CellLine=character(),Hill=numeric(),ec50=numeric(),
-                       MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
+                                   MinViability=numeric(),MaxViability=numeric(),ic50=numeric(),auc=numeric())
   # factor by CellLine
   dr.dt[,CellLine:=as.factor(CellLine)]
   scale.num <- nlevels(dr.dt$CellLine)
@@ -130,4 +130,4 @@ generate_DR_plots <- function(res, drugID) {
     theme_bw() +
     ggtitle(paste("Dose-response curves for Drug:", drugID))
   return(list('plot'=temp.plot,'table'=dat.dt))
-  }
+}

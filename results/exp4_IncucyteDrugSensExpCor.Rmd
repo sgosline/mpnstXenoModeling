@@ -1,0 +1,167 @@
+---
+title: "Experiment 4 Incycyte data plotting"
+author: "Jess Bade, Sara Gosline"
+date: "9112/2022"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+#Sys.setenv(RETICULATE_PYTHON = '/Users/bade228/opt/anaconda3/envs/r2/bin/python3')
+require(remotes)
+
+if(!require(mpnstXenoModeling)){
+  remotes::install_github('sgosline/mpnstXenoModeling')
+  library(mpnstXenoModeling)
+}
+#remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
+
+if(!require('leapr')){
+  remotes::install_github('biodataganache/leapR')
+  library(leapr)
+}
+library(data.table)
+library(dplyr)
+#library(repr)
+library(pheatmap)
+library(ggplot2)
+library(drc)
+library(pROC)
+```
+
+```{r, warning=FALSE, message=FALSE}
+syn<-mpnstXenoModeling::loadPDXData()
+icyteData<-mpnstXenoModeling::loadIncucyteData()%>%
+  dplyr::rename(compound_name='experimentalCondition')
+```
+
+```{r}
+ggplot(data=icyteData, aes(experimental_time_point, response,colour=compound_name,shape=model_system_name)) +
+geom_point()
+```
+
+```{r}
+# filter_byDrug <- function(icd, drugID) {
+#   icd <- subset(icd, compound_name == drugID)
+#   icd <- icd[order(icd$experimental_time_point),]
+#   #icd$dosage <- log((icd$dosage)/1000000000)
+#   # Assumes log(M) concentration
+#   return(icd)
+# }
+# 
+# TryFit <- function(time_response, fixed = c(NA, NA, NA, NA), names = c(NA, NA, NA, NA), nan.handle = c("LL4", "L4"), curve_type){
+#     if (var(time_response$response) == 0) {
+#         time_response$response[nrow(time_response)] <- time_response$response[nrow(time_response)] + 10^-10
+#     }
+#     #dose_response[dose_response == 0] <- 10^-10
+#     nan.handle <- match.arg(nan.handle)
+#     #, logDose = exp(10)
+#     drug.model <- tryCatch({
+#         drcmod(time_response, LL.4(fixed = fixed, names = names), curve_type)
+#     }, warning = function(w) {
+#         if(nan.handle == "L4"){
+#             drcmod(time_response, L.4(fixed = fixed, names = names), curve_type)
+#     } else {
+#         drcmod(time_response, LL.4(fixed = fixed, names = names), curve_type)
+#     }
+#     }, error = function(e) {
+#         drcmod(time_response, L.4(fixed = fixed, names = names), curve_type)
+#     })
+#     return(drug.model = drug.model)
+# }
+# drcmod <- function(time_resp, fctval, curve_type){
+#   temp <- drm(formula   = response ~ experimental_time_point
+#       , curveid   = model_system_name
+#       , data      = time_resp
+#       , fct       = fctval
+#       , na.action = na.omit
+#       , control   = drmc(errorm = FALSE)
+#   )
+#   summary(temp)
+#   return(temp)
+# }
+
+
+# ```
+# 
+# ```{r}
+# 
+
+
+#res  = syn$tableQuery('select * from syn26136282')
+#syn$delete(res)
+#res  = syn$tableQuery('select * from syn26136282')
+#synTableStore(tabname='Miccrotissue Response Valsue',tab=meta.dt,parentId='syn21984813')
+#pd <- sync$build_table('Microtissue Response Values','syn21984813','doseResponse_table.csv')
+#syn$store(pd)
+```
+
+```{r}
+meta.dt<-mpnstXenoModeling::process_IncucyteDrugData(icyteData, upload=FALSE)
+
+
+meta.dt
+```
+
+### Analysis of IncuCyte % confluence
+
+```{r}
+icStats0 <- icyteData%>%
+            mutate(maxKilling = (response/100))
+
+minDrugs <- icStats0%>%
+            mutate(hasRNASeq=(model_system_name%in%rnaSeq$Sample))%>%
+            group_by(compound_name)%>%
+            summarise(samples=n_distinct(model_system_name),samplesWithRNA=count(hasRNASeq==TRUE))%>%
+            subset(samples>2)
+#DT::datatable(minDrugs)
+icStats0<-tidyr::unite(icStats0,'Drug',c(compound_name,dosage))
+```
+
+```{r}
+spi.mat<-icStats0%>%
+  dplyr::select(Drug,model_system_name,maxKilling)%>%
+  group_by(Drug,model_system_name)%>%
+  summarise(maxKilling=max(maxKilling))%>%
+  tidyr::pivot_wider(values_from=maxKilling,names_from=model_system_name,values_fill=list(maxKilling=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+spi.mat
+pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data')
+#pheatmap(spi.mat,cellwidth = 10,cellheight=10,main='max killing across Incucyte data',filename='MK_ic.png')
+
+
+
+```
+
+```{r}
+##let's plot the stats for each drug
+icStats<-meta.dt
+icStats<-tidyr::unite(icStats,'Drug',c(compound_name,dosage))
+
+auc.mat<-icStats%>%
+  dplyr::select(Drug,model_system_name,auc)%>%
+  tidyr::pivot_wider(values_from=auc,names_from=model_system_name,values_fill=list(auc=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+auc.mat
+pheatmap(auc.mat, cellwidth = 10,cellheight=10,main='AUC across Incucyte data')
+
+tgi.mat<-icStats%>%
+  dplyr::select(Drug,model_system_name,ic50)%>%
+  tidyr::pivot_wider(values_from=ic50,names_from=model_system_name,values_fill=list(ic50=0))%>%
+  tibble::column_to_rownames('Drug')%>%
+  as.matrix()
+
+skip <- which(rowMeans(tgi.mat)%in%c(1,0))
+if(length(skip)>0)
+  tgi.mat <-tgi.mat[-skip,]
+tgi.mat
+#pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data',filename='ic50_ic.png')
+pheatmap(tgi.mat,cellwidth = 10,cellheight=10,main='IC50 across Incucyte data')
+
+
+```

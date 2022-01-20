@@ -4,10 +4,7 @@
 \alias{loadVariantData}
 \title{loadVariantData}
 \usage{
-loadVariantData(syn)
-}
-\arguments{
-\item{syn}{}
+loadVariantData()
 }
 \value{
 

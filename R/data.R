@@ -3,11 +3,27 @@
   packageStartupMessage("Loading data.R")
 }
 
+.onLoad <- function(libname, pkgname) {
+  library(reticulate)
+  have_synapse <- reticulate::py_module_available("synapseclient")
+  if (!have_synapse)
+    reticulate::py_install("synapseclient")
+  
+  syn_client <<-
+    reticulate::import("synapseclient", delay_load = TRUE)$login()
+}
+
+##get datasets from figshare and whatever drug screening data we have.
+
+.onAttach <- function(libname, pkgname) {
+  packageStartupMessage("Loading data.R")
+}
+
 syn_client <- NULL
 
 .onLoad <- function(libname, pkgname) {
   library(reticulate)
-  have_synapse <- py_module_available("synapseclient ")
+  have_synapse <- reticulate::py_module_available("synapseclient")
   if (!have_synapse)
     reticulate::py_install("synapseclient")
   

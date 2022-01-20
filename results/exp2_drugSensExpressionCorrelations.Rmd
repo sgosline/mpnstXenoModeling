@@ -1,5 +1,5 @@
 ---
-title: "Fig2 MT Drug Sensitivity Expression Correlation"
+title: "Experiment 2 MT Drug Sensitivity Expression Correlation"
 author: "Sara Gosline"
 date: "10/13/2021"
 output:  
@@ -40,6 +40,7 @@ library(ggrepel)
 #here we need mT drug sensitivity and gene expression
 #update to use `RNAseq` column
 pdx_data <- mpnstXenoModeling::loadPDXData()
+
 
 clin.tab <<- data.tab %>%
   dplyr::select(Sample,
@@ -112,8 +113,10 @@ drug.colors <- list(
   `Mirdametinib;Trabectedin` = 'plum3'
 )
 
-
-eval.samps <- c('MN-2', 'JH-2-079', 'JH-2-002', 'WU-225')
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+drug.colors<-cbPalette[c(2,3,4,5,8)]
+names(drug.colors)<-c('Mirdametinib','Olaparib','Trabectedin','Olaparib;Trabectedin','Mirdametinib;Trabectedin')
+eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
 
 ```
 
@@ -155,7 +158,7 @@ mtStats %>% subset(Drug %in% singls) %>%
   facet_grid(CellLine ~ .) +
   ggtitle("AUC of single agents") + guides(x =  guide_axis(angle = 90))
 
-ggsave('mt_single_agent_auc_barplots.png')
+ggsave('mt_single_agent_auc_barplots.pdf')
 ##combos
 mtStats %>% subset(Drug %in% combos) %>%
   ggplot(aes(
@@ -168,10 +171,11 @@ mtStats %>% subset(Drug %in% combos) %>%
   geom_bar(stat = 'identity', position = 'dodge') + geom_errorbar(width =
                                                                     0.2) + facet_grid(CellLine ~ .) +
   ggtitle("AUC of drug combinations") + guides(x =  guide_axis(angle = 90))
-ggsave('mt_combo_agent_auc_barplots.png')
+ggsave('mt_combo_agent_auc_barplots.pdf')
 
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data',filename='AUC_MT_selDrugs.png')
 #  pheatmap(auc.mat[eval.drugs,],cellwidth = 10,cellheight=10,main='AUC across MT data')
+
 mtStats %>% subset(Drug %in% eval.drugs) %>%
   subset(CellLine %in% eval.samps) %>%
   ggplot(aes(
@@ -255,7 +259,6 @@ pheatmap(
   filename = 'MK_mt_selDrugs.png'
 )
 
-
 ```
 
 Which metrics are best for analyzing the data?
@@ -324,32 +327,23 @@ genemat <- counts(dds, normalize = TRUE) %>%
   tibble::column_to_rownames('GENENAME') %>%
   as.matrix()
 
-clin.tab <- clin.tab %>%
+  pc <- prcomp(t(genemat), scale. = TRUE)
+
+ 
+  clin.tab <- clin.tab %>%
   mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'NaN', 'ND')) %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'Usable', 'Good'))
 
-
-pc <- prcomp(t(genemat), scale. = TRUE)
-
-#df<-#pc$x%>%
-
-##CREATE dataframe of gene expression manifold mapping
-ex.df <-
-  umap::umap(t(genemat), method = 'naive', preserve.seed = FALSE)$layout %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column('Sample') %>%
-  left_join(clin.tab)
-
-p <- ex.df %>%
-  ggplot(aes(
-    x = V1,
-    y = V2,
-    col = Age,
-    shape = MicroTissueQuality
-  )) +
-  geom_point() +
-  geom_text_repel(data = ex.df, aes(label = Sample))
+   ex.df <- as.data.frame(pc$x)%>%
+    tibble::rownames_to_column('Sample')%>%
+    dplyr::select('Sample','PC1','PC2')%>%
+    left_join(clin.tab)
+  
+  p<-ex.df%>%
+    ggplot(aes(x=PC1,y=PC2,col=Age,shape=MicroTissueQuality))+
+    geom_point()+
+    geom_text_repel(data = ex.df, aes(label = Sample))
 
 p
 
@@ -392,14 +386,18 @@ if (nrow(drug.res) > 0)
 gs.res <- drug.res %>%
   tibble::rownames_to_column('GENEID') %>%
   left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
-  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>% doGSEA(., prefix =
-                                                                          paste0('GSEA_MTqual'))
+  dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>% 
+  mpnstXenoModeling::doGSEA(., prefix =paste0('GSEA_MTqual'),
+            compress_output = TRUE)
 
 sig.genes <- drug.res %>%
   tibble::rownames_to_column('GENEID') %>%
   left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
   subset(padj < 0.01) %>% select(GENENAME)
-go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO_MTqual'))
+
+go.res <- mpnstXenoModeling::doRegularGo(sig.genes$GENENAME, 
+                                         prefix = paste0('GO_MTqual'), 
+                                         compress_output = TRUE)
 
 ```
 
@@ -422,8 +420,8 @@ all.res <- lapply(unique(eval.drugs), function(x) {
   
   p <- ddf %>%
     ggplot(aes(
-      x = V1,
-      y = V2,
+      x = PC1,
+      y = PC2,
       color = auc,
       shape = MicroTissueQuality
     )) +
@@ -561,41 +559,14 @@ full.go %>%
   DT::datatable()  
 ```
 
-### GSEA Term Overlap
 
-What go terms are unique to specific drugs? which are enriched? Can we plot a heatmap perhaps?
-
-```{r go term overlap}
-merged.go <- full.go %>%
-  dplyr::select(Description, pvalue, Drug) %>%
-  subset(!is.na(Description)) %>%
-  tidyr::pivot_wider(
-    values_from = pvalue,
-    names_from = Drug,
-    values_fill = list(pvalue = 0.0),
-    values_fn = list(pvalue = mean)
-  )
-
-mmat <- merged.go %>%
-  tibble::column_to_rownames('Description') %>%
-  as.matrix()
-mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
-
-
-```
 
 ### Genes correlated with MT hits by max killing
 
 The goal for this is to subset the patients by whether or not they are sensitive to different drugs then compare the expression for each. There are `$nrow(diff.drugs)`drugs that exhibit variable behavior with an AUC less than `$auc.thresh`.
 
 ```{r diffex tests maxKilling,message=FALSE,warning=FALSE}
-
 ##let's rename the samples a bit? 
-
-##let's rename the samples a bit? 
-
-
-
 
 mk.all.res <- lapply(eval.drugs, function(x) {
   print(x)
@@ -609,8 +580,8 @@ mk.all.res <- lapply(eval.drugs, function(x) {
   
   p <- ddf %>%
     ggplot(aes(
-      x = V1,
-      y = V2,
+      x = PC1,
+      y = PC2,
       color = maxKilling,
       shape = MicroTissueQuality
     )) +

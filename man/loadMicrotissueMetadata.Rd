@@ -4,10 +4,7 @@
 \alias{loadMicrotissueMetadata}
 \title{loadMicrotissueMetadata loads and stores microtissue metata to global variable}
 \usage{
-loadMicrotissueMetadata(syn)
-}
-\arguments{
-\item{syn}{A handle to a synapse login}
+loadMicrotissueMetadata()
 }
 \description{
 loadMicrotissueMetadata loads and stores microtissue metata to global variable

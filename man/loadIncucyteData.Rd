@@ -4,10 +4,7 @@
 \alias{loadIncucyteData}
 \title{loadIncucyteData}
 \usage{
-loadIncucyteData(syn)
-}
-\arguments{
-\item{syn}{}
+loadIncucyteData()
 }
 \value{
 

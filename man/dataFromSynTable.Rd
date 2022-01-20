@@ -4,12 +4,10 @@
 \alias{dataFromSynTable}
 \title{gets a list of synapse ids and binds them together}
 \usage{
-dataFromSynTable(tab, syn, colname)
+dataFromSynTable(tab, colname)
 }
 \arguments{
 \item{tab}{table of MPNST samples}
-
-\item{syn}{synapse login client}
 
 \item{colname}{name of column to select}
 }
