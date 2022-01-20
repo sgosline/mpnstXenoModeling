@@ -4,12 +4,14 @@
 \alias{compress_enrichment}
 \title{Plot using correlation enrichment from leapR package. A single plot is saved to the working directory}
 \usage{
-compress_enrichment(enrichment_array, threshold = 0.75)
+compress_enrichment(enrichment_array, threshold = 0.75, colname = "Count")
 }
 \arguments{
 \item{enrichment_array}{Enrichment array from GSEA or Run}
 
 \item{threshold}{Threshold for similarity between terms}
+
+\item{colname}{is the column from which to order the terms}
 }
 \description{
 Plot using correlation enrichment from leapR package. A single plot is saved to the working directory

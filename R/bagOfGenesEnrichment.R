@@ -190,7 +190,9 @@ doGSEA <-
     
     res <- filter(as.data.frame(gr), p.adjust < gsea_FDR)
     if (compress_output)
-      res <- res[res$ID %in% compress_enrichment(res)]
+      res <- res%>%
+        subset(ID %in% compress_enrichment(res,colname='NES'))
+    
     plotGenesetResults(
       res,
       prefix = prefix,
@@ -253,15 +255,16 @@ doRegularGo <-
     ret = as.data.frame(res) %>%
       dplyr::select(ID, Description, pvalue, p.adjust, Count)
     
-    if(nrow(res)>0){
+    if(nrow(ret)>0){
       # compress output using MAGINEs algorithm
       if (compress_output)
-        res <- res[res$ID %in% compress_enrichment(res)]
+        ret <- ret %>%
+            subset(ID %in% compress_enrichment(ret))
     
-      res <- filter(as.data.frame(res), p.adjust < gsea_FDR)
+      ret <- filter(as.data.frame(ret), p.adjust < gsea_FDR)
 
       plotGenesetResults(
-        res,
+        ret,
         prefix = prefix,
         pathway.plot.size = pathway.plot.size,
         order.by = 'Count',
@@ -640,19 +643,7 @@ plotCorrelationEnrichment <-
                                               corr.enrichment.filtered$Pathway)
     }
     
-    #sprint(res)
-    # ret=as.data.frame(res)%>%
-    #    dplyr::select(ID,Description,pvalue,p.adjust,Count)
-    
-    #  res<-filter(as.data.frame(res),p.adjust<gsea_FDR)
-    
-    #  if(nrow(res)==0){
-    #    return(res)
-    #  }else{
-    #    return(plotGenesetResults(res,prefix=prefix,pathway.plot.size=pathway.plot.size,
-    #                              order.by='Count',clean.names=F,width=width,height=height))
-    #  }
-    
+  
     p.corr <-
       ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`,
                                            y = reorder(Pathway, `Ingroup mean`))) +
@@ -766,11 +757,13 @@ jaccard_index <- function(set1, set2) {
 #' @import stringr
 #' @param enrichment_array Enrichment array from GSEA or Run
 #' @param threshold Threshold for similarity between terms
-compress_enrichment <- function(enrichment_array, threshold = .75) {
+#' @param colname is the column from which to order the terms
+compress_enrichment <- function(enrichment_array, threshold = .75, colname='Count') {
   library('stringr')
   # sort enrichment array by attribute of choice
-  enrichment_array <-
-    enrichment_array[order(enrichment_array$Count), ]
+  enrichment_array <- enrichment_array%>%
+      dplyr::rename(sortval=colname)%>%
+      dplyr::arrange(desc(sortval))#enrichment_array[order(enrichment_array$Count), ]
   
   # create names to iterate through and Jaccard distance between all
   names <- enrichment_array$ID
@@ -785,7 +778,7 @@ compress_enrichment <- function(enrichment_array, threshold = .75) {
   # there is one too similar, add to remove list
   for (i in 1:n_dim) {
     term_1 <- names[i]
-    if (term_1 %!in% to_remove)
+    if (!term_1 %in% to_remove)
       to_keep <- append(to_keep, term_1)
       next
     for (j in i:n_dim) {
