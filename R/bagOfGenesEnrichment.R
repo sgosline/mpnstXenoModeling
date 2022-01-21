@@ -189,6 +189,8 @@ doGSEA <-
       )
     
     res <- filter(as.data.frame(gr), p.adjust < gsea_FDR)
+    
+    if(nrow(res)>0){
     if (compress_output)
       res <- res%>%
         subset(ID %in% compress_enrichment(res,colname='NES'))
@@ -202,14 +204,8 @@ doGSEA <-
       width = width,
       height = height
     )
-    
-    if (nrow(res) == 0) {
-      return(as.data.frame(gr))
-    } else{
-      return(as.data.frame(gr))
     }
-    
-    
+    return(res)
   }
 
 #' Runs regular bag of genes enrichment
@@ -643,7 +639,7 @@ plotCorrelationEnrichment <-
                                               corr.enrichment.filtered$Pathway)
     }
     
-  
+    
     p.corr <-
       ggplot(corr.enrichment.filtered, aes(x = `Ingroup mean`,
                                            y = reorder(Pathway, `Ingroup mean`))) +
@@ -762,8 +758,8 @@ compress_enrichment <- function(enrichment_array, threshold = .75, colname='Coun
   library('stringr')
   # sort enrichment array by attribute of choice
   enrichment_array <- enrichment_array%>%
-      dplyr::rename(sortval=colname)%>%
-      dplyr::arrange(desc(sortval))#enrichment_array[order(enrichment_array$Count), ]
+    dplyr::rename(sortval=colname)%>%
+    dplyr::arrange(desc(sortval))#enrichment_array[order(enrichment_array$Count), ]
   
   # create names to iterate through and Jaccard distance between all
   names <- enrichment_array$ID
@@ -780,7 +776,7 @@ compress_enrichment <- function(enrichment_array, threshold = .75, colname='Coun
     term_1 <- names[i]
     if (!term_1 %in% to_remove)
       to_keep <- append(to_keep, term_1)
-      next
+    next
     for (j in i:n_dim) {
       term_2 <- names[j]
       score = jaccard_index(unlist(term_sets[i]),

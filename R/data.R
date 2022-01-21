@@ -129,7 +129,8 @@ dataFromSynTable <- function(tab, colname) {
       'MicroTissueQuality',
       'Location',
       'Size',
-      'Clinical Status')
+      'Clinical Status',
+      'PRC2 Status')
   res <- lapply(samps, function(y) {
     other.vals <- subset(tab, Sample == y) %>%
       dplyr::select(othercols)

@@ -36,7 +36,22 @@ library(dplyr)
 
 ## Load drug data
 ```{r mutation data,message=FALSE,warning=FALSE}
-mpnstXenoModeling::loadPDXData()
+#mpnstXenoModeling::loadPDXData()
+
+rnaSeq <- mpnstXenoModeling::loadRNASeqData()
+
+syn = mpnstXenoModeling::synapseLogin()
+drugStats <-
+  syn$tableQuery("select * from syn25955439")$asDataFrame()
+
+minDrugs <- drugStats %>%
+  mutate(hasRNASeq = (individualID %in% rnaSeq$Sample)) %>%
+  group_by(drug) %>% summarise(samples = n_distinct(individualID),
+                               samplesWithRNA = count(hasRNASeq ==
+                                                        TRUE)) %>%
+  subset(samples > 2)
+
+DT::datatable(minDrugs)
 
 ```
 
@@ -50,18 +65,6 @@ We can now evaluate drugs that behave differently across samples. We are primari
 For the PDXs, have 10 drugs to choose from at this point, 8 of which have at least 4 samples (let's remove olaparib and trabectidin)
 
 ```{r drug data,message=FALSE,warning=FALSE}
-syn = synapseLogin()
-drugStats <-
-  syn$tableQuery("select * from syn25955439")$asDataFrame()
-
-minDrugs <- drugStats %>%
-  mutate(hasRNASeq = (individualID %in% rnaSeq$Sample)) %>%
-  group_by(drug) %>% summarise(samples = n_distinct(individualID),
-                               samplesWithRNA = count(hasRNASeq ==
-                                                        TRUE)) %>%
-  subset(samples > 2)
-
-DT::datatable(minDrugs)
 
 ##let's plot the stats for each drug
 library(pheatmap)

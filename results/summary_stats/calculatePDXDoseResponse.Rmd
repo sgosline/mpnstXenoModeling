@@ -42,6 +42,7 @@ We can now get all the values for all the combinations.
 
 ```{r drugStats, warning=FALSE, message=FALSE}
 library(ggplot2)
+drugData <- mpnstXenoModeling::loadPDXDrugData()
 pat.drug<-drugData%>%dplyr::rename(individualID='Sample')%>%
     getAllDrugStats(.)%>%
   subset(drug!='n/a')%>%
