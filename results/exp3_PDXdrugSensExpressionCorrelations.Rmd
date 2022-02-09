@@ -13,12 +13,6 @@ This markdown assesses gene expression changes the correlate with drug sensitivi
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-# require(remotes)
-# if(!require(mpnstXenoModeling)){
-#   remotes::install_github('sgosline/mpnstXenoModeling')
-#   library(mpnstXenoModeling)
-# }
-
 if(!require('leapr')){
   remotes::install_github('biodataganache/leapR')
   library(leapr)
@@ -34,7 +28,7 @@ library(dplyr)
 ```
 
 
-## Load drug data
+## Load drug data and RNAseq data
 ```{r mutation data,message=FALSE,warning=FALSE}
 #mpnstXenoModeling::loadPDXData()
 
@@ -77,8 +71,7 @@ auc.mat <- drugStats %>%
     values_fill = list(AUC = 0)
   ) %>%
   tibble::column_to_rownames('drug') %>%
-  as.matrix() %>%
-  pheatmap(cellwidth = 10, cellheight = 10)
+  as.matrix() 
 
 tgi.mat <- drugStats %>%
   dplyr::select(drug, individualID, TGI) %>%
@@ -88,8 +81,7 @@ tgi.mat <- drugStats %>%
     values_fill = list(TGI = 0)
   ) %>%
   tibble::column_to_rownames('drug') %>%
-  as.matrix() %>%
-  pheatmap(cellwidth = 10, cellheight = 10)
+  as.matrix() 
 
 spi.mat <- drugStats %>%
   dplyr::select(drug, individualID, SPI) %>%
@@ -99,8 +91,7 @@ spi.mat <- drugStats %>%
     values_fill = list(SPI = 0)
   ) %>%
   tibble::column_to_rownames('drug') %>%
-  as.matrix() %>%
-  pheatmap(cellwidth = 10, cellheight = 10)
+  as.matrix()
 ```
 
 
@@ -279,18 +270,18 @@ dds <- rnaSeq %>% subset(GENE %in% pmap$GENE) %>%
 
 ```
 
-### Genes correlated with PDX hits using AUC midpoint
+## Genes correlated with PDX hits using SPI midpoint
 
-We take the midpoint of the AUC value for each drug and compare samples that are above vs. below that midpoint
+We take the midpoint of the SPI value for each drug and compare samples that are above vs. below that midpoint
 
-```{r diffex AUC tests,warning=FALSE,message=FALSE}
+```{r diffex SPI tests,warning=FALSE,message=FALSE}
 
 
 ##let's rename the samples a bit?
 
-all.res <- lapply(unique(sens.classes$drug), function(x) {
-  sens.pats <- subset(sens.classes, drug == x) %>% subset(aucSens == TRUE)
-  res.pats <- subset(sens.classes, drug == x) %>% subset(aucSens == FALSE)
+all.res <- lapply(c('trabectedin','olaparib'), function(x) {
+  sens.pats <- subset(sens.classes, drug == x) %>% subset(spiSens == TRUE)
+  res.pats <- subset(sens.classes, drug == x) %>% subset(spiSens == FALSE)
   
   ##add col data to dds
   #print(x)
@@ -331,12 +322,13 @@ full.genes <- do.call(rbind, all.res)
 #full.go<-do.call(rbind,lapply(all.res,function(x) x$goTerms))
 #full.gsea<-do.call(rbind,lapply(all.res,function(x) x$gseaTerms))
 
-write.table(full.genes, file = 'AUCPDXGenesAtmid.csv')
+write.table(full.genes, file = 'SPIPDXGenesAtmid.csv')
 full.genes %>% group_by(Drug) %>%
   summarize(sigGenes = count(padj < 0.01, na.rm = T)) %>%
   DT::datatable()
 
 ```
+
 
 ### Gene overlap
 
@@ -344,7 +336,7 @@ How do we visualize the overlap between genes?
 - We can plot the similarity of drugs by how similar their gene expression values are...
 - We can do massive venn diagrams
 
-```{r gene overlap,message=FALSE}
+```{r gene overlap SPI,message=FALSE}
 
 ##spread LFC values across a matrix, then make PCA of matrix
 
@@ -381,24 +373,30 @@ p <- df %>%
 
 p
 
-ggsave('PCA_PDX_byDiffExAUC.png', p)
+ggsave('PCA_PDX_byDiffExSPI.png', p)
 ```
 
 
 Then we can do GSEA on the genes resulting from this
 
-```{r gsea analysis, message=F,warning=F}
+```{r gsea SPI analysis, message=F,warning=F}
 go.res <- lapply(all.res, function(drug.res) {
   x = drug.res$Drug[1]
   genes.with.values <- cbind(drug.res, pmap[rownames(drug.res), ]) %>%
     dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange')
   
-  res2 = doGSEA(
+  res2 = mpnstXenoModeling::doGSEA(
     genes.with.values,
     prot.univ = NULL,
-    prefix = paste0('PDX_AUC', x),
-    useEns = FALSE
+    prefix = paste0('GSEA_PDX_SPI', x),
+    useEns = FALSE, 
+    compress_output = TRUE
   )
+  
+  sig.genes <- cbind(drug.res, pmap[rownames(drug.res), ])%>%
+    subset(padj < 0.05)
+  
+  res3<-mpnstXenoModeling::doRegularGo(sig.genes$GENENAME,prefix=paste0('GO_PDX_SPI',x),compress_output=FALSE)
   #drug.res
   res2 %>% mutate(Drug = x)
 })
@@ -413,66 +411,5 @@ full.go %>%
 ```
 
 
-### Compare enrichmemnt
-
-Now we have the Genes, Go terms, and gene lists that are differentially expressed between PDX samples that respond vs. those that do not respond to a drug of interest. We can now ask two questions:
-
-#### Which genes/pathways are general across all drug responses?
-
-```{r overlapping stats}
-
-##first test for gene overlap
-#full.genes%>%
-#  subset(p.adj<0.01)%>%
-#  group_by(Gene)%>%
-#  summarize(n_distinct(Symbol))
 
 
-```
-
-
-#### Which genes/pathways are unique to specific drug responses?
-
-### GO Term Overlap
-
-What go terms are unique to specific drugs? which are enriched? Can we plot a heatmap perhaps?
-
-```{r go term overlap}
-merged.go <- full.go %>%
-  # tibble::rownames_to_column('goid')%>%
-  #  tidyr::separate(geneid,into=c('GENE','Version'),sep='\\.')%>%
-  #    left_join(pmap)%>%
-  dplyr::select(Description, NES, Drug) %>%
-  subset(!is.na(Description)) %>%
-  tidyr::pivot_wider(
-    values_from = NES,
-    names_from = Drug,
-    values_fill = list(NES = 0.0),
-    values_fn = list(NES = mean)
-  )
-
-mmat <- merged.go %>%
-  tibble::column_to_rownames('Description') %>%
-  as.matrix()
-mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
-
-pc <- prcomp(t(mmat), scale. = FALSE)
-
-library(ggrepel)
-
-##which are outliers?
-df <- pc$x %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column('Drug')
-
-p <- df %>%
-  ggplot(aes(x = PC1, y = PC2, col = Drug)) +
-  geom_point() +
-  geom_text_repel(data = df, aes(label = Drug)) +
-  ggtitle("Samples by GO terms")
-
-p
-ggsave('PCA_PDX_byGO_AUC.png', p)
-
-
-```

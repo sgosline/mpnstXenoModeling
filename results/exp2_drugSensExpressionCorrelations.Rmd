@@ -48,10 +48,16 @@ clin.tab <<- data.tab %>%
                 Sex,
                 MicroTissueQuality,
                 MPNST,
-                Location,
+                `PRC2 Status`,
                 `Clinical Status`,
                 Size) %>%
-  distinct()
+  distinct() %>%
+  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
+  mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'NaN', 'ND')) %>%
+  mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'Usable', 'Good'))%>%
+  mutate(`Clinical Status` = stringr::str_replace_all(`Clinical Status`,'Alive with metastatic disease','Alive'))%>%
+    mutate(`Clinical Status` = stringr::str_replace_all(`Clinical Status`,'NED','Alive'))
+
 
 rnaSeq <<- mpnstXenoModeling::loadRNASeqData()
 mtDrugData <- loadMicrotissueDrugData()
@@ -113,7 +119,7 @@ drug.colors <- list(
   `Mirdametinib;Trabectedin` = 'plum3'
 )
 
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#F94040", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 drug.colors<-cbPalette[c(2,3,4,5,8)]
 names(drug.colors)<-c('Mirdametinib','Olaparib','Trabectedin','Olaparib;Trabectedin','Mirdametinib;Trabectedin')
 eval.samps<-c('MN-2','JH-2-079','JH-2-002','WU-225')
@@ -328,13 +334,8 @@ genemat <- counts(dds, normalize = TRUE) %>%
   as.matrix()
 
   pc <- prcomp(t(genemat), scale. = TRUE)
-
  
-  clin.tab <- clin.tab %>%
-  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
-  mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'NaN', 'ND')) %>%
-  mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'Usable', 'Good'))
-
+ 
    ex.df <- as.data.frame(pc$x)%>%
     tibble::rownames_to_column('Sample')%>%
     dplyr::select('Sample','PC1','PC2')%>%
@@ -399,6 +400,20 @@ go.res <- mpnstXenoModeling::doRegularGo(sig.genes$GENENAME,
                                          prefix = paste0('GO_MTqual'), 
                                          compress_output = TRUE)
 
+annotes <- clin.tab%>%
+  dplyr::select(Sample,
+                Age,
+                Sex,
+                `PRC2 Status`,
+                `Clinical Status`,
+                MicroTissueQuality)%>%
+  tibble::remove_rownames()%>%
+  tibble::column_to_rownames('Sample')
+
+pheatmap(log10(0.01+genemat[sig.genes$GENENAME,]), 
+         annotation_col = annotes, clustering_distance_cols = 'correlation',
+         clustering_method = 'ward.D2',
+         filename='allMTqual_diffex_heatmap.pdf',show_rownames = FALSE)
 ```
 
 ### Genes correlated with MT hits by AUC
@@ -461,14 +476,14 @@ all.res <- lapply(unique(eval.drugs), function(x) {
     tibble::rownames_to_column('GENEID') %>%
     left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
     dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>% 
-    doGSEA(., prefix = paste0('GSEA', x))
+    doGSEA(., prefix = paste0('GSEA_AUC', x), compress_output = TRUE)
   
   sig.genes <- drug.res %>%
     tibble::rownames_to_column('GENEID') %>%
     left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
     subset(padj < 0.01) %>% select(GENENAME)
-  go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO', x))
-  #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+  go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO_AUC', x), 
+                        compress_output = TRUE)
   return(drug.res %>% mutate(Drug = x))
   
 })
@@ -476,7 +491,6 @@ all.res <- lapply(unique(eval.drugs), function(x) {
 full.res <- do.call(rbind, all.res)
 
 write.table(full.res, file = 'AUCMTGenesAtMidAUC.csv')
-
 
 full.res %>%
   group_by(Drug) %>%
@@ -542,12 +556,8 @@ go.res <- lapply(all.res, function(drug.res) {
   
   genes = pmap[rownames(subset(drug.res, padj < 0.01)), 'GENENAME']
   res2 <-
-    mpnstXenoModeling::doRegularGo(genes, prefix = paste0('MT_AUC', x))
-  #genes.with.values<-cbind(drug.res,pmap[rownames(drug.res),])%>%
-  #dplyr::select(Gene='GENENAME',value='log2FoldChange')
-  
-  #res2=doGSEA(genes.with.values,prot.univ=NULL,prefix=paste0('AUC_MT_',x),useEns=FALSE)
-  #drug.res
+    mpnstXenoModeling::doRegularGo(genes, prefix = paste0('MT_AUC', x),compress_output = TRUE)
+
   res2 %>% mutate(Drug = x)
 })
 
@@ -589,7 +599,7 @@ mk.all.res <- lapply(eval.drugs, function(x) {
     geom_text_repel(data = ddf, aes(label = Sample)) +
     ggtitle(paste0('Expression by ', x, ' MaxKilling'))
   p
-  ggsave(paste0('umapBy', x, 'MT_MK.png'), p)
+ # ggsave(paste0('umapBy', x, 'MT_MK.png'), p)
   
   
   sens.pats <-
@@ -620,7 +630,18 @@ mk.all.res <- lapply(eval.drugs, function(x) {
       parentID = 'syn25323411'
     ))
   
-  #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+   gs.res <- drug.res %>%
+    tibble::rownames_to_column('GENEID') %>%
+    left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
+    dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>% 
+    doGSEA(., prefix = paste0('GSEA_MK', x), compress_output = TRUE)
+  
+  sig.genes <- drug.res %>%
+    tibble::rownames_to_column('GENEID') %>%
+    left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
+    subset(padj < 0.01) %>% select(GENENAME)
+  go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO_MK', x), compress_output = TRUE)
+
   return(drug.res %>% mutate(Drug = x))
   
 })
@@ -660,54 +681,3 @@ mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
 
 ```
 
-Next we do the GO term enrichment of those genes
-
-```{r go enrichment max killing, message=FALSE, warning=FALSE}
-###now let's do GO enrichment
-mk.go.res <- lapply(mk.all.res, function(drug.res) {
-  if (is.null(drug.res))
-    return(NULL)
-  x = drug.res$Drug[1]
-  genes.with.values <- cbind(drug.res, pmap[rownames(drug.res), ]) %>%
-    dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange')
-  
-    res2 = doGSEA(
-    genes.with.values,
-    prot.univ = NULL,
-    prefix = paste0('MaxKilling', x),
-    useEns = FALSE
-  )
-  #drug.res
-  res2 %>% mutate(Drug = x)
-})
-
-full.mk.go <- do.call(rbind, mk.go.res)
-
-full.mk.go %>%
-  group_by(Drug) %>%
-  summarize(sigTerms = count(p.adjust < 0.05, na.rm = T)) %>%
-  DT::datatable()
-
-
-merged.go <- full.mk.go %>%
-  # tibble::rownames_to_column('goid')%>%
-  #  tidyr::separate(geneid,into=c('GENE','Version'),sep='\\.')%>%
-  #    left_join(pmap)%>%
-  dplyr::select(Description, NES, Drug) %>%
-  subset(!is.na(Description)) %>%
-  tidyr::pivot_wider(
-    values_from = NES,
-    names_from = Drug,
-    values_fill = list(NES = 0.0),
-    values_fn = list(NES = mean)
-  )
-
-mmat <- merged.go %>%
-  tibble::column_to_rownames('Description') %>%
-  as.matrix()
-
-mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
-
-```
-
-There is not a lot of enrichment here from the GSEA perspective.

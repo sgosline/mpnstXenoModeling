@@ -99,7 +99,7 @@ plotGenesetResults <- function(res,
     gridExtra::grid.arrange(p.NES, p.Pval, layout_matrix = arrange_matrix)
   
   try(ggsave(
-    paste0("sig-included", prefix, "-plot.png"),
+    paste0("sig-included", prefix, "-plot.pdf"),
     p.both,
     height = height,
     width = width,
@@ -563,14 +563,14 @@ plotTopGenesHeatmap <-
       annotation_col = var.ID,
       annotation_colors = annote.colors,
       filename = file.path(path, paste0(
-        myvar, '_DE_heatmap_adjpval', adjpval, '.png'
+        myvar, '_DE_heatmap_adjpval', adjpval, '.pdf'
       ))
     )
     
     if (isTRUE(upload)) {
       synapseStore(file.path(
         path,
-        paste0(myvar, '_DE_heatmap_adjpval', adjpval, '.png')
+        paste0(myvar, '_DE_heatmap_adjpval', adjpval, '.pdf')
       ), parentId = parentID)
     }
     return(heatmap)
@@ -700,7 +700,7 @@ plotCorrelationEnrichment <-
       paste0(
         "sig-included-",
         prefix,
-        "-correlation-enrichment-plot.png"
+        "-correlation-enrichment-plot.pdf"
       ),
       p.both,
       height = height,

@@ -90,6 +90,7 @@ mutMat <- varData %>%
       Location,
       Size,
       Clinical.Status,
+      PRC2.Status,
       AD
     )
   ) %>%
@@ -109,12 +110,13 @@ annotes <- varData %>%
     Age,
     Sex,
     MicroTissueQuality,
-    Location,
+    PRC2.Status,
     Size,
     Clinical.Status
   )) %>%
   mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
   mutate(`Clinical Status` = unlist(Clinical.Status)) %>%
+  rename(`PRC2 Status`='PRC2.Status')%>%
   dplyr::select(-Clinical.Status) %>%
   #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
   distinct() %>% tibble::remove_rownames() %>%
@@ -267,7 +269,7 @@ all.res <- lapply(intersect(genelist, varData$Symbol), function(x) {
   modSamps = subset(varData, Symbol == x) %>%
     dplyr::select(individualID) %>%
     distinct()
-  
+  print(x)
   modSamps <- modSamps$individualID
   
   wtSamps = setdiff(varData$individualID, modSamps)
@@ -284,7 +286,7 @@ all.res <- lapply(intersect(genelist, varData$Symbol), function(x) {
     doShrinkage = TRUE
   )
   
-  if (nrow(mut.res) > 0)
+  if (nrow(mut.res) > 0){
     try(mpnstXenoModeling::plotTopGenesHeatmap(
       mut.res,
       dds,
@@ -301,13 +303,13 @@ all.res <- lapply(intersect(genelist, varData$Symbol), function(x) {
     left_join(pmap) %>%
     #  left_join(tibble::rownames_to_column(pmap,'GENEID'))%>%
     dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
-    doGSEA(., prefix = paste0('GSEA_mutated', x, compress_output=FALSE))
+    mpnstXenoModeling::doGSEA(., prefix = paste0('GSEA_mutated', x, compress_output=FALSE))
     
   gsea_compressed <- mut.res %>%
     tibble::rownames_to_column('GENEID') %>%
     left_join(pmap) %>%
     dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>%
-    doGSEA(., prefix = paste0('GSEA_mutated_compressed', x, compress_output=TRUE))
+    mpnstXenoModeling::doGSEA(., prefix = paste0('GSEA_mutated_compressed', x, compress_output=TRUE))
   
   sig.genes <- mut.res %>%
     tibble::rownames_to_column('GENEID') %>%
@@ -316,13 +318,14 @@ all.res <- lapply(intersect(genelist, varData$Symbol), function(x) {
     select(GENENAME)
   
   if (nrow(sig.genes) > 0)
-    go.res <- doRegularGo(sig.genes$GENENAME,
+    go.res <- mpnstXenoModeling::doRegularGo(sig.genes$GENENAME,
                           prefix = paste0('GO_mutated', x))
   
-    compressed_go <- doRegularGo(sig.genes$GENENAME,
+    compressed_go <- mpnstXenoModeling::doRegularGo(sig.genes$GENENAME,
                           prefix = paste0('GO_mutate_compressed', x),
                           compress_output=TRUE)
   #pmap[rownames(subset(drug.res,padj<0.01)),'GENENAME']%>%doRegularGo(prefix=x)
+  }
   return(mut.res %>% mutate(Mutation = x))
   
 })

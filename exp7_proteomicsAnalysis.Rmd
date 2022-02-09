@@ -20,7 +20,8 @@ Since this is a bit of a side project we will download the data and manually udp
 syn <- mpnstXenoModeling::synapseLogin()
 
 library(dplyr)
-
+library(ggplot2)
+library(ggfortify)
 meta <- readxl::read_xlsx(syn$get('syn26955140')$path)%>%
   rename(`Sample ID`='Sample ID\r\n(Original)')
 
@@ -30,29 +31,103 @@ prot <- read.table(syn$get('syn26999591')$path,header=T,sep='\t')
 phos <- read.table(syn$get('syn26999590')$path,header=T,sep='\t')
 isc <- read.table(syn$get('syn27025914')$path,header=F,sep='\t')
 
-vars <- c('Gain of C8','CMYC > C8 gain','Highest C8','Cells w. indiv ratio > 2.0')
+nas<- which(apply(prot,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  prot <- prot[-nas,]
+
+nas<- which(apply(phos,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  phos <- phos[-nas,]
+
+isc_sites<-unlist(sapply(paste0(isc[,2],'-'),function(x) grep(x,rownames(phos))))
+
+pca_prot <- prcomp(t(prot),scale=TRUE)
+pca_phos <- prcomp(t(phos),scale=TRUE)
+pca_phos_isc <- prcomp(t(phos[-isc_sites,]),scale=TRUE)
+
+vars <- c('Gain of C8','Highest C8')
+#'CMYC > C8 gain','Highest C8','Cells w. indiv ratio > 2.0')
+
+meta<-meta%>%
+  tidyr::separate(`Sample ID`,into=c('PTRC','FISH','Sample'),sep='_',remove=FALSE)%>%
+  tibble::column_to_rownames('Sample ID')
+
+autoplot(pca_prot,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+    ggtitle('Proteomics PCA')
 
 
+autoplot(pca_phos,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+  ggtitle('Filtered phosphoproteomics PCA')
+
+
+autoplot(pca_phos_isc,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+  ggtitle('Filtered phosphoproteomics PCA')
+
+
+
+```
+
+## Differential expression
+
+We will first look at samples that have over 40% chr8 compared to those that have less. 
+
+```{r diffex, warning=FALSE, message=FALSE}
+thresh=0.4
+
+chr8_samps<-rownames(subset(meta,`Gain of C8`>thresh))
+other_samps<-setdiff(colnames(prot),chr8_samps)
+prot_res<- limmaTwoFactorDEAnalysis(prot, chr8_samps,other_samps)%>%
+  dplyr::rename(Protein='featureID',`protein fc`='logFC')
+
+library(pheatmap)
+
+pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,])
+
+```
+There are indeed a few differentially expressed proteins between sample 2 and others.
+
+```{r phos diffex}
+
+phos_res <- limmaTwoFactorDEAnalysis(phos, chr8_samps,other_samps)
+filtered_phos_res <- limmaTwoFactorDEAnalysis(phos[-isc_sites,], chr8_samps,other_samps)%>%
+  tidyr::separate(featureID,into=c('Protein','site'),sep='-')%>%
+  dplyr::rename(`phospho fc`='logFC')
+
+pheatmap(phos[rownames(subset(filtered_phos_res,P.Value<0.005)),])
+
+
+```
+Not a lot changing here.
+
+Let's compare the two values
+
+```{r prot_phos comparison}
+
+##plot LFC
+full_lfc <- prot_res%>%inner_join(filtered_phos_res,by='Protein')%>%
+  mutate(diff=`phospho fc`-`protein fc`)
+
+ggplot(full_lfc)+geom_point(aes(x=`protein fc`,y=`phospho fc`,col=diff))
+
+## Correlation of proteins with metadata variables
+```
+Now we can look at correlation of each protein and phosphosite with each of the metadata variables, then calculated the enrichment of proteins and phosphosites. 
+
+```{r rank enrichment proteins, warning=FALSE, message=FALSE}
 prot <- prot%>%
   tibble::rownames_to_column('Protein')%>%
   tidyr::pivot_longer(2:(ncol(prot)+1),names_to='Sample ID',values_to='LogRatio')%>%
-  left_join(meta)%>%
+  left_join(tibble::rownames_to_column(meta,'Sample ID'))%>%
   tidyr::pivot_longer(cols=vars,names_to='measurement',values_to='fish_value')
 
 phos <- phos%>%
   tibble::rownames_to_column('Phosphosite')%>%
   tidyr::pivot_longer(2:(ncol(phos)+1),names_to='Sample ID',values_to='LogRatio')%>%
-  left_join(meta)%>%
+  left_join(tibble::rownames_to_column(meta,'Sample ID'))%>%
   tidyr::pivot_longer(cols=vars,names_to='measurement',values_to='fish_value')
-
-
-```
-
-## Correlation of proteins with metadata variables
-
-We computed the correlation of each protein and phosphosite with each of the metadata variables, then calculated the enrichment of proteins and phosphosites. 
-
-```{r rank enrichment proteins, warning=FALSE, message=FALSE}
 
 
 computeCors<-function(x,y){
