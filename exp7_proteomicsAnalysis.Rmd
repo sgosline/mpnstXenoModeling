@@ -1,0 +1,220 @@
+---
+title: "Proteomics data analysis"
+author: "Sara Gosline"
+date: "2/2/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mpnstXenoModeling)
+
+```
+
+## Collect proteomics data from crosstabs
+
+Since this is a bit of a side project we will download the data and manually udpate it for now. 
+
+```{r download data, message=FALSE, warning=FALSE}
+
+syn <- mpnstXenoModeling::synapseLogin()
+
+library(dplyr)
+library(ggplot2)
+library(ggfortify)
+meta <- readxl::read_xlsx(syn$get('syn26955140')$path)%>%
+  rename(`Sample ID`='Sample ID\r\n(Original)')
+
+DT::datatable(meta)
+
+prot <- read.table(syn$get('syn26999591')$path,header=T,sep='\t')
+phos <- read.table(syn$get('syn26999590')$path,header=T,sep='\t')
+isc <- read.table(syn$get('syn27025914')$path,header=F,sep='\t')
+
+nas<- which(apply(prot,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  prot <- prot[-nas,]
+
+nas<- which(apply(phos,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  phos <- phos[-nas,]
+
+isc_sites<-unlist(sapply(paste0(isc[,2],'-'),function(x) grep(x,rownames(phos))))
+
+pca_prot <- prcomp(t(prot),scale=TRUE)
+pca_phos <- prcomp(t(phos),scale=TRUE)
+pca_phos_isc <- prcomp(t(phos[-isc_sites,]),scale=TRUE)
+
+vars <- c('Gain of C8','Highest C8')
+#'CMYC > C8 gain','Highest C8','Cells w. indiv ratio > 2.0')
+
+meta<-meta%>%
+  tidyr::separate(`Sample ID`,into=c('PTRC','FISH','Sample'),sep='_',remove=FALSE)%>%
+  tibble::column_to_rownames('Sample ID')
+
+autoplot(pca_prot,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+    ggtitle('Proteomics PCA')
+
+
+autoplot(pca_phos,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+  ggtitle('Filtered phosphoproteomics PCA')
+
+
+autoplot(pca_phos_isc,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+  ggtitle('Filtered phosphoproteomics PCA')
+
+
+
+```
+
+## Differential expression
+
+We will first look at samples that have over 40% chr8 compared to those that have less. 
+
+```{r diffex, warning=FALSE, message=FALSE}
+thresh=0.4
+
+chr8_samps<-rownames(subset(meta,`Gain of C8`>thresh))
+other_samps<-setdiff(colnames(prot),chr8_samps)
+prot_res<- limmaTwoFactorDEAnalysis(prot, chr8_samps,other_samps)%>%
+  dplyr::rename(Protein='featureID',`protein fc`='logFC')
+
+library(pheatmap)
+
+pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,])
+
+```
+There are indeed a few differentially expressed proteins between sample 2 and others.
+
+```{r phos diffex}
+
+phos_res <- limmaTwoFactorDEAnalysis(phos, chr8_samps,other_samps)
+filtered_phos_res <- limmaTwoFactorDEAnalysis(phos[-isc_sites,], chr8_samps,other_samps)%>%
+  tidyr::separate(featureID,into=c('Protein','site'),sep='-')%>%
+  dplyr::rename(`phospho fc`='logFC')
+
+pheatmap(phos[rownames(subset(filtered_phos_res,P.Value<0.005)),])
+
+
+```
+Not a lot changing here.
+
+Let's compare the two values
+
+```{r prot_phos comparison}
+
+##plot LFC
+full_lfc <- prot_res%>%inner_join(filtered_phos_res,by='Protein')%>%
+  mutate(diff=`phospho fc`-`protein fc`)
+
+ggplot(full_lfc)+geom_point(aes(x=`protein fc`,y=`phospho fc`,col=diff))
+
+## Correlation of proteins with metadata variables
+```
+Now we can look at correlation of each protein and phosphosite with each of the metadata variables, then calculated the enrichment of proteins and phosphosites. 
+
+```{r rank enrichment proteins, warning=FALSE, message=FALSE}
+prot <- prot%>%
+  tibble::rownames_to_column('Protein')%>%
+  tidyr::pivot_longer(2:(ncol(prot)+1),names_to='Sample ID',values_to='LogRatio')%>%
+  left_join(tibble::rownames_to_column(meta,'Sample ID'))%>%
+  tidyr::pivot_longer(cols=vars,names_to='measurement',values_to='fish_value')
+
+phos <- phos%>%
+  tibble::rownames_to_column('Phosphosite')%>%
+  tidyr::pivot_longer(2:(ncol(phos)+1),names_to='Sample ID',values_to='LogRatio')%>%
+  left_join(tibble::rownames_to_column(meta,'Sample ID'))%>%
+  tidyr::pivot_longer(cols=vars,names_to='measurement',values_to='fish_value')
+
+
+computeCors<-function(x,y){
+  
+  corval<-cor(x,y,use='pairwise.complete.obs',method='spearman')
+  cor.p<-1.0
+  try( cor.p <- cor.test(x,y, method='spearman')$p.value)
+  return(list(corVal=corval,p_val=cor.p))
+}
+
+pcorVals <-prot%>%
+    group_by(Protein,measurement)%>%
+    summarize(res=computeCors(LogRatio,fish_value))%>%
+      mutate(corVal=res[[1]],pval=res[[2]])%>%
+      dplyr::select(-res)%>%
+  ungroup()%>%
+  distinct()
+  
+write.csv(pcorVals,file='MPNST_proteomics_correlations.csv',row.names=F)
+
+for(var in vars)
+  subset(pcorVals,measurement==var)%>%
+  dplyr::rename(Gene='Protein',value=corVal)%>%
+  doGSEA(.,prefix=paste0('mpnst_',gsub('>| ','',var)))
+
+    
+```
+
+There are some interesting terms that are correlated with each. In attempts to filter out the noise we can try to find those correlation values that are statistically significant.
+
+```{r sig cor prots,  warning=FALSE, message=FALSE}
+library(ggplot2)
+
+purrr::map(vars,function(x){
+  subset(pcorVals,measurement==x)%>%
+  subset(pval<0.01)%>%
+  subset(abs(corVal)>0.8)%>%
+  distinct()%>%
+  left_join(prot)%>%
+  ggplot(aes(x=LogRatio,y=fish_value))+geom_point(aes(col=Protein))+ggtitle(paste("Proteins correlated with",x))
+  ggsave(paste0('protsCorWith',gsub('>| ','',x),'.pdf'))
+})
+  
+
+
+```
+Now we can compute the correlation of phosphosites
+
+## Correlation of phosphosites with metadata variables
+
+```{r rank kinase enrichment, warning=FALSE, message=FALSE}
+library(amlresistancenetworks)
+
+
+corVals <- phos%>%
+    group_by(Phosphosite,measurement)%>%
+    summarize(res=computeCors(LogRatio,fish_value))%>%
+      mutate(corVal=res[[1]],pval=res[[2]])%>%
+      dplyr::select(-res)%>%
+  ungroup()%>%
+  distinct()
+
+write.csv(corVals,file='MPNST_phosphoSites_correlations.csv',row.names=F)
+
+#phos <- phos%>%
+
+purrr::map(vars,function(x){
+  subset(corVals,measurement==x)%>%
+  subset(pval<0.01)%>%
+  subset(abs(corVal)>0.8)%>%
+  distinct()%>%
+  left_join(phos)%>%
+  ggplot(aes(x=LogRatio,y=fish_value))+geom_point(aes(col=Phosphosite))+ggtitle(paste("Phosphosites correlated with",x))
+  ggsave(paste0('phosphoSitesCorWith',gsub('>| ','',x),'.pdf'))
+})
+  
+
+for(var in vars){
+  b<-subset(corVals,measurement==var)%>%
+     tidyr::separate(Phosphosite,into=c('Gene','residue'),sep='-')%>%
+    dplyr::rename(value=corVal,p_adj=pval)%>%
+    computeKSEA(.,prefix=paste0('mpnst_',gsub('>| ','',var)))
+  b<-subset(corVals,measurement==var)%>%
+     tidyr::separate(Phosphosite,into=c('Gene','residue'),sep='-')%>%
+    subset(!Gene%in%isc$V2)%>%
+    dplyr::rename(value=corVal,p_adj=pval)%>%
+    computeKSEA(.,prefix=paste0('filtered_isc_mpnst_',gsub('>| ','',var)))
+}    
+```
+
