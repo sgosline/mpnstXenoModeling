@@ -56,7 +56,7 @@ clin.tab <<- data.tab %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'NaN', 'ND')) %>%
   mutate(MicroTissueQuality = stringr::str_replace_all(MicroTissueQuality, 'Usable', 'Good'))%>%
   mutate(`Clinical Status` = stringr::str_replace_all(`Clinical Status`,'Alive with metastatic disease','Alive'))%>%
-    mutate(`Clinical Status` = stringr::str_replace_all(`Clinical Status`,'NED','Alive'))
+  mutate(`Clinical Status` = stringr::str_replace_all(`Clinical Status`,'NED','Alive'))
 
 
 rnaSeq <<- mpnstXenoModeling::loadRNASeqData()
@@ -191,11 +191,13 @@ mtStats %>% subset(Drug %in% eval.drugs) %>%
     ymax = auc_hi,
     fill = Drug
   )) +
-  geom_bar(stat = 'identity', position = 'dodge') + geom_errorbar(width =
-                                                                    0.2) + facet_grid(CellLine ~ .) +
-  ggtitle("AUC of selected drugs") + guides(x =  guide_axis(n.dodge =
-                                                              2)) +
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  geom_errorbar(width = 0.2) + 
+  facet_grid(CellLine ~ .) +
+  ggtitle("AUC of selected drugs") + 
+  guides(x=guide_axis(n.dodge = 2)) +
   scale_fill_manual(values = drug.colors)
+
 ggsave('mt_selectedDrugs_auc_barplots.pdf')
 
 
@@ -305,18 +307,19 @@ library(ensembldb)
 library("EnsDb.Hsapiens.v86")
 library(ggrepel)
 database <- EnsDb.Hsapiens.v86
+
 pmap <- ensembldb::select(
   database,
   keys = list(
     GeneIdFilter(rnaSeq$GENE),
     TxBiotypeFilter("protein_coding")
-  ),
-  columns = c("GENENAME")
-) %>%
+    ),
+  columns = c("GENENAME")) %>%
   dplyr::rename(GENE = 'GENEID') %>%
   right_join(rnaSeq) %>%
   subset(TXBIOTYPE == 'protein_coding') %>%
-  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()
+  dplyr::select(GENE, GENENAME, GENEID) %>% 
+  distinct()
 
 dds <- rnaSeq %>%
   subset(GENE %in% pmap$GENE) %>%
@@ -333,22 +336,35 @@ genemat <- counts(dds, normalize = TRUE) %>%
   tibble::column_to_rownames('GENENAME') %>%
   as.matrix()
 
-  pc <- prcomp(t(genemat), scale. = TRUE)
- 
- 
-   ex.df <- as.data.frame(pc$x)%>%
-    tibble::rownames_to_column('Sample')%>%
-    dplyr::select('Sample','PC1','PC2')%>%
-    left_join(clin.tab)
-  
-  p<-ex.df%>%
-    ggplot(aes(x=PC1,y=PC2,col=Age,shape=MicroTissueQuality))+
-    geom_point()+
-    geom_text_repel(data = ex.df, aes(label = Sample))
+ex_pca <- prcomp(t(genemat), scale. = TRUE)
+
+
+
+ex.df <- as.data.frame(ex_pca$x)%>%
+  tibble::rownames_to_column('Sample')%>%
+  dplyr::select('Sample', 'PC1', 'PC2')%>%
+  left_join(clin.tab)
+
+eigs <- ex_pca$sdev^2
+percentVar <- eigs/sum(eigs)
+percentVar <- round(100 * percentVar)
+
+# reorder the markers from best to ND
+markers <- c("Robust" = 15, "Good" = 16, "Unusable" = 18, "ND"=7)
+colors <- c("Robust" = 'red', "Good" = 'blue', "Unusable" = 'pink', "ND"='orange')
+
+p <- ggplot(data=ex.df, aes(x=PC1, y=PC2)) +
+  geom_point(aes(shape=MicroTissueQuality, color=MicroTissueQuality), size=3) + 
+  scale_shape_manual(values = markers) +
+  scale_color_manual(values = colors) +
+  labs(x=paste0("PC1: ", percentVar[1], "% variance"), 
+       y=paste0("PC2: ", percentVar[2], "% variance"),
+       shape='MicroTissueQuality') +
+  geom_text_repel(aes(label = Sample)) 
+  scale_colour_brewer(palette = "Set1")/
 
 p
-
-ggsave("UMAP_mt_qual_GeneExpression.pdf", p)
+ggsave("PCA_mt_qual_GeneExpression.pdf", p)
 
 pmap <- pmap %>%
   tibble::column_to_rownames('GENEID')
@@ -360,8 +376,7 @@ There is clear separation between most microtissues that are 'good/usable' (asid
 ```{r Pathway enrichment by MT, warning=FALSE,message=FALSE}
 
 
-goodsamps <-
-  clin.tab %>% subset(MicroTissueQuality %in% c('Good', 'Robust'))
+goodsamps <- clin.tab %>% subset(MicroTissueQuality %in% c('Good', 'Robust'))
 badsamps <- clin.tab %>% subset(MicroTissueQuality %in% c('Unusable'))
 
 drug.res <- ds2FactorDE(
@@ -388,32 +403,74 @@ gs.res <- drug.res %>%
   tibble::rownames_to_column('GENEID') %>%
   left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
   dplyr::select(Gene = 'GENENAME', value = 'log2FoldChange') %>% 
-  mpnstXenoModeling::doGSEA(., prefix =paste0('GSEA_MTqual'),
-            compress_output = TRUE)
+  mpnstXenoModeling::doGSEA(
+    .,
+    prefix =paste0('GSEA_MTqual'), 
+    compress_output = TRUE
+    )
 
 sig.genes <- drug.res %>%
   tibble::rownames_to_column('GENEID') %>%
   left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
-  subset(padj < 0.01) %>% select(GENENAME)
+  subset(padj < 0.01) %>% 
+  select(GENENAME)
 
-go.res <- mpnstXenoModeling::doRegularGo(sig.genes$GENENAME, 
-                                         prefix = paste0('GO_MTqual'), 
-                                         compress_output = TRUE)
+go.res <- mpnstXenoModeling::doRegularGo(
+  sig.genes$GENENAME, 
+  prefix = paste0('GO_MTqual'), 
+  compress_output = TRUE
+  )
 
 annotes <- clin.tab%>%
   dplyr::select(Sample,
-                Age,
-                Sex,
                 `PRC2 Status`,
+                Sex,
+                MicroTissueQuality,
                 `Clinical Status`,
-                MicroTissueQuality)%>%
-  tibble::remove_rownames()%>%
+                Age) %>%
+  tibble::remove_rownames() %>%
   tibble::column_to_rownames('Sample')
 
-pheatmap(log10(0.01+genemat[sig.genes$GENENAME,]), 
-         annotation_col = annotes, clustering_distance_cols = 'correlation',
-         clustering_method = 'ward.D2',
-         filename='allMTqual_diffex_heatmap.pdf',show_rownames = FALSE)
+library(RColorBrewer)
+
+make_colors <- function(data, c_name){
+  colors <- brewer.pal(n =  length(unique(data)), name = c_name)
+  names(colors) <- unique(data)
+  return(colors)
+}
+
+
+color_scheme = list(
+  Age= c(blu = "royalblue", reddish='darkblue'),
+  MicroTissueQuality = make_colors(clin.tab$MicroTissueQuality, 'Set1'),
+  `Clinical Status` = make_colors(clin.tab$`Clinical Status`, 'Set2')
+)
+paletteLength <- 20
+myColor <- colorRampPalette(c("blue", "white", "red"))(paletteLength)
+range <- max(abs(log10(0.01+genemat[sig.genes$GENENAME,])));
+breaks = seq(-range, range, length.out = paletteLength)
+  
+pheatmap(
+  log10(0.01+genemat[sig.genes$GENENAME,]), 
+  annotation_col = annotes,
+  annotation_colors = color_scheme,
+  clustering_distance_cols = 'correlation',
+  clustering_method = 'ward.D2',
+  filename='allMTqual_diffex_heatmap_new_colors.pdf',
+  show_rownames = FALSE,
+  color = myColor,
+  breaks = breaks
+)
+
+# old plot output before I messed up all the colors
+pheatmap(
+  log10(0.01+genemat[sig.genes$GENENAME,]), 
+  annotation_col = annotes, 
+  clustering_distance_cols = 'correlation',
+  clustering_method = 'ward.D2',
+  filename='allMTqual_diffex_heatmap.pdf',
+  show_rownames = FALSE
+  )
 ```
 
 ### Genes correlated with MT hits by AUC
@@ -536,8 +593,8 @@ df <- pc$x %>%
 p <- df %>%
   ggplot(aes(x = PC1, y = PC2, col = Drug)) +
   geom_point() +
-  geom_text_repel(data = subset(df, abs(PC1) > 50 |
-                                  abs(PC2) > 15), aes(label = Drug))
+  geom_text_repel(data = subset(df, abs(PC1) > 50 | abs(PC2) > 15), 
+                  aes(label = Drug))
 
 p
 
@@ -568,8 +625,6 @@ full.go %>%
   summarize(sigTerms = count(p.adjust < 0.05, na.rm = T)) %>%
   DT::datatable()  
 ```
-
-
 
 ### Genes correlated with MT hits by max killing
 
@@ -640,7 +695,11 @@ mk.all.res <- lapply(eval.drugs, function(x) {
     tibble::rownames_to_column('GENEID') %>%
     left_join(tibble::rownames_to_column(pmap, 'GENEID')) %>%
     subset(padj < 0.01) %>% select(GENENAME)
-  go.res <- doRegularGo(sig.genes$GENENAME, prefix = paste0('GO_MK', x), compress_output = TRUE)
+  go.res <- doRegularGo(
+    sig.genes$GENENAME, 
+    prefix = paste0('GO_MK', x),
+    compress_output = TRUE
+    )
 
   return(drug.res %>% mutate(Drug = x))
   
@@ -680,4 +739,3 @@ mmat <-
 mmat[which(is.na(mmat), arr.ind = T)] <- 0.0
 
 ```
-
