@@ -19,10 +19,6 @@ if(!require(mpnstXenoModeling)){
 }
 #remotes::install_github('https://github.com/chapmandu2/IncucyteDRC')
 
-if(!require('leapr')){
-  remotes::install_github('biodataganache/leapR')
-  library(leapr)
-}
 library(data.table)
 library(dplyr)
 #library(repr)
@@ -33,7 +29,8 @@ library(pROC)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-syn<-mpnstXenoModeling::loadPDXData()
+#syn<-mpnstXenoModeling::loadPDXData()
+mpnstXenoModeling::loadSynapse()
 icyteData<-mpnstXenoModeling::loadIncucyteData()%>%
   dplyr::rename(compound_name='experimentalCondition')
 ```
