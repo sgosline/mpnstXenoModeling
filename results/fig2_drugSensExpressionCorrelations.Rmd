@@ -39,6 +39,7 @@ library(ggrepel)
 
 #here we need mT drug sensitivyt and gene expression
   #update to use `RNAseq` column
+  mpnstXenoModeling::loadSynapse()
   syn<-mpnstXenoModeling::loadPDXData()
 
   ##updated to use harmonized data table

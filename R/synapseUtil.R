@@ -8,8 +8,16 @@
 
 #####Synapse python client wrapper files
 
-
-
+#' @export
+loadSynapse<-function(){
+  library(reticulate)
+  have_synapse <- reticulate::py_module_available("synapseclient")
+     if (!have_synapse)
+       reticulate::py_install("synapseclient")
+   
+   syn_client <<-
+     reticulate::import("synapseclient", delay_load = TRUE)$login()
+}
 #condaenv="C:\\Users\\gosl241\\OneDrive - PNNL\\Documents\\GitHub\\amlresistancenetworks\\renv\\python\\r-reticulate\\"
 
 #' Logs into Synapse using local information
