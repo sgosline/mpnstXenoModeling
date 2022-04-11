@@ -45,7 +45,7 @@ jobs:
         shell: Rscript {0}
       - name: Install Miniconda
         run: |
-          Rscript -e "remotes::install_github('rstudio/reticulate')"
+          Rscript -e "install.packages('reticulate', repos='http://cran.us.r-project.org')
           Rscript -e "reticulate::install_miniconda()"
           
       - if: runner.os == 'macOS'
