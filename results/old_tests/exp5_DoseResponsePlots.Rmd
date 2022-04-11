@@ -29,7 +29,13 @@ library(ggrepel)
 ## Load drug data and expression data
 
 ```{r mutation data,message=FALSE,warning=FALSE,echo=FALSE}
-mpnstXenoModeling::loadSynapse()
+
+if(!exists("dataLoaded")){
+  dataLoaded=TRUE
+  mpnstXenoModeling::loadPDXData()
+  mtDrugData <- loadMicrotissueDrugData()
+
+}
 ```
 
 ## Plot drugs
@@ -60,21 +66,21 @@ We are focusing on just 3 drugs and 2 combinations at this stage, across 4 PDX/M
 
 ```{r plot MT dose response, warning=FALSE, message=FALSE}
 library(cowplot)
-
-
-lapply(names(drug.list), function(drugGroup) {
-  mt.subs <- subset(mtDrugData, CellLine %in% eval.samps) %>%
-    subset(DrugCol %in% drug.list[[drugGroup]])
-  
-  samp.plots <- lapply(eval.samps, function(samp)
-    plotMTTreatmentByDrug(mt.subs, samp))
-  
-  ggsave(
-    paste0('SampleMT', drugGroup, 'plots.png'),
-    cowplot::plot_grid(plotlist = samp.plots, ncol = 2),
-    height = 12,
-    width = 12
-  )
+mtDrugData<-loadMicrotissueDrugData()
+##commented this out as it doesn't work. 
+#lapply(names(drug.list), function(drugGroup) {
+#  mt.subs <- subset(mtDrugData, CellLine %in% eval.samps) %>%
+#    subset(Drug %in% drug.list[[drugGroup]])
+  # 
+  # samp.plots <- lapply(eval.samps, function(samp)
+  #   plotMTTreatmentByDrug(mt.subs, samp))
+  # 
+  # ggsave(
+  #   paste0('SampleMT', drugGroup, 'plots.png'),
+  #   cowplot::plot_grid(plotlist = samp.plots, ncol = 2),
+  #   height = 12,
+  #   width = 12
+  # )
 
 
 #  drug.plots<-lapply(intersect(drug.list[[drugGroup]],mtDrugData$DrugCol),
@@ -82,7 +88,7 @@ lapply(names(drug.list), function(drugGroup) {
 
  # ggsave(paste0('DrugMT',drugGroup,'plots.png'),
   #       cowplot::plot_grid(plotlist = drug.plots,ncol=2),height=12,width=12)
-})
+#})
 
 
 
@@ -92,7 +98,7 @@ lapply(names(drug.list), function(drugGroup) {
 
 ```{r plot PDX dose response, warning=FALSE, message=FALSE}
 
-
+drugData<-loadPDXDrugData()
 
 plots <- drugData %>%
   subset(Sample %in% eval.samps) %>%
@@ -109,6 +115,8 @@ ggsave('SamplePDXplots.png',
 
 
 ```{r}
+
+icyteData<-loadIncucyteData()
 lapply(names(drug.list.inc),function(drugGroup){
   inc.subs<-subset(icyteData,model_system_name%in%eval.samps.inc)%>%
   subset(experimentalCondition%in%drug.list.inc[[drugGroup]])

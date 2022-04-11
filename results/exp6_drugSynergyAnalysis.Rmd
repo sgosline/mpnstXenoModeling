@@ -36,6 +36,7 @@ library(ggrepel)
 if(!exists("dataLoaded")){
   dataLoaded=TRUE
   mpnstXenoModeling::loadPDXData()
+  mtDrugData <- loadMicrotissueDrugData()
 
 }
 
@@ -77,10 +78,12 @@ combined<-comboStats%>%
   left_join(dplyr::rename(singleStats,Drug1='Drug',auc1='auc'))%>%
   left_join(dplyr::rename(singleStats,Drug2='Drug',auc2='auc'))%>%
   mutate(synergistic=(auc<auc1&auc<auc2))%>%
-  arrange(synergistic)
+  arrange(synergistic)%>%
+  mutate(synergistic=as.numeric(synergistic))
 
-comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
-  mutate(nSyn=count(synergistic))
+comb.stats<-combined%>%
+  group_by(Drug1,Drug2)%>%
+  mutate(nSyn=sum(synergistic))
 
 DT::datatable(comb.stats)
 
@@ -107,10 +110,12 @@ combined<-comboStats%>%
   left_join(dplyr::rename(singleStats,Drug1='Drug',mk1='maxKilling'))%>%
   left_join(dplyr::rename(singleStats,Drug2='Drug',mk2='maxKilling'))%>%
   mutate(mksynergistic=(maxKilling>mk1&maxKilling>mk2))%>%
-  arrange(mksynergistic)
+  arrange(mksynergistic)%>%
+      mutate(mksynergistic=as.numeric(mksynergistic))
+
 
 mk.comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
-  mutate(nSynMK=count(mksynergistic))
+  mutate(nSynMK=sum(mksynergistic))
 
 DT::datatable(mk.comb.stats)
 
@@ -150,10 +155,11 @@ combined<-comboStats%>%
   left_join(rename(singleStats,Drug1='Drug',ic1='ic50'))%>%
   left_join(rename(singleStats,Drug2='Drug',ic2='ic50'))%>%
   mutate(icSyn=(ic50>ic1&ic50>ic2))%>%
-  arrange(icSyn)
+  arrange(icSyn)%>%
+  mutate(icSyn=as.numeric(icSyn))
 
 comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
-  mutate(nSyn=count(icSyn))
+  mutate(nSyn=sum(icSyn))
 
 DT::datatable(comb.stats)
 
@@ -166,6 +172,7 @@ We now want to evaluate the behavior of single drugs to determine which ones wer
 First we check by AUC
 
 ```{r correlation analysis by AUC,message=FALSE,warning=FALSE}
+library(pheatmap)
 auc.mat<-mtStats%>%
   dplyr::select(Drug,CellLine,auc)%>%
   tidyr::pivot_wider(values_from=auc,names_from=CellLine,
@@ -288,10 +295,11 @@ combined<-pcomboStats%>%
   left_join(dplyr::rename(psingleStats,Drug1='drug',auc1='AUC'))%>%
   left_join(dplyr::rename(psingleStats,Drug2='drug',auc2='AUC'))%>%
   mutate(synergistic=(AUC<auc1&AUC<auc2))%>%
+  mutate(synergistic=as.numeric(synergistic))
   arrange(synergistic)
 
 pcomb.stats<-combined%>%group_by(Drug1,Drug2)%>%
-  mutate(nSyn=count(synergistic))
+  mutate(nSyn=sum(synergistic))
 
 DT::datatable(pcomb.stats)
 

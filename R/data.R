@@ -373,7 +373,7 @@ fixDrugData <- function(drugData) {
 #' @import tidyr
 loadPDXData <- function() {
   library(dplyr)
-
+  loadSynapse()
   ##updated to use harmonized data table
   data.tab <<-
     syn_client$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
@@ -389,6 +389,7 @@ loadPDXData <- function() {
                   Size) %>%
     distinct()
   return(clin.tab)
+  
 }
 
 
