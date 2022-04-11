@@ -32,9 +32,10 @@ library(ggrepel)
 
 if(!exists("dataLoaded")){
   dataLoaded=TRUE
-  mtDrugData <- loadMicrotissueDrugData()
   loadPDXData()
-  res<-loadPDXDrugData()
+
+  mtDrugData <- loadMicrotissueDrugData()
+    res<-loadPDXDrugData()
   pdxDrugStats<-res$summary
   drugData=res$dose
 }
@@ -54,7 +55,7 @@ drug.list<-list(MirdaTrab=c('Mirdametinib','Mirdametinib;Trabectedin','Trabected
 drug.list.inc<-lapply(drug.list,tolower)
 eval.drugs.pdx<-c('mirdametinib','mirdametinib+trabectedin','olaparib','trabectedin','ribociclib','trametinib','trametinib+ribociclib')
 
-eval.samps<-c('MN2','WU-225','JHU 2-079c','JHU 2-031','MN1','WU-368')
+eval.samps<-c('MN-2','WU-225','JH-2-079c','JH-2-031','MN-1','WU-368')
 eval.samps.inc <- c('MN-2', 'JH-2-079c') #other samples available: JHU 2-002, JHU 2-103
 ```
 
@@ -74,7 +75,7 @@ mtDrugData<-getMicroTissueDrugData(mtd)
 ##commented this out as it doesn't work. 
 lapply(names(drug.list), function(drugGroup) {
   mt.subs <- subset(mtDrugData, CellLine %in% eval.samps) %>%
-    subset(Drug %in% drug.list[[drugGroup]])
+    subset(DrugCol %in% drug.list[[drugGroup]])
    
    samp.plots <- lapply(eval.samps, function(samp)
      plotMTTreatmentByDrug(mt.subs, samp))

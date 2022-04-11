@@ -314,7 +314,8 @@ write.csv(pcomb.stats,file='drugCombinationStatsInPDX.csv')
  We can now collect gene expression values by each sample to identify gene signatures in the drugs of interest.
 
 ```{r rnaseq,message=FALSE,warning=FALSE}
-    library(ensembldb)
+    
+ library(ensembldb)
  library("EnsDb.Hsapiens.v86")
   library(ggrepel)
   database <- EnsDb.Hsapiens.v86
