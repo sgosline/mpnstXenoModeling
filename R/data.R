@@ -1,35 +1,35 @@
-
-.onAttach <- function(libname, pkgname) {
-  packageStartupMessage("Loading data.R")
-}
-
-.onLoad <- function(libname, pkgname) {
-  library(reticulate)
-  have_synapse <- reticulate::py_module_available("synapseclient")
-  if (!have_synapse)
-    reticulate::py_install("synapseclient")
-  
-  syn_client <<-
-    reticulate::import("synapseclient", delay_load = TRUE)$login()
-}
-
-##get datasets from figshare and whatever drug screening data we have.
-
-.onAttach <- function(libname, pkgname) {
-  packageStartupMessage("Loading data.R")
-}
-
-syn_client <- NULL
-
-.onLoad <- function(libname, pkgname) {
-  library(reticulate)
-  have_synapse <- reticulate::py_module_available("synapseclient")
-  if (!have_synapse)
-    reticulate::py_install("synapseclient")
-  
-  syn_client <<-
-    reticulate::import("synapseclient", delay_load = TRUE)$login()
-}
+# 
+# .onAttach <- function(libname, pkgname) {
+#   packageStartupMessage("Loading data.R")
+# }
+# 
+# .onLoad <- function(libname, pkgname) {
+#   library(reticulate)
+#   have_synapse <- reticulate::py_module_available("synapseclient")
+#   if (!have_synapse)
+#     reticulate::py_install("synapseclient")
+#   
+#   syn_client <<-
+#     reticulate::import("synapseclient", delay_load = TRUE)$login()
+# }
+# 
+# ##get datasets from figshare and whatever drug screening data we have.
+# 
+# .onAttach <- function(libname, pkgname) {
+#   packageStartupMessage("Loading data.R")
+# }
+# 
+# syn_client <- NULL
+# 
+# .onLoad <- function(libname, pkgname) {
+#   library(reticulate)
+#   have_synapse <- reticulate::py_module_available("synapseclient")
+#   if (!have_synapse)
+#     reticulate::py_install("synapseclient")
+#   
+#   syn_client <<-
+#     reticulate::import("synapseclient", delay_load = TRUE)$login()
+# }
 
 ##get datasets from figshare and whatever drug screening data we have.
 # TODO what is this function doing?
@@ -373,7 +373,7 @@ fixDrugData <- function(drugData) {
 #' @import tidyr
 loadPDXData <- function() {
   library(dplyr)
-
+  loadSynapse()
   ##updated to use harmonized data table
   data.tab <<-
     syn_client$tableQuery("SELECT * FROM syn24215021 WHERE ( ( \"Microtissue Manuscript\" = 'true' ) )")$asDataFrame()
@@ -389,6 +389,7 @@ loadPDXData <- function() {
                   Size) %>%
     distinct()
   return(clin.tab)
+  
 }
 
 
@@ -536,7 +537,7 @@ loadMicrotissueMetadata <- function() {
     syn_client$tableQuery(
       'SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,experimentId,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')'
     )$asDataFrame() %>%
-    subset(c(individualID %in% data.tab$Sample, 'MN-3'))
+    subset(individualID %in% c(data.tab$Sample, 'MN-3'))
   ##fix CUDC annotations
   cudc <- grep("CUDC", mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc] <- rep("CUDC-907", length(cudc))
@@ -739,6 +740,9 @@ getMicroTissueDrugData <- function(mtd) {
       # p  rint(head(tab))
       ##TO  DO get this to work for combo data
       if (is_combo) {
+        #print(x[['experimentalCondition']])
+        #print(x[['id']])
+       # print(head(tab))
         ttab <- tab %>%
           dplyr::select(
             'compound_name',
@@ -771,15 +775,16 @@ getMicroTissueDrugData <- function(mtd) {
             Conc = 'dosage',
             Resp = 'response',
             RespType = 'response_type',
-            ConcUnit = 'dosage_unit',
-            MeasID = 'measurement_id'
+            ConcUnit = 'dosage_unit'#,
+       #     MeasID = 'measurement_id'
           ) %>%
           tidyr::pivot_wider(
             names_from = RespType,
             names_sep = '.',
             values_from = Resp
           ) %>%
-          dplyr::rename(Viabilities = 'percent viability') %>% unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities = 'percent viability') %>% 
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else{
         ttab <- tab %>%
           dplyr::select(

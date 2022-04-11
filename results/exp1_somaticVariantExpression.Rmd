@@ -16,10 +16,7 @@ if(!require(mpnstXenoModeling)){
     remotes::install_github('sgosline/mpnstXenoModeling')
     library(mpnstXenoModeling)
 }
-if(!require('leapr')){
-  remotes::install_github('biodataganache/leapR')
-  library(leapr)
-}
+
 if(!require('dplyr')){
   BiocManager::install('dplyr')
   library(dplyr)
@@ -47,6 +44,8 @@ if(!require('EnsDb.Hsapiens.v86')){
 Load the data from the R package. We want to both evaluate the mutational profile and also the gene expression signatures that fall from this data.
 
 ```{r load data, warning=FALSE, message=FALSE}
+mpnstXenoModeling::loadSynapse()
+
 pdx_data <- mpnstXenoModeling::loadPDXData()
 
 varData <- mpnstXenoModeling::loadVariantData()
@@ -116,7 +115,7 @@ annotes <- varData %>%
   )) %>%
   mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
   mutate(`Clinical Status` = unlist(Clinical.Status)) %>%
-  rename(`PRC2 Status`='PRC2.Status')%>%
+  dplyr::rename(`PRC2 Status`='PRC2.Status')%>%
   dplyr::select(-Clinical.Status) %>%
   #tidyr::separate(specimenID,into=c('patient','sample'),remove=TRUE)%>%
   distinct() %>% tibble::remove_rownames() %>%

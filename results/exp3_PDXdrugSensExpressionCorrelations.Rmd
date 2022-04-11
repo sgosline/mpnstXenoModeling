@@ -13,11 +13,6 @@ This markdown assesses gene expression changes the correlate with drug sensitivi
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-if(!require('leapr')){
-  remotes::install_github('biodataganache/leapR')
-  library(leapr)
-}
-
 if(!require('DT')){
   install.packages("DT")
   library(DT)
@@ -31,10 +26,12 @@ library(dplyr)
 ## Load drug data and RNAseq data
 ```{r mutation data,message=FALSE,warning=FALSE}
 #mpnstXenoModeling::loadPDXData()
+mpnstXenoModeling::loadSynapse()
 
 rnaSeq <- mpnstXenoModeling::loadRNASeqData()
 
 syn = mpnstXenoModeling::synapseLogin()
+
 drugStats <-
   syn$tableQuery("select * from syn25955439")$asDataFrame()
 

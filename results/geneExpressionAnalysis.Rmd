@@ -17,9 +17,9 @@ if (!require(mpnstXenoModeling)) {
   library(mpnstXenoModeling)
 }
 
-if (!require("leapr")) {
+if (!require("leapR")) {
   remotes::install_github("biodataganache/leapR")
-  library(leapr)
+  library(leapR)
 }
 
 if (!require("DT")) {
@@ -47,17 +47,7 @@ pdx_data <-
   mpnstXenoModeling::loadPDXData()#reticulate::import('synapseclient')$login()
 #data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
 rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
-  #mpnstXenoModeling::dataFromSynTable(data.tab,syn,'RNASeq')%>%
-  #mutate(`Clinical Status`=gsub("NED","Alive",gsub('Alive with metastatic disease','Alive',Clinical.Status)))%>%
-  #tidyr::separate(GENEID,into=c('GENE','VERSION'),remove=FALSE)
 
-##this is the mapping data - it is neeeded to filter out protein coding genes
-# if (!require('EnsDb.Hsapiens.v86')) {
-#   BiocManager::install('EnsDb.Hsapiens.v86')
-#   library(EnsDb.Hsapiens.v86)
-# } else{
-#   library('EnsDb.Hsapiens.v86')
-# }
 
 library('EnsDb.Hsapiens.v86')
 library(ensembldb)
@@ -83,11 +73,11 @@ We want to filter for only those patients that we have MT data for.
 ```{r filter data}
 
 
-var.ID <-
-  subset(var.ID,
-         unlist(MicroTissueQuality) %in% c('Unusable', 'Usable', 'Robust', 'Good'))
+#var.ID <-
+#  subset(var.ID,
+#         unlist(MicroTissueQuality) %in% c('Unusable', 'Usable', 'Robust', 'Good'))
 
-DT::datatable(var.ID)
+#DT::datatable(var.ID)
 
 
 database <- EnsDb.Hsapiens.v86
@@ -206,7 +196,7 @@ What pathways are enriched in correlation across these? Need to actually do this
 ```{r leapr cor, message=FALSE}
 
 ##now let's look at the pathways that are correlated across all
-library(leapr)
+library(leapR)
 #data(ncipid)
 data("krbpaths")
 idx.kegg <- grepl("^KEGG_", krbpaths$names)
@@ -261,21 +251,23 @@ There seem to be many genes deferentially expressed between MT samples
 
 ```{r analysingQual, echp=FALSE, warning=FALSE, message=FALSE}
 good <-
-  rownames(subset(var.ID, MicroTissueQuality %in% c('Good', 'Robust', 'Usable'))) %>%
+  rownames(subset(var.ID, MicroTissueQuality %in% c('Good', 'Robust'))) %>%
   unique()
 bad <-
-  rownames(subset(var.ID, MicroTissueQuality == 'Unusable')) %>% unique()
+  rownames(subset(var.ID, MicroTissueQuality %in%c('Unusable'))) %>% unique()
 
 qual_res <-
   mpnstXenoModeling::ds2FactorDE(dds, good,  bad, 'MTQuality')
+
+
 plotTopGenesHeatmap(
   qual_res,
   dds,
   pmap,
   'MTqual',
-  patients = c(good, bad),
+  patients = colnames(dds),
   newVar = '',
-  adjpval = 0.0001,
+  adjpval = 0.01,
   upload = FALSE,
   parentID = 'syn25323411'
 )
@@ -309,8 +301,8 @@ plotTopGenesHeatmap(
   pmap,
   'MTqualShrink',
   patients = c(good, bad),
-  adjpval = 0.0001,
-  upload = FALSE,
+  adjpval = 0.01,
+  upload = TRUE,
   parentID = 'syn25323411'
 )
 
@@ -318,7 +310,7 @@ plotTopGenesHeatmap(
 
 res <- qual_res %>%
   tibble::rownames_to_column('GENEID') %>%
-  subset(padj < 0.0001) %>%
+  subset(padj < 0.01) %>%
   left_join(pmap)
 #pmap[rownames(subset(qual_res,padj<0.0001)),'GENENAME']%>%
 p <- doRegularGo(res$GENENAME, prefix = 'MTqualGOShrink')

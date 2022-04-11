@@ -1,11 +1,11 @@
 ##set up R env
-install.packages("rmarkdown")
-install.packages("remotes")
-install.packages("gridExtra")
-install.packages("BiocManager")
-install.packages("ggfortify")
-install.packages("ggrepel")
-install.packages("umap")
+install.packages("rmarkdown",repos = "http://cran.us.r-project.org")
+install.packages("remotes",repos = "http://cran.us.r-project.org")
+install.packages("gridExtra",repos = "http://cran.us.r-project.org")
+install.packages("BiocManager",repos = "http://cran.us.r-project.org")
+install.packages("ggfortify",repos = "http://cran.us.r-project.org")
+install.packages("ggrepel",repos = "http://cran.us.r-project.org")
+install.packages("umap",repos = "http://cran.us.r-project.org")
 
 library(BiocManager)
 BiocManager::install("EnsDb.Hsapiens.v86")

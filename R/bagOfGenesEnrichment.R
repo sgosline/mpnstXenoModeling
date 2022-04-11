@@ -1,7 +1,6 @@
 
 
 #' Used to make reversed logarithmic scales
-#' @import scales
 reverselog_trans <- function(base = exp(1)) {
   trans <- function(x)
     - log(x, base)
@@ -559,7 +558,8 @@ plotTopGenesHeatmap <-
     options(repr.plot.width = 6, repr.plot.height = plotheight)
     heatmap <- pheatmap(
       log10(0.01 + count.mat),
-      cellheight = 10,
+     # labels_row = rep("",nrow(count.mat)),
+      #cellheight = 10,
       annotation_col = var.ID,
       annotation_colors = annote.colors,
       filename = file.path(path, paste0(
@@ -600,11 +600,11 @@ plotCorrelationEnrichment <-
            order.by = "Ingroup mean",
            clean.names = FALSE,
            pathway.plot.size = 3) {
-    if (!require('leapr')) {
-      remotes::install_github('biodataganache/leapr')
-      library(leapr)
+    if (!require('leapR')) {
+      remotes::install_github('biodataganache/leapR')
+      library(leapR)
     }
-    corr.enrichment <- leapr::leapR(geneset,
+    corr.enrichment <- leapR::leapR(geneset,
                                     enrichment_method = "correlation_enrichment",
                                     datamatrix = exprs)
     corr.enrichment <- corr.enrichment %>%
