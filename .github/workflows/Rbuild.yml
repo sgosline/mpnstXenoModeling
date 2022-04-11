@@ -11,4 +11,4 @@ jobs:
       with:
         action: 'all'
         needsBioc: true
-        buildSubDirectory: './'
+        entryPoint: './'
