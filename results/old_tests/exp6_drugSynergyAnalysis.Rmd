@@ -161,7 +161,8 @@ combined<-comboStats%>%
   arrange(icSyn)%>%
   mutate(icSyn=as.numeric(icSyn))
 
-comb.stats<-combined%>%group_by(Drug1,Drug2)%>%
+comb.stats<-combined%>%
+  group_by(Drug1,Drug2)%>%
   mutate(nSyn=sum(icSyn))
 
 DT::datatable(comb.stats)
