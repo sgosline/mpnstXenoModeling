@@ -23,7 +23,6 @@ loadSynapse<-function(){
 #' Logs into Synapse using local information
 #' @name synapseLogin
 #' @description Logs into synapse using `synapseclient` python library
-#' @import reticulate
 #' @return Synapse login python entity
 #' @export
 synapseLogin<-function(){
@@ -36,7 +35,6 @@ synapseLogin<-function(){
 #' Synapse store
 #' @name synapseStore
 #' @description stores file in synapse
-#' @import reticulate
 #' @param path to file
 #' @param parentId of folder to store
 #' @export
@@ -57,7 +55,6 @@ synapseStore<-function(path,parentId){
 #' @param table to store on synapse
 #' @param tabname name of table
 #' @param parentId id of project
-#' @import reticulate
 #' @export
 synTableStore<-function(tab,tabname,parentId='syn22128879'){
   #we have to first write the table to a file, then build it and store it

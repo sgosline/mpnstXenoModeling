@@ -49,7 +49,6 @@ parseSynidListColumn <- function(list.column) {
 #' counts
 #' TODO: update to include more than just counts
 #' @param file in sf format
-#' @import BiocManager
 #' @export
 do_deseq_import <- function(file) {
   if (!require('DESeq2')) {
@@ -81,9 +80,7 @@ do_deseq_import <- function(file) {
 #' gets a list of synapse ids and binds them together
 #' @param tab table of MPNST samples
 #' @param colname name of column to select
-#' @import readxl
-#' @import tidyr
-#' @import dplyr
+
 #' @export
 dataFromSynTable <- function(tab, colname) {
   samps <- tab$Sample
@@ -368,9 +365,6 @@ fixDrugData <- function(drugData) {
 #' loadPDXData
 #' gets data from synapse and stores them as global variables
 #' @export
-#' @import reticulate
-#' @import dplyr
-#' @import tidyr
 loadPDXData <- function() {
   library(dplyr)
   loadSynapse()
@@ -567,7 +561,6 @@ loadMicrotissueMetadata <- function() {
 #' list of RNAseq counts filtered for low abundance
 #' Only does column normalization and returns DESeq2 object
 #' @param data.table
-#' #' @import BiocManager
 #' @export
 deseq2NormFilter <- function(data.table, newVar = NULL) {
   library(dplyr)
@@ -640,8 +633,6 @@ normDiffEx <- function(data.table) {
 #' #' @param syn
 #' #' @param fileid
 #' #' @param indId
-#' #' @import dplyr
-#' #' @import readxl
 #' processMergedXls<-function(syn,fileid,indId){
 #'   library(readxl)
 #'   library(dplyr)
@@ -662,9 +653,6 @@ normDiffEx <- function(data.table) {
 
 #' @title getNewSomaticCalls
 #' james said this is the format for future data
-#' @import dplyr
-#' @import tidyr
-#' @import BiocManager
 #'
 getNewSomaticCalls <- function(tab, specimen) {
   library(dplyr)
@@ -706,8 +694,6 @@ getNewSomaticCalls <- function(tab, specimen) {
 #' getMicroTissueDrugData
 #' @name getMicroTissueDrugData
 #' @param mtd
-#' @import dplyr
-#' @import tidyr
 #' @export
 getMicroTissueDrugData <- function(mtd) {
   message('Loading MT data')

@@ -45,7 +45,6 @@ computeTGI<-function(treatedTab,contTab,finalTimePoint){
 #' computes difference between AUC of treated vs control normalized by treatment
 #' @name computeAUC
 #' @description computes AUC
-#' @import BiocManager
 computeAUC<-function(treatedTab,contTab){
   #https://link.springer.com/article/10.1208/s12248-018-0284-8
   if(!require('Xeva')){
@@ -106,8 +105,6 @@ statsForDrugPatient<-function(indivId,treat,batch){
 #' @name getAllDrugStats
 #' @description computes all PDX drug growth statistics
 #' @param drugData table
-#' @import dplyr
-#' @import purrr
 #' @export
 getAllDrugStats<-function(drug.tab){
   pat.drug<-drug.tab%>%

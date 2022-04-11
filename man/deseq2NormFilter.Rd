@@ -9,9 +9,6 @@ Only does column normalization and returns DESeq2 object}
 \usage{
 deseq2NormFilter(data.table, newVar = NULL)
 }
-\arguments{
-\item{data.table}{#' @import BiocManager}
-}
 \description{
 deseq2NormFilter
 Utilizes the geometric mean to normalize the entire table to generate a normalized
