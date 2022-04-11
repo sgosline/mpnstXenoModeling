@@ -9,6 +9,6 @@ jobs:
     - name: R Build and Checks
       uses: Swechhya/R-actions@v1.2
       with:
-        action: 'all'
+        action: 'build'
         needsBioc: true
-        entryPoint: './'
+        buildSubDirectory: './'

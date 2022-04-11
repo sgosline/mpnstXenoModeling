@@ -1,9 +1,6 @@
 #these are a few helper functions that should help with data visualization
 #the goal is to visualize expression of various genes
-
 #' @export
-#' @import ggplot2
-#' @import cowplot
 plotSingleGene<-function(gene='CD274'){
   all.dat<-getAllNF1Expression()
   dotplot<-subset(all.dat,Symbol==gene)%>%ggplot()+geom_point(aes(x=totalCounts,y=zScore,col=tumorType,shape=studyName))
@@ -16,8 +13,6 @@ plotSingleGene<-function(gene='CD274'){
 #' plotHistogram of drug data
 #' @name plotDrugData
 #' @export
-#' @import ggridges
-#' @import ggplot2
 #' @param drugData table of drug data to be plotted
 plotDrugData<-function(drugData){
   #library(ggplot2)
@@ -44,12 +39,17 @@ plotPDXTreatmentBySample<-function(dt){
   batch=dt$batch[1]
   #print(sample)
   tt<-dt%>%dplyr::select(time,volume,drug)%>%distinct()
-  tm <-tt%>%group_by(time,drug)%>%summarize(mvol=median(volume),
+  tm <-tt%>%dplyr::group_by(time,drug)%>%
+    dplyr::summarize(mvol=median(volume),
                                             minVol=median(volume)-sd(volume),
                                             maxVol=median(volume)+sd(volume))%>%distinct()
   
-  p<-ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+
-    geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)
+  p<-ggplot2::ggplot(tm,aes(x=time,y=mvol,ymin=minVol,ymax=maxVol,col=drug,fill=drug))+
+    ggplot2::geom_line()+
+    ggplot2::ggtitle(sample)+
+    ggplot2::geom_ribbon(alpha=0.25)+
+    ggplot2::scale_color_manual(values=pal)+
+    ggplot2::scale_fill_manual(values=pal)
   #ggsave(paste0(sample,'PDXmodeling.png'),p)
   print(p)
   return(p)
@@ -149,13 +149,18 @@ plotIncTreatmentByDrug<-function(dt,sample){
   if (dim(dt)[1]==0){
       return(NULL)
   }
-  tt<-dt%>%dplyr::select(experimental_time_point,dosage,response,experimentalCondition)%>%distinct()
-  tm <-tt%>%group_by(experimental_time_point,dosage,experimentalCondition)%>%summarize(Confluency=median(response,na.rm=T),
+  tt<-dt%>%
+    dplyr::select(experimental_time_point,dosage,response,experimentalCondition)%>%distinct()
+  tm <-tt%>%
+    dplyr::group_by(experimental_time_point,dosage,experimentalCondition)%>%summarize(Confluency=median(response,na.rm=T),
                                         minRes=median(response,na.rm=T)-sd(response,na.rm=T),
                                         maxRes=median(response,na.rm=T)+sd(response,na.rm=T))%>%distinct()
   tm<-tm%>%tidyr::unite("Condition",c(experimentalCondition,dosage))
-  p<-ggplot(tm,aes(x=experimental_time_point,y=Confluency,ymin=minRes,ymax=maxRes,col=Condition,fill=Condition))+
-  geom_line()+ggtitle(sample)+geom_ribbon(alpha=0.25)+scale_color_manual(values=pal)+scale_fill_manual(values=pal)#ggsave(paste0(sample,'PDXmodeling.png'),p)
+  p<-ggplot2::ggplot(tm,aes(x=experimental_time_point,y=Confluency,ymin=minRes,ymax=maxRes,col=Condition,fill=Condition))+
+    ggplot2::geom_line()+
+    ggplot2::ggtitle(sample)+geom_ribbon(alpha=0.25)+
+    ggplot2::scale_color_manual(values=pal)+
+    ggplot2::scale_fill_manual(values=pal)#ggsave(paste0(sample,'PDXmodeling.png'),p)
   print(p)
   return(p)
 }

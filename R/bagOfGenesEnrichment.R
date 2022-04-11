@@ -211,7 +211,6 @@ doGSEA <-
 #' @name doRegularGo
 #' @description Performs GO enrichment
 #' @export
-#' @import BiocManager
 #'
 doRegularGo <-
   function(genes,
@@ -284,7 +283,6 @@ doRegularGo <-
 #' @param name for condition
 #' @param doShrinkage flag to true if lFC shrinkage should be used
 #' @export
-#' @import BiocManager
 ds2FactorDE <- function(dds, ids1, ids2, name, doShrinkage = FALSE) {
   if (!require('DESeq2')) {
     BiocManager::install('DESeq2')
@@ -352,7 +350,6 @@ ds2FactorDE <- function(dds, ids1, ids2, name, doShrinkage = FALSE) {
 #' @name limmaTwoFactorDEAnalysis
 #' @description Runs limma on two groups
 #' @author Osama
-#' @import BiocManager
 #' @export
 #' @param data matrix
 #' @param group1 ids
@@ -434,9 +431,6 @@ geneIdToSymbolMatrix <- function(gene.mat, identifiers) {
 #' @name plotTopGenesHeatmap
 #' @description Filters and plots expression matrix
 #' @author Jess
-#' @import BiocManager
-#' @import reticulate
-#' @import pheatmap
 #' @export
 #' @param de.out diffex results
 #' @param dds, DESEq object
@@ -578,11 +572,7 @@ plotTopGenesHeatmap <-
 
 #' Plot using correlation enrichment from leapR package. A single plot is saved to the working directory
 #' @export
-#' @import ggplot2
-#' @import gridExtra
-#' @import scales
-#' @import dplyr
-#' @import remotes
+
 #' @param exprs A matrix of intensities with accessions as row names, along with samples in the columns.
 #' @param prefix string, used for naming the saved plots.
 #' @param order.by This determines how the pathways are sorted. Default is pathway correlation of "Ingroup mean", but
