@@ -537,7 +537,7 @@ loadMicrotissueMetadata <- function() {
     syn_client$tableQuery(
       'SELECT id,specimenID,individualID,modelSystemName,experimentalCondition,experimentId,parentId FROM syn21993642 WHERE "dataType" = \'drugScreen\' AND "assay" = \'3D microtissue viability\' AND "fileFormat" = \'csv\' AND "parentId" not in (\'syn26433454\',\'syn25791480\',\'syn25791505\',\'syn26433485\',\'syn26433524\')'
     )$asDataFrame() %>%
-    subset(c(individualID %in% data.tab$Sample, 'MN-3'))
+    subset(individualID %in% c(data.tab$Sample, 'MN-3'))
   ##fix CUDC annotations
   cudc <- grep("CUDC", mt.meta$experimentalCondition)
   mt.meta$experimentalCondition[cudc] <- rep("CUDC-907", length(cudc))
@@ -740,6 +740,9 @@ getMicroTissueDrugData <- function(mtd) {
       # p  rint(head(tab))
       ##TO  DO get this to work for combo data
       if (is_combo) {
+        #print(x[['experimentalCondition']])
+        #print(x[['id']])
+       # print(head(tab))
         ttab <- tab %>%
           dplyr::select(
             'compound_name',
@@ -772,15 +775,16 @@ getMicroTissueDrugData <- function(mtd) {
             Conc = 'dosage',
             Resp = 'response',
             RespType = 'response_type',
-            ConcUnit = 'dosage_unit',
-            MeasID = 'measurement_id'
+            ConcUnit = 'dosage_unit'#,
+       #     MeasID = 'measurement_id'
           ) %>%
           tidyr::pivot_wider(
             names_from = RespType,
             names_sep = '.',
             values_from = Resp
           ) %>%
-          dplyr::rename(Viabilities = 'percent viability') %>% unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
+          dplyr::rename(Viabilities = 'percent viability') %>% 
+          unnest(cols = c(`total cell count`, `live cell count`, Viabilities))
       } else{
         ttab <- tab %>%
           dplyr::select(

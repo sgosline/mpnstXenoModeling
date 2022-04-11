@@ -21,7 +21,7 @@ if(!require(mpnstXenoModeling)){
 
 
 if(!require('DT')){
-  install.packages("DT")
+  install.packages("DT",repos = "http://cran.us.r-project.org")
   library(DT)
 }
 
@@ -37,7 +37,10 @@ if(!exists("dataLoaded")){
   dataLoaded=TRUE
   mpnstXenoModeling::loadPDXData()
   mtDrugData <- loadMicrotissueDrugData()
-
+  res<-loadPDXDrugData()
+  rnaSeq<-loadRNASeqData()
+#  pdxDrugStats<-res$summary
+ # drugData=res$dose, summary = pdxDrugStats
 }
 
 
@@ -152,8 +155,8 @@ comboStats<-mtStats%>%subset(Drug%in%combos)%>%dplyr::select(Drug,CellLine,ic50)
 singleStats<-mtStats%>%subset(Drug%in%unlist(cdrugs))%>%
   dplyr::select(Drug,CellLine,ic50)
 combined<-comboStats%>%
-  left_join(rename(singleStats,Drug1='Drug',ic1='ic50'))%>%
-  left_join(rename(singleStats,Drug2='Drug',ic2='ic50'))%>%
+  left_join(dplyr::rename(singleStats,Drug1='Drug',ic1='ic50'))%>%
+  left_join(dplyr::rename(singleStats,Drug2='Drug',ic2='ic50'))%>%
   mutate(icSyn=(ic50>ic1&ic50>ic2))%>%
   arrange(icSyn)%>%
   mutate(icSyn=as.numeric(icSyn))
@@ -295,7 +298,7 @@ combined<-pcomboStats%>%
   left_join(dplyr::rename(psingleStats,Drug1='drug',auc1='AUC'))%>%
   left_join(dplyr::rename(psingleStats,Drug2='drug',auc2='AUC'))%>%
   mutate(synergistic=(AUC<auc1&AUC<auc2))%>%
-  mutate(synergistic=as.numeric(synergistic))
+  mutate(synergistic=as.numeric(synergistic))%>%
   arrange(synergistic)
 
 pcomb.stats<-combined%>%group_by(Drug1,Drug2)%>%
