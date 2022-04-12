@@ -684,7 +684,7 @@ plotCorrelationEnrichment <-
       1, pathway.plot.size
     ), 2)))
     p.both <-
-      grid.arrange(p.corr, p.pval, layout_matrix = arrange_matrix)
+      gridExtra::grid.arrange(p.corr, p.pval, layout_matrix = arrange_matrix)
     
     try(ggsave(
       paste0(
