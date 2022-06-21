@@ -77,11 +77,16 @@ ribo.metadata<-metadata%>%subset(treat%in%c('nd','ribo'))
 #ribo.6h<-subset(ribo.metadata,time=='6h')
 ribo.24h<-subset(ribo.metadata,time=='24h')
 
+tram.metadata<-metadata%>%subset(treat%in%c('nd','Trametinib'))
+tram.6h<-subset(tram.metadata,time=='6h')
+tram.24h<-subset(tram.metadata,time=='24h')
 
 ##let's start with the basic comparisons
 conditions<-list(TNO_6H=tno.6h,
                  TNO_24H=tno.24h,
                  #RIBO_6H=ribo.6h,
+                 TRAM_6H=tram.6h,
+                 TRAM_2H=tram.24h,
                  RIBO_24H=ribo.24h,
                  TNO_RIBO_24H=combo.metadata)
 
