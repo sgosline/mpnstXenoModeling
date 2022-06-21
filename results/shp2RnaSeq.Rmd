@@ -1,0 +1,126 @@
+---
+title: "Shp2 Inhibitor Data"
+author: "Sara Gosline"
+date: '2022-06-19'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require(remotes)
+if (!require(mpnstXenoModeling)) {
+  remotes::install_github("sgosline/mpnstXenoModeling")
+  library(mpnstXenoModeling)
+}
+library(dplyr)
+syn <- synapseLogin()
+tab<-read.table(syn$get('syn31992250')$path,header=T,check.names = F)
+```
+
+
+Now the data have been read in from Synapse.
+
+##PCA analysis
+
+first we collapse data to plot via PCA
+
+```{r cars}
+longtab<-tab%>%tidyr::pivot_longer(cols=c(3:ncol(tab)),names_to='cond',values_to='counts')%>%
+  tidyr::separate(cond,sep='_',into=c('treat','time','rep'),remove=F)
+
+metadata<-longtab%>%dplyr::select('cond','treat','time','rep')%>%
+  distinct()%>%
+  tibble::column_to_rownames('cond')
+
+metadata$treat<-sapply(metadata$treat,function(x) gsub('X212','Trametinib',x))
+metadata$treat<-sapply(metadata$treat,function(x) gsub('X818','PTPN11i',x))
+
+
+numdata<-longtab%>%dplyr::select(gene_name,cond,counts)%>%
+  tidyr::pivot_wider(names_from='cond',values_from='counts',values_fn=list(counts=sum))%>%
+  tibble::column_to_rownames('gene_name')%>%
+  as.matrix()
+
+library(ggplot2)
+library(ggfortify)
+
+pca_res<-prcomp(t(numdata))
+
+p<-autoplot(pca_res,data=metadata,colour='treat',shape='time',size=5)
+
+p
+
+ggsave("allSamplesPCA.png")
+#meanCounts=longtab%>%group_by(gene_name,treat,time)%>%summarize(meanCounts=mean(counts))
+```
+
+All data seems to show that the six hour time point is the most interesting, even with no treatment. Which samples do we actually want?
+
+## Build DESeq model for differential expression
+
+We use deseq2 to identify transcripts of interest. What are specific questions we have?
+
+```{r pressure, echo=FALSE}
+library(DESeq2)
+
+#let's compare each datasets
+tno.metadata<-metadata%>%subset(treat%in%c('nd','tno'))
+
+tno.6h<-subset(tno.metadata,time=='6h')
+tno.24h<-subset(tno.metadata,time=='24h')
+
+combo.metadata<-metadata%>%
+  subset(treat%in%c('nd','tnopribo'))%>%
+  subset(time=='24h')
+
+
+ribo.metadata<-metadata%>%subset(treat%in%c('nd','ribo'))
+#ribo.6h<-subset(ribo.metadata,time=='6h')
+ribo.24h<-subset(ribo.metadata,time=='24h')
+
+
+##let's start with the basic comparisons
+conditions<-list(TNO_6H=tno.6h,
+                 TNO_24H=tno.24h,
+                 #RIBO_6H=ribo.6h,
+                 RIBO_24H=ribo.24h,
+                 TNO_RIBO_24H=combo.metadata)
+
+res.files<-lapply(names(conditions),function(x){
+  metadata<-conditions[[x]]
+  ##tno diffex
+  print(x)
+  dds<- DESeqDataSetFromMatrix(countData=round(numdata[,rownames(metadata)]),
+                             colData=metadata,design=~treat)
+
+  dds<-DESeq(dds)
+  
+  res<-DESeq2::results(dds)%>%
+    as.data.frame()
+  
+  fname=paste0('geneDiffEx',x,'.tsv')
+  
+  write.table(res,file=fname,row.names=T,col.names=T,sep='\t')
+
+  synapseStore(fname,'syn27329973')
+  diffex<-subset(res,padj<0.05)
+  print(paste('Found',nrow(diffex),'differentially expressed genes for',x))
+        
+  })
+
+##now we can do the PTPN11i
+
+ptpn.meta<-subset(metadata,treat=='PTPN11i')
+ dds<- DESeqDataSetFromMatrix(countData=round(numdata[,rownames(ptpn.meta)]),
+                             colData=ptpn.meta,design=~time)
+
+  dds<-DESeq(dds)
+  res<-DESeq2::results(dds)%>%
+    as.data.frame()
+  write.table(res,file=paste0('geneDiffExPTPN11i.tsv'),sep='\t',row.names=T,col.names=T)
+  synapseStore('geneDiffExPTPN11i.tsv','syn27329973')
+
+
+```
+
+
+

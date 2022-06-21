@@ -27,6 +27,20 @@ if (!require("DT")) {
   library(DT)
 }
 
+
+if(!require('EnsDb.Hsapiens.v86')) {
+  BiocManager::install("EnsDb.Hsapiens.v86")
+  library('EnsDb.Hsapiens.v86')
+}
+if(!require('ensembldb')){
+  BiocManager::install("ensembldb", repos='http://cran.us.r-project.org')
+  library(ensembldb)
+}
+
+if(!require('apeglm')){
+  BiocManager::install("apeglm", repos='http://cran.us.r-project.org')
+  library(apeglm)
+}
 library(dplyr)
 
 
@@ -49,8 +63,6 @@ pdx_data <-
 rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
 
 
-library('EnsDb.Hsapiens.v86')
-library(ensembldb)
 #select clinical variables
 var.ID <- rnaSeq %>%
   dplyr::select(Sample,
@@ -273,7 +285,7 @@ plotTopGenesHeatmap(
 )
 
 res <- pmap %>%
-  subset(GENEID %in% rownames(subset(qual_res, padj < 0.0001)))
+  subset(GENEID %in% rownames(subset(qual_res, padj < 0.01)))
 
 res <- doRegularGo(res$GENENAME, prefix = 'MTqualGO')
 #plot(res)
