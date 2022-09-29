@@ -45,6 +45,7 @@ Let's load all the data using the `mpnstXenoModeling` package function. This wil
 #this function simply loads all the data into memory
 #loadPDXData()
 loadPDXData()
+loadMicrotissueMetadata()
 ##let's clean up drug Dat
 #head(drugData)
 ```
@@ -63,9 +64,10 @@ The first thing we want to do is to load the microtissue data and carry out the 
 ```{r, warning=FALSE, message=FALSE}
 cleanupMTDrugData<-function(mt.meta){
   mt.drug<-mt.meta[mt.meta$experimentalCondition!='DMSO',]
-  mt.drug$modelSystemName<-gsub('.*CL','CL',mt.drug$modelSystemName)
-  mt.drug$modelSystemName[mt.drug$modelSystemName=="NaN"]<-NA
-  mt.drug<-mt.drug%>%tidyr::unite(individualID,c(individualID,modelSystemName), sep=" ", na.rm=TRUE)
+  #mt.drug$modelSystemName<-gsub('.*CL','CL',mt.drug$modelSystemName)
+  #mt.drug$modelSystemName[mt.drug$modelSystemName=="NaN"]<-NA
+  #mt.drug<-mt.drug%>%tidyr::unite(individualID,c(individualID,modelSystemName), sep=" ", na.rm=TRUE)
+  mt.drug$modelSystemName<-unlist(mt.drug$modelSystemName)
   mt.drug$specimenID<-gsub('MN3-001','001',mt.drug$specimenID)
   mt.drug$specimenID[mt.drug$specimenID!="001"]<-NA
   mt.drug<-mt.drug%>%tidyr::unite(individualID,c(individualID,specimenID), sep="-", na.rm=TRUE)
@@ -78,33 +80,38 @@ cleanupMTDMSOData<-function(mt.meta){
   return(mt.dmso)
 }
 
-mt.drug<-cleanupMTDrugData(mt.meta)
+mt.drug<-cleanupMTDrugData(mt.meta)%>%
+  subset(modelSystemName=='NaN')
 mt.dmso<-cleanupMTDMSOData(mt.meta)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-process_DMSO <- function(syn, mt.dmso){
+process_DMSO <- function(mt.dmso){
   # TODO unite(CellLine, ExperimentID) #when uploaded to metadata folder
-  res = mpnstXenoModeling::getMicroTissueDrugData(syn,mt.dmso) 
-  res=aggregate(Viabilities ~ CellLine, data=dmso.dat, FUN=mean)
+  res = mpnstXenoModeling::getMicroTissueDrugData(mt.dmso) 
+  #res=aggregate(Viabilities ~ CellLine, data=res, FUN=mean)
   return(res)
 }
-dmso.dat<-process_DMSO(syn,head(mt.dmso,1))
+#dmso.dat<-process_DMSO(syn,mt.dmso)
 ```
 
-```{r}
+```{r,warning=FALSE, message=FALSE}
 ###TODO###
 # mutate dmso.dat column name to MaxViability
 # unite(mt.drg,dmso.dat) by experimentID and individualID
 # mt.drug now has a column of MaxViability
 
  # res = mpnstXenoModeling::
-    res<-getMicroTissueDrugData(syn,mt.dmso) 
-  return(res)
-}
+ #   res<-getMicroTissueDrugData(syn,mt.dmso) 
+ 
+# return(res)
+#}
 
-dmso.dat<-process_DMSO(syn,mt.dmso)
-dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine,experimentId)%>%summarize(meanViab=mean(Viabilities))
+dmso.dat<-process_DMSO(mt.dmso)
+dmso.stat<- dmso.dat%>%
+ # aggregate(Viabilities ~ CellLine, data=., FUN=mean)
+  group_by(DrugCol,CellLine,experimentId)%>%
+  summarize(meanViab=mean(Viabilities,rm.na=T))
 ```
 
 ```{r processMicroTissueData functions, warning=FALSE}
@@ -124,7 +131,7 @@ dmso.stat<- dmso.dat%>%group_by(DrugCol,CellLine,experimentId)%>%summarize(meanV
 #' @examples
 filter_byDrug <- function(syn, mtdrug, drugID) {
   mtd <- subset(mtdrug, experimentalCondition == drugID)
-  res = mpnstXenoModeling::getMicroTissueDrugData(syn,mtd)
+  res = mpnstXenoModeling::getMicroTissueDrugData(mtd)
   # does this need to not be sorted for comparison to DMSO
   out = res[order(res$Conc),]
   # Assumes log(M) concentration
@@ -205,7 +212,7 @@ generate_DR_plots <- function(res, drugID) {
   require(data.table)
   dr.df <- res %>% dplyr::select(Conc, Viabilities, CellLine)%>%
     rowwise()%>%
-    mutate(meanViability=mean(Viabilities,na.rm=T))%>%
+    mutate(meanViability=median(Viabilities,na.rm=T))%>%
     unnest(Viabilities)#%>% setDT()
   
   #dr.df <- tidyr::unnest(dr.df, Viabilities)
@@ -312,13 +319,13 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL,
     if(!is.null(master.dmso)) ## if we have DMSO data we can normalize viabilities
       res<-res%>%
         left_join(dplyr::select(ungroup(master.dmso),'CellLine','experimentId','meanViab'))%>%
-        mutate(Viabilities=100*Viabilities/meanViab)
+        mutate(Viabilities=100*(Viabilities/meanViab))
     
     plt = generate_DR_plots(res,drug)
     myplt <- plt$plot
     mytab <- plt$table
     meta.dt <- rbind(meta.dt, plt$table)
-    plt.list[[drug]] = plt$plot
+    plt.list[[drug]] = plt$plotsub
   }
   
   meta.dt<-meta.dt%>%
@@ -334,13 +341,7 @@ process_MicroTissueDrugData <- function(syn, master.drug, master.dmso=NULL,
   }
   for (drug in drugIDs) {print(plt.list[[drug]])}
   dev.off()
-  
- # if (isTRUE(upload)) {
-  #  synapseStore(file.path(path, "doseResponsePlots.pdf"),parentId=parentID)
-  #  synapseStore(file.path(path, 'doseResponse_table.csv'),parentId=parentID)
-     #ile.path(path, "doseResponse_table.csv"),parentId=parentID)
-   
-#  }
+
   return(meta.dt)
 }
 

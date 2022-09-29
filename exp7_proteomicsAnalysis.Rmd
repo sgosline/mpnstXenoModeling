@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(mpnstXenoModeling)
 
+library(amlresistancenetworks)
+
 ```
 
 ## Collect proteomics data from crosstabs
@@ -79,24 +81,41 @@ thresh=0.4
 
 chr8_samps<-rownames(subset(meta,`Gain of C8`>thresh))
 other_samps<-setdiff(colnames(prot),chr8_samps)
-prot_res<- limmaTwoFactorDEAnalysis(prot, chr8_samps,other_samps)%>%
+prot_res<- limmaTwoFactorDEAnalysis(prot, other_samps,chr8_samps)%>%
   dplyr::rename(Protein='featureID',`protein fc`='logFC')
 
 library(pheatmap)
 
-pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,])
+pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,],annotation_col=meta[,c('Sample','Gain of C8')])
+
+
+#for(var in vars)
+  #subset(pcorVals,measurement==var)%>%
+prot_res%>%
+  dplyr::rename(Gene='Protein',value='protein fc')%>%
+  doGSEA(.,prefix=paste0('mpnst_logFC Vs Gain of C8'))
+
 
 ```
 There are indeed a few differentially expressed proteins between sample 2 and others.
 
 ```{r phos diffex}
 
-phos_res <- limmaTwoFactorDEAnalysis(phos, chr8_samps,other_samps)
-filtered_phos_res <- limmaTwoFactorDEAnalysis(phos[-isc_sites,], chr8_samps,other_samps)%>%
+phos_res <- limmaTwoFactorDEAnalysis(phos, other_samps,chr8_samps)
+
+filtered_phos_res <- limmaTwoFactorDEAnalysis(phos[-isc_sites,], other_samps,chr8_samps)%>%
   tidyr::separate(featureID,into=c('Protein','site'),sep='-')%>%
   dplyr::rename(`phospho fc`='logFC')
 
 pheatmap(phos[rownames(subset(filtered_phos_res,P.Value<0.005)),])
+
+pdf("mpnst_phospho_ksea_logfc.pdf")
+filtered_phos_res%>%
+  tibble::rownames_to_column('feature')%>%
+  tidyr::separate(feature,into=c('Gene','residue'),sep='-')%>%
+  dplyr::rename(value='phospho fc',p_adj='adj.P.Val')%>%
+  computeKSEA(.,prefix=paste0('mpnst_phospho'))
+dev.off()
 
 
 ```
@@ -179,7 +198,6 @@ Now we can compute the correlation of phosphosites
 ## Correlation of phosphosites with metadata variables
 
 ```{r rank kinase enrichment, warning=FALSE, message=FALSE}
-library(amlresistancenetworks)
 
 
 corVals <- phos%>%

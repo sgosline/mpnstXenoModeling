@@ -1,0 +1,156 @@
+---
+title: "Proteomics networks from chr8"
+author: "Sara Gosline"
+date: "7/22/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mpnstXenoModeling)
+
+```
+
+## Collect proteomics data from crosstabs
+
+Since this is a bit of a side project we will download the data and manually udpate it for now. 
+
+```{r download data, message=FALSE, warning=FALSE}
+
+syn <- mpnstXenoModeling::synapseLogin()
+
+library(dplyr)
+library(ggplot2)
+library(ggfortify)
+meta <- readxl::read_xlsx(syn$get('syn26955140')$path)%>%
+  dplyr::rename(`Sample ID`='Sample ID\r\n(Original)')
+
+DT::datatable(meta)
+
+prot <- read.table(syn$get('syn26999591')$path,header=T,sep='\t')
+phos <- read.table(syn$get('syn26999590')$path,header=T,sep='\t')
+isc <- read.table(syn$get('syn27025914')$path,header=F,sep='\t')
+
+nas<- which(apply(prot,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  prot <- prot[-nas,]
+
+nas<- which(apply(phos,1,function(x) any(is.na(x))))
+if(length(nas)>0)
+  phos <- phos[-nas,]
+
+isc_sites<-unlist(sapply(paste0(isc[,2],'-'),function(x) grep(x,rownames(phos))))
+
+pca_prot <- prcomp(t(prot),scale=TRUE)
+pca_phos <- prcomp(t(phos),scale=TRUE)
+pca_phos_isc <- prcomp(t(phos[-isc_sites,]),scale=TRUE)
+
+vars <- c('Gain of C8','Highest C8')
+#'CMYC > C8 gain','Highest C8','Cells w. indiv ratio > 2.0')
+
+meta<-meta%>%
+  tidyr::separate(`Sample ID`,into=c('PTRC','FISH','Sample'),sep='_',remove=FALSE)%>%
+  tibble::column_to_rownames('Sample ID')
+
+autoplot(pca_prot,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+    ggtitle('Proteomics PCA')
+
+
+autoplot(pca_phos,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+  ggtitle('Filtered phosphoproteomics PCA')
+
+
+```
+
+## Chromosome 8q genes
+
+How do we get chr8 genes?
+
+```{r chr8}
+library(ensembldb)
+library(EnsDb.Hsapiens.v86) # this pkg is about 75 Mb
+edb <- EnsDb.Hsapiens.v86
+g <- genes(edb,filter=AnnotationFilter(~seq_name=='8' & tx_biotype=='protein_coding' & gene_start>45200000))
+
+chr8.genes<-as.data.frame(g)$symbol
+
+chr8.prot<-prot[intersect(rownames(prot),chr8.genes),]
+pca_prot <- prcomp(t(chr8.prot),scale=TRUE)
+
+autoplot(pca_prot,data=dplyr::rename(meta[1:10,],
+                                     C8Gain='Gain of C8'),colour="C8Gain",shape='Sample')+
+    ggtitle('Chr8 Proteins PCA')
+
+
+```
+
+Chr8 proteins, while expressed, are not highly up-regulated at the protein level compared to others. 
+
+## Differential expression
+
+We will first look at samples that have over 40% chr8 compared to those that have less. 
+
+```{r diffex, warning=FALSE, message=FALSE}
+thresh=0.4
+
+chr8_samps<-rownames(subset(meta,`Gain of C8`>thresh))
+other_samps<-setdiff(colnames(prot),chr8_samps)
+prot_res<- limmaTwoFactorDEAnalysis(prot, chr8_samps,other_samps)%>%
+  dplyr::rename(Protein='featureID',`protein fc`='logFC')
+
+library(pheatmap)
+
+pheatmap(prot[subset(prot_res,adj.P.Val<0.1)$Protein,],
+         annotation_col = dplyr::select(meta,'Gain of C8'),
+         cellwidth = 10,cellheight = 10)
+
+```
+There are indeed a few differentially expressed proteins between sample 2 and others.
+
+```{r phos diffex}
+
+phos_res <- limmaTwoFactorDEAnalysis(phos, chr8_samps,other_samps)
+filtered_phos_res <- limmaTwoFactorDEAnalysis(phos[-isc_sites,], chr8_samps,other_samps)%>%
+  tidyr::separate(featureID,into=c('Protein','site'),sep='-')%>%
+  dplyr::rename(`phospho fc`='logFC')
+
+pheatmap(phos[rownames(subset(filtered_phos_res,P.Value<0.005)),],
+         annotation_col = dplyr::select(meta,'Gain of C8'),
+         cellwidth = 10,cellheight = 10)
+
+
+```
+Not a lot changing here.
+
+## Network analysis
+
+Let's try to build a network from the chr8 genes to the diff expressed phosphosites and proteins. 
+
+```{r network analysis}
+
+library(amlresistancenetworks)
+
+pres <- subset(prot_res,adj.P.Val<0.1)
+pr_vals <- pres$`protein fc`
+names(pr_vals) <- pres$Protein
+
+phres <-subset(phos_res,adj.P.Val<0.4)
+ph_vals <-phres$logFC
+names(ph_vals)<-phres$featureID
+
+
+##now howw do we add dummies?
+
+res1<-computePhosphoNetwork(phos.vals=ph_vals,prot.vals=pr_vals,fname='protPhosChr8DiffExWithChr8',w=8,nrand=1000,dummies=chr8.genes)
+
+res2<-computePhosphoNetwork(phos.vals=ph_vals,prot.vals=pr_vals,nrand=1000,fname='protPhosChr8DiffEx')
+
+overlap=intersect(names(V(res1$graph)),names(V(res2$graph)))
+
+print(paste("Graphs have overlap of",length(overlap)))
+print(overlap)
+```
+Now we can look at correlation of each protein and phosphosite with each of the metadata variables, then calculated the enrichment of proteins and phosphosites. 
+

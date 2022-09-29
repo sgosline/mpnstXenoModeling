@@ -704,31 +704,14 @@ getMicroTissueDrugData <- function(mtd) {
   res1 <-
     mtd %>% dplyr::select(id, individualID, experimentId, experimentalCondition) %>%
     apply(1, function(x) {
-      #  res2<-do.call(rbind,
-      #lapply(drugs,function(y){
-      
-      #mt2<-subset(mtd,experimentalCondition==y)
       y = x[['experimentalCondition']]
       is_combo = length(grep(';', y)) > 0
       is_dmso = y == 'DMSO'
-      #ids is list of synapse ids
-      #ids<-mt2$id
-      #indiv is list of patient IDs
-      #indiv<-mt2$individualID
-      #sets filenames to names of ids
-      #names(indiv)<-ids
-      #warning(y)
-      #res=do.call(rbind,lapply(names(indiv),function(x) {
-      #warning(indiv[x])
-      #print(x)
       tab <-
         read.csv(syn_client$get(x[['id']])$path, fileEncoding = 'UTF-8-BOM')
       # p  rint(head(tab))
       ##TO  DO get this to work for combo data
       if (is_combo) {
-        #print(x[['experimentalCondition']])
-        #print(x[['id']])
-       # print(head(tab))
         ttab <- tab %>%
           dplyr::select(
             'compound_name',
