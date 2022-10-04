@@ -6,9 +6,6 @@
 \usage{
 loadVariantData()
 }
-\value{
-
-}
 \description{
 loadVariantData
 }

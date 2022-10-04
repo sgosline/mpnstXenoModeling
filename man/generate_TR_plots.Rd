@@ -11,9 +11,6 @@ generate_TR_plots(res, drugID)
 
 \item{drugID}{}
 }
-\value{
-
-}
 \description{
 generate_TR_plots
 }

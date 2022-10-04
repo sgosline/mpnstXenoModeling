@@ -6,9 +6,6 @@
 \usage{
 loadMicrotissueDrugData()
 }
-\value{
-
-}
 \description{
 loadMicrotissueDrugData
 }

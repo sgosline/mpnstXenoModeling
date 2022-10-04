@@ -1,5 +1,5 @@
 ---
-title: "Tumor deconvolution analysis"
+title: "Tumor deconvolution analysis of patient samples"
 author: "Sara gosline"
 date: "9/06/2022"
 output: 
@@ -11,22 +11,7 @@ output:
 ```{r setup, include=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-require(remotes)
-if (!require(mpnstXenoModeling)) {
-  remotes::install_github("sgosline/mpnstXenoModeling")
-  library(mpnstXenoModeling)
-}
-
-if (!require("leapR")) {
-  remotes::install_github("biodataganache/leapR")
-  library(leapR)
-}
-
-if (!require("DT")) {
-  install.packages("DT")
-  library(DT)
-}
-
+library(mpnstXenoModeling)
 
 if(!require('EnsDb.Hsapiens.v86')) {
   BiocManager::install("EnsDb.Hsapiens.v86")
@@ -55,54 +40,62 @@ We have all the data in count.sf files so can read them in using the `tximport` 
 ```{r loadData, echo=FALSE, message=FALSE, warning=FALSE}
 #this function simply loads all the data into memory
 
+syn<-mpnstXenoModeling::synapseLogin()
+
+##collecting the metadata
+res<-syn$tableQuery('select id,diagnosis,individualID,sex,specimenID,tissue from syn38893832')$asDataFrame()
 
 
-pdx_data <-
-  mpnstXenoModeling::loadPDXData()#reticulate::import('synapseclient')$login()
-#data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
-rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
-
-
-#select clinical variables
-var.ID <- rnaSeq %>%
-  dplyr::select(Sample,
-                synid,
-                Age,
-                Sex,
-                MicroTissueQuality,
-                Location,
-                Size,
-                `Clinical Status`) %>%
-  distinct() %>%
-  tibble::column_to_rownames('Sample')
-
-DT::datatable(var.ID)
-
+##reading the counts
+full.mat<-do.call(rbind,lapply(res$id,function(x){
+  tab<-read.table(syn$get(x)$path,header=T)
+  tab$id<-x
+  return(tab)
+}))%>%left_join(res)%>%
+  tidyr::separate(Name,into=c("GENEID","VERSION"),sep='\\.')
 
 database <- EnsDb.Hsapiens.v86
 pmap <-
   ensembldb::select(
     database,
     keys = list(
-      GeneIdFilter(rnaSeq$GENE),
+      GeneIdFilter(unique(full.mat$GENEID)),
       TxBiotypeFilter("protein_coding")
     ),
     columns = c("GENENAME")
-  ) %>%
-  dplyr::rename(GENE = 'GENEID') %>%
-  right_join(rnaSeq) %>%
-  subset(TXBIOTYPE == 'protein_coding') %>%
-  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()#%>%
+  )%>% 
+#  dplyr::rename(GENE = 'GENEID') %>%
+  right_join(full.mat) %>%
+  subset(TXBIOTYPE == 'protein_coding') 
+#%>%
+#  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()#%>%
 # tibble::column_to_rownames('GENEID')
 
-dds <- rnaSeq %>%
-  subset(Sample %in% rownames(var.ID)) %>%
-  subset(GENE %in% pmap$GENE) %>% ## this is important as we filter for protein coding genes
-  mpnstXenoModeling::deseq2NormFilter()
+counts <- pmap %>%
+    dplyr::select(GENEID, NumReads, specimenID) %>%
+  distinct()%>%
+  as.data.frame()%>%
+    tidyr::pivot_wider(values_from = 'NumReads', names_from = 'specimenID',values_fn=list(NumReads=sum)) %>%
+    tibble::column_to_rownames('GENEID') %>%
+    round()
+
+coldata<-pmap%>%
+  dplyr::select(specimenID,diagnosis,tissue,individualID,sex)%>%
+  distinct()%>%
+  tibble::column_to_rownames('specimenID')
+
+dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
+                                        colData = coldata,
+                                        design = ~ sex)# + Clinical.Status)
+
 
 library(DESeq2)
 
 vsd <- DESeq2::vst(dds)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+dds <- DESeq2::DESeq(dds)
+  
 ```
 
 Tumor deconvolution code uses the `immunedeconv` library.
@@ -143,16 +136,16 @@ runImmuneDeconv<-function(tab,method,prefix='PDX'){
 
 count.mat <- assay(vsd)#counts(dds,normalized=TRUE)#[symbs,]
 
-keep <- which(rowMin(counts(dds, normalized = TRUE)) > 9)
-
-symb.mat <- geneIdToSymbolMatrix(count.mat[keep, ], pmap)
+#keep <- which(rowMin(counts(dds, normalized = TRUE)) > 9)
+rmap<-pmap%>%dplyr::select(GENENAME,GENEID)%>%distinct()
+symb.mat <- geneIdToSymbolMatrix(count.mat, rmap)
                 
 
-pat.annote <- rnaSeq %>%
-  dplyr::select(Sample, MicroTissueQuality, `Clinical Status`, Sex) %>%
+pat.annote <- pmap %>%
+  dplyr::select(specimenID, sex,tissue,diagnosis) %>%
   distinct() %>%
-  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
-  tibble::column_to_rownames('Sample')
+#  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
+  tibble::column_to_rownames('specimenID')
 
 xc<-deconvolute(symb.mat,'xcell')
 mc<-deconvolute(symb.mat,'mcp_counter')
@@ -162,9 +155,8 @@ pheatmap(tibble::column_to_rownames(mc,'cell_type'),
          clustering_method = 'ward.D2', 
          clustering_distance_cols = 'correlation',
          cellheight=10,
-         #cell_width=10,
          clustering_distance_rows='correlation',
-         filename='mcpcounterDeconv.pdf')
+         filename='GEMmcpcounterDeconv.pdf')
 
  
 xcmat<-tibble::column_to_rownames(xc,'cell_type')
@@ -177,7 +169,7 @@ score_scores<- grep('score',rownames(xcmat))
            cellheight=10,
          #cell_width=10,
          clustering_distance_rows='correlation',
-         filename='xcellDeconv.pdf')
+         filename='GEMxcellDeconv.pdf')
 
 ```
 

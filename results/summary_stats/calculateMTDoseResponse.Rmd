@@ -52,10 +52,10 @@ loadMicrotissueMetadata()
 
 
 ```{r, warning=FALSE, message=FALSE}
-library(reticulate)
+#library(reticulate)
 library(dplyr)
-sync<-reticulate::import('synapseclient')
-syn=sync$login()
+#sync<-reticulate::import('synapseclient')
+#syn=sync$login()
 ```
 
 ## Load microtissue data and compare
@@ -237,12 +237,15 @@ generate_DR_plots <- function(res, drugID) {
     df <- as.data.frame(dt)
 #    min_value <- min(df$Viabilities)
 #    max_value <- max(df$Viabilities)
+    
     ## TODO add MaxViability here for normalization to DMSO##
     min_value <- min(df$meanViability)
     max_value <-max(df$meanViability)
     
     ##here we create the actual fit values
-    fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), names = c("hill", "min_value", "max_value", "ec_50"), nan.handle = "L4", "CellLine")
+    fit.LL4 <- TryFit(df, fixed = c(NA, min_value, max_value, NA), 
+                      names = c("hill", "min_value", "max_value", "ec_50"), 
+                      nan.handle = "L4", "CellLine")
     # hill from fit.LL4
     # ic50 code from https://rstudio-pubs-static.s3.amazonaws.com/378543_5b5bda32bf0541a485ccc49efbea680a.html
     coefs <- setNames(
