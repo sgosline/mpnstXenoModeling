@@ -6,9 +6,6 @@
 \usage{
 loadPDXDrugData()
 }
-\value{
-
-}
 \description{
 loadPDXDrugData
 }

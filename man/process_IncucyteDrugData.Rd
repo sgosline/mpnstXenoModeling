@@ -20,9 +20,6 @@ process_IncucyteDrugData(
 
 \item{parentID}{}
 }
-\value{
-
-}
 \description{
 process_IncucyteDrugData
 }

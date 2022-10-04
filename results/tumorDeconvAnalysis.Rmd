@@ -1,0 +1,183 @@
+---
+title: "Tumor deconvolution analysis"
+author: "Sara gosline"
+date: "9/06/2022"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(remotes)
+if (!require(mpnstXenoModeling)) {
+  remotes::install_github("sgosline/mpnstXenoModeling")
+  library(mpnstXenoModeling)
+}
+
+if (!require("leapR")) {
+  remotes::install_github("biodataganache/leapR")
+  library(leapR)
+}
+
+if (!require("DT")) {
+  install.packages("DT")
+  library(DT)
+}
+
+
+if(!require('EnsDb.Hsapiens.v86')) {
+  BiocManager::install("EnsDb.Hsapiens.v86")
+  library('EnsDb.Hsapiens.v86')
+}
+if(!require('ensembldb')){
+  BiocManager::install("ensembldb", repos='http://cran.us.r-project.org')
+  library(ensembldb)
+}
+
+if(!require('apeglm')){
+  BiocManager::install("apeglm", repos='http://cran.us.r-project.org')
+  library(apeglm)
+}
+library(dplyr)
+
+
+```
+
+Here we bring in the RNASeq data and the `leapR` package to measure and identify correlated pathways across the samples.
+
+## Load data from synapse query
+
+We have all the data in count.sf files so can read them in using the `tximport` package. Here is the data for which we have gene expression.
+
+```{r loadData, echo=FALSE, message=FALSE, warning=FALSE}
+#this function simply loads all the data into memory
+
+
+
+pdx_data <-
+  mpnstXenoModeling::loadPDXData()#reticulate::import('synapseclient')$login()
+#data.tab<-syn$tableQuery('select * from syn24215021')$asDataFrame()
+rnaSeq<<-mpnstXenoModeling::loadRNASeqData()
+
+
+#select clinical variables
+var.ID <- rnaSeq %>%
+  dplyr::select(Sample,
+                synid,
+                Age,
+                Sex,
+                MicroTissueQuality,
+                Location,
+                Size,
+                `Clinical Status`) %>%
+  distinct() %>%
+  tibble::column_to_rownames('Sample')
+
+DT::datatable(var.ID)
+
+
+database <- EnsDb.Hsapiens.v86
+pmap <-
+  ensembldb::select(
+    database,
+    keys = list(
+      GeneIdFilter(rnaSeq$GENE),
+      TxBiotypeFilter("protein_coding")
+    ),
+    columns = c("GENENAME")
+  ) %>%
+  dplyr::rename(GENE = 'GENEID') %>%
+  right_join(rnaSeq) %>%
+  subset(TXBIOTYPE == 'protein_coding') %>%
+  dplyr::select(GENE, GENENAME, GENEID) %>% distinct()#%>%
+# tibble::column_to_rownames('GENEID')
+
+dds <- rnaSeq %>%
+  subset(Sample %in% rownames(var.ID)) %>%
+  subset(GENE %in% pmap$GENE) %>% ## this is important as we filter for protein coding genes
+  mpnstXenoModeling::deseq2NormFilter()
+
+library(DESeq2)
+
+vsd <- DESeq2::vst(dds)
+```
+
+Tumor deconvolution code uses the `immunedeconv` library.
+
+```{r filter data}
+
+library(immunedeconv)  
+library(pheatmap)
+#' runImmuneDeconv
+#' @param tab
+#' @param method
+#' @prefix 
+#' @return Tidied data frame
+runImmuneDeconv<-function(tab,method,prefix='PDX'){
+  #run MCP counter
+  mat<-reshape2::acast(tab,Symbol~Sample,value.var='counts',fun.aggregate=mean,na.rm=T)
+  nas<-which(apply(mat,1,function(x) any(is.na(x))))
+  if(length(nas)>0)
+    mat<-mat[-nas,]
+  res<-deconvolute(mat,method)
+  
+  df<-dplyr::select(tab,c(Sample,experimentalCondition))%>%
+      unique()#%>%
+  #    rename(study='studyName')
+  rownames(df)<-df$specimenID
+  #save as heatmap with metadata
+  mtab<-res%>%select(-cell_type)%>%as.data.frame()
+  rownames(mtab)<-res$cell_type
+  library(pheatmap)
+
+  ##now tidy up data to table
+  td<-tidyr::gather(res,key="specimenID",value="score",-cell_type )%>%
+    left_join(df,by='specimenID')
+  td$method=method
+  return(td)
+}
+
+
+count.mat <- assay(vsd)#counts(dds,normalized=TRUE)#[symbs,]
+
+keep <- which(rowMin(counts(dds, normalized = TRUE)) > 9)
+
+symb.mat <- geneIdToSymbolMatrix(count.mat[keep, ], pmap)
+                
+
+pat.annote <- rnaSeq %>%
+  dplyr::select(Sample, MicroTissueQuality, `Clinical Status`, Sex) %>%
+  distinct() %>%
+  mutate(MicroTissueQuality = unlist(MicroTissueQuality)) %>%
+  tibble::column_to_rownames('Sample')
+
+xc<-deconvolute(symb.mat,'xcell')
+mc<-deconvolute(symb.mat,'mcp_counter')
+
+pheatmap(tibble::column_to_rownames(mc,'cell_type'),
+         annotation_col = pat.annote,
+         clustering_method = 'ward.D2', 
+         clustering_distance_cols = 'correlation',
+         cellheight=10,
+         #cell_width=10,
+         clustering_distance_rows='correlation',
+         filename='mcpcounterDeconv.pdf')
+
+ 
+xcmat<-tibble::column_to_rownames(xc,'cell_type')
+res<-which(rowMeans(xcmat)>.0001)
+score_scores<- grep('score',rownames(xcmat))
+  pheatmap(xcmat[setdiff(res,score_scores),],
+           annotation_col = pat.annote,
+           clustering_method = 'ward.D2', 
+           clustering_distance_cols = 'correlation',
+           cellheight=10,
+         #cell_width=10,
+         clustering_distance_rows='correlation',
+         filename='xcellDeconv.pdf')
+
+```
+

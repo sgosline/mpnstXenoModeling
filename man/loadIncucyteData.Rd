@@ -6,9 +6,6 @@
 \usage{
 loadIncucyteData()
 }
-\value{
-
-}
 \description{
 loadIncucyteData
 }
