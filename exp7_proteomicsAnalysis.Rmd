@@ -88,12 +88,14 @@ library(pheatmap)
 
 pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,],annotation_col=meta[,c('Sample','Gain of C8')])
 
+pheatmap(prot[subset(prot_res,adj.P.Val<0.05)$Protein,],annotation_col=meta[,c('Sample','Gain of C8')],
+         filename='gainOfChr8heatmap.pdf',cellheight=10,cellwidth=10)
 
 #for(var in vars)
   #subset(pcorVals,measurement==var)%>%
 prot_res%>%
   dplyr::rename(Gene='Protein',value='protein fc')%>%
-  doGSEA(.,prefix=paste0('mpnst_logFC Vs Gain of C8'))
+  doGSEA(.,prefix=paste0('mpnst_logFC Vs Gain of C8'),gsea_FDR = 0.01)
 
 
 ```
